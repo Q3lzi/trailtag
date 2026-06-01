@@ -1,0 +1,13 @@
+# Pakete — werden automatisch installiert
+node_modules
+
+# Geheime Schlüssel — niemals in Git!
+.env
+.env.local
+
+# Build-Ordner
+dist
+.next
+
+# Prisma
+prisma/migrations

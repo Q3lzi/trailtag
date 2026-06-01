@@ -1,0 +1,13 @@
+{
+  "name": "trailtag",
+  "private": true, // verhindert versehentliches Publizieren
+  "version": "0.0.1",
+  "packageManager": "pnpm@9.1.0",
+  "scripts": {
+    "dev:api": "pnpm --filter api dev"
+  },
+  "workspaces": [ // diese Ordner sind Teile des Monorepos
+    "apps/*",
+    "packages/*"
+  ]
+}
