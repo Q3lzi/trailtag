@@ -1,12 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ES2022", // welche JS-Version ausgeben
-    "module": "commonjs", // Node.js Format
-    "outDir": "./dist", // kompilierter Code landet hier
-    "rootDir": "./src", // mein Code liegt hier
-    "strict": true, // maximale Sicherheit an
-    "esModuleInterop": true, // imports funktionieren sauber
-    "resolveJsonModule": true
+    "target": "ES2022",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
