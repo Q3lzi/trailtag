@@ -1,68 +1,108 @@
-// Prisma Konfiguration
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-// TABELLE 1: User — jeder der sich registriert
+
 model User {
-  id String @id @default(uuid()) // eindeutige ID
-  email String @unique // keine doppelten Mails
-  passwordHash String // nie das echte Passwort!
-  name String
-  birthYear Int?
-  phone String? // ? = optional
-  emailVerified Boolean @default(false)
-  createdAt DateTime @default(now())
-  tours Tour[] // ein User hat viele Touren
-  vehicles Vehicle[]
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  birthYear     Int?
+  phone         String?
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  tours         Tour[]
+  vehicles      Vehicle[]
 }
-// TABELLE 2: Tour — jede geplante oder aktive Tour
+
 model Tour {
-  id String @id @default(uuid())
-  userId String // wem gehört die Tour
-  user User @relation(fields: [userId], references: [id])
-  activity String // Wandern, Klettern etc.
-  distanceKm Float?
-  elevationUp Int?
-  startedAt DateTime?
-  eta DateTime? // geplante Rückkehr — immer UTC!
-  checkedOutAt DateTime? // wann zurückgekehrt
-  status TourStatus @default(PLANNED)
-  alarmStage Int @default(0) // 0=ok, 1-4=alarm
-  createdAt DateTime @default(now())
-  alarmEvents AlarmEvent[] // eine Tour hat viele AlarmEvents
-  vehicleId String?
-  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  vehicleId       String?
+  vehicle         Vehicle?    @relation(fields: [vehicleId], references: [id])
+
+  // Aktivität
+  activity        ActivityType
+  routeName       String?
+  difficulty      String?      // T1-T6, S1-S6 etc.
+  persons         Int          @default(1)
+
+  // Distanz & Höhe
+  distanceKm      Float?
+  elevationUp     Int?
+
+  // Zeit
+  startedAt       DateTime?
+  eta             DateTime?
+  bufferMinutes   Int          @default(15)
+  checkedOutAt    DateTime?
+
+  // GPS
+  startLat        Float?
+  startLng        Float?
+  lastLat         Float?
+  lastLng         Float?
+  locationUpdatedAt DateTime?
+
+  // Zusatzinfos
+  parkingLocation String?
+  notes           String?
+
+  // Status
+  status          TourStatus   @default(PLANNED)
+  alarmStage      Int          @default(0)
+  createdAt       DateTime     @default(now())
+
+  alarmEvents     AlarmEvent[]
 }
-// Mögliche Status-Werte einer Tour
+
 enum TourStatus {
-  PLANNED // zuhause geplant, noch nicht gestartet
-  ACTIVE // läuft gerade, Timer tickt
-  COMPLETED // erfolgreich ausgecheckt
-  ALARM // überfällig, Alarm ausgelöst
+  PLANNED
+  ACTIVE
+  COMPLETED
+  ALARM
 }
-// Jede Alarm-Stufe die ausgelöst wurde — verhindert Doppel-Alarm
+
+enum ActivityType {
+  WANDERN
+  BERGTOUR
+  KLETTERN
+  TRAILRUNNING
+  MOUNTAINBIKE
+  RADSPORT
+  SKI_SNOWBOARD
+  SKITOUR
+  KLETTERSTEIG
+  KANU_KAJAK
+  PARAGLIDING
+  ANDERE
+}
+
 model AlarmEvent {
-  id String @id @default(uuid())
-  tourId String
-  tour Tour @relation(fields: [tourId], references: [id])
-  stage Int // 1, 2, 3 oder 4
+  id          String   @id @default(uuid())
+  tourId      String
+  tour        Tour     @relation(fields: [tourId], references: [id])
+  stage       Int
   triggeredAt DateTime @default(now())
-  channel String // 'console' | 'sms' | 'push'
-  delivered Boolean @default(false)
+  channel     String
+  delivered   Boolean  @default(false)
 }
+
 model Vehicle {
-  id String @id @default(uuid())
-  userId String
-  user User @relation(fields: [userId], references: [id])
-  plate String // Kennzeichen z.B. ZH 123456
-  make String // Marke z.B. VW
-  model String // Modell z.B. Golf
-  color String // Farbe z.B. Blau
-  qrToken String @unique @default(uuid()) // der geheime Token
-  tours Tour[]
+  id       String  @id @default(uuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id])
+  plate    String
+  make     String
+  model    String
+  color    String
+  qrToken  String  @unique @default(uuid())
+  tours    Tour[]
 }

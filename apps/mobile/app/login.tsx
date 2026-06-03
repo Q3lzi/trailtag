@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -16,7 +16,13 @@ export default function LoginScreen() {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      await SecureStore.setItemAsync('token', data.token);
+
+      if (Platform.OS === 'web') {
+        localStorage.setItem('token', data.token);
+      } else {
+        await SecureStore.setItemAsync('token', data.token);
+      }
+
       router.replace('/dashboard');
     } catch (err: any) {
       Alert.alert('Fehler', err.message);
