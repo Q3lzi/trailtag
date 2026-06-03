@@ -13,7 +13,7 @@ model User {
   email String @unique // keine doppelten Mails
   passwordHash String // nie das echte Passwort!
   name String
-  birthYear Int
+  birthYear Int?
   phone String? // ? = optional
   emailVerified Boolean @default(false)
   createdAt DateTime @default(now())
