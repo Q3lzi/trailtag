@@ -49,7 +49,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 
 // Tour starten
 router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
   const { eta } = req.body
 
   const tour = await prisma.tour.findFirst({
@@ -73,7 +73,7 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
 
 // GPS Standort updaten
 router.post('/:id/location', requireAuth, async (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
   const { lat, lng } = req.body
 
   if (!lat || !lng) return res.status(400).json({ error: 'lat und lng fehlen' })
@@ -99,7 +99,7 @@ router.post('/:id/location', requireAuth, async (req: Request, res: Response) =>
 
 // Tour abschliessen
 router.post('/:id/checkout', requireAuth, async (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
 
   const tour = await prisma.tour.findFirst({
     where: { id, userId: req.userId as string }
