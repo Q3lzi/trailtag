@@ -7,25 +7,26 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "latest",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "cors": "^2.8.6",
+    "fast-xml-parser": "^5.8.0",
     "helmet": "^8.2.0",
-    "bcryptjs": "latest",
     "jsonwebtoken": "latest",
     "node-cron": "latest",
-    "twilio": "latest",
-    "@prisma/client": "^6.19.3"
+    "twilio": "latest"
   },
   "devDependencies": {
-    "prisma": "^6.19.3",
-    "typescript": "^6.0.3",
-    "ts-node-dev": "^2.0.0",
-    "@types/express": "latest",
-    "@types/node": "latest",
-    "@types/cors": "latest",
     "@types/bcryptjs": "latest",
+    "@types/cors": "latest",
+    "@types/express": "latest",
     "@types/jsonwebtoken": "latest",
-    "@types/node-cron": "latest"
+    "@types/node": "^25.9.1",
+    "@types/node-cron": "latest",
+    "prisma": "^6.19.3",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^6.0.3"
   }
 }
