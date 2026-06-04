@@ -4,6 +4,8 @@ import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as Location from 'expo-location';
 import { apiFetch } from '../lib/api';
+import GpxMap from '../components/GpxMap';
+import ElevationChart from '../components/ElevationChart';
 
 async function getToken(): Promise<string | null> {
   if (Platform.OS === 'web') return localStorage.getItem('token');
@@ -41,6 +43,8 @@ export default function CreateTourScreen() {
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'ok' | 'denied'>('idle');
+  const [gpxData, setGpxData] = useState<any>(null);
+  const [gpxLoading, setGpxLoading] = useState(false);
 
   async function getLocation() {
     if (Platform.OS === 'web') {
@@ -54,14 +58,37 @@ export default function CreateTourScreen() {
       );
       return;
     }
-
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') { setLocationStatus('denied'); return; }
-
     setLocationStatus('loading');
     const pos = await Location.getCurrentPositionAsync({});
     setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
     setLocationStatus('ok');
+  }
+
+  async function handleGpxUpload(event: any) {
+    const file = event.target.files[0];
+    if (!file) return;
+    setGpxLoading(true);
+    try {
+      const text = await file.text();
+      const token = await getToken();
+      const data = await apiFetch('/gpx/parse', {
+        method: 'POST',
+        body: JSON.stringify({ gpxContent: text }),
+      }, token ?? undefined);
+      setGpxData(data);
+      if (data.distanceKm) setDistanceKm(String(data.distanceKm));
+      if (data.elevationUp) setElevationUp(String(data.elevationUp));
+      if (data.startLat) {
+        setLocation({ lat: data.startLat, lng: data.startLng });
+        setLocationStatus('ok');
+      }
+    } catch (err: any) {
+      Alert.alert('Fehler', 'GPX-Datei konnte nicht gelesen werden.');
+    } finally {
+      setGpxLoading(false);
+    }
   }
 
   async function handleStart() {
@@ -88,6 +115,17 @@ export default function CreateTourScreen() {
           startLng: location?.lng ?? null,
         }),
       }, token ?? undefined);
+
+      // GPX an Tour anhängen falls vorhanden
+      if (gpxData) {
+        const gpxContent = (document as any)._lastGpxContent;
+        if (gpxContent) {
+          await apiFetch(`/gpx/attach/${tour.id}`, {
+            method: 'POST',
+            body: JSON.stringify({ gpxContent }),
+          }, token ?? undefined);
+        }
+      }
 
       await apiFetch(`/tours/${tour.id}/start`, {
         method: 'POST',
@@ -167,8 +205,40 @@ export default function CreateTourScreen() {
         ))}
       </View>
 
-      {/* GPS */}
-      <Text style={styles.sectionTitle}>⑤ Startpunkt (GPS)</Text>
+      {/* GPX Import */}
+      <Text style={styles.sectionTitle}>⑤ GPS-Route importieren (optional)</Text>
+      {Platform.OS === 'web' ? (
+        <View style={styles.gpxBox}>
+          <Text style={styles.gpxIcon}>🗺️</Text>
+          <Text style={styles.gpxText}>GPX Datei wählen</Text>
+          <Text style={styles.gpxSub}>Distanz + Höhenmeter werden automatisch berechnet · max. 5 MB</Text>
+          <input
+            type="file"
+            accept=".gpx"
+            style={{ opacity: 0, position: 'absolute', width: '100%', height: '100%', cursor: 'pointer' } as any}
+            onChange={handleGpxUpload}
+          />
+          {gpxLoading && <Text style={styles.gpxSub}>⏳ Wird analysiert...</Text>}
+{gpxData && (
+  <View style={styles.gpxResult}>
+    <Text style={styles.gpxResultText}>✅ Route geladen</Text>
+    <Text style={styles.gpxResultText}>📏 {gpxData.distanceKm} km · ⬆️ {gpxData.elevationUp} hm · ⬇️ {gpxData.elevationDown} hm</Text>
+    <Text style={styles.gpxResultText}>📍 {gpxData.points?.length} Punkte</Text>
+  </View>
+)}
+{gpxData?.points && Platform.OS === 'web' && (
+  <>
+    <GpxMap points={gpxData.points} />
+    <ElevationChart points={gpxData.points} />
+  </>
+)}
+        </View>
+      ) : (
+        <Text style={styles.gpxSub}>GPX-Import im Browser verfügbar</Text>
+      )}
+
+      {/* GPS Standort */}
+      <Text style={styles.sectionTitle}>⑥ Startpunkt (GPS)</Text>
       <TouchableOpacity style={styles.gpsBtn} onPress={getLocation}>
         <Text style={styles.gpsBtnText}>
           {locationStatus === 'idle' && '📍 Standort ermitteln'}
@@ -179,7 +249,7 @@ export default function CreateTourScreen() {
       </TouchableOpacity>
 
       {/* Details */}
-      <Text style={styles.sectionTitle}>⑥ Details (optional)</Text>
+      <Text style={styles.sectionTitle}>⑦ Details (optional)</Text>
       <Text style={styles.label}>Distanz (km)</Text>
       <TextInput style={styles.input} placeholder="z.B. 12" value={distanceKm} onChangeText={setDistanceKm} keyboardType="numeric" />
 
@@ -220,6 +290,12 @@ const styles = StyleSheet.create({
   counterBtn: { backgroundColor: '#2D6A4F', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   counterText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
   counterValue: { fontSize: 20, fontWeight: 'bold', minWidth: 30, textAlign: 'center' },
+  gpxBox: { borderWidth: 2, borderColor: '#ddd', borderStyle: 'dashed', borderRadius: 12, padding: 24, alignItems: 'center', marginBottom: 16, position: 'relative', overflow: 'hidden' },
+  gpxIcon: { fontSize: 32, marginBottom: 8 },
+  gpxText: { fontSize: 15, fontWeight: '600', color: '#444' },
+  gpxSub: { fontSize: 12, color: '#999', marginTop: 4, textAlign: 'center' },
+  gpxResult: { marginTop: 12, backgroundColor: '#D8F3DC', borderRadius: 8, padding: 12, width: '100%' },
+  gpxResultText: { fontSize: 13, color: '#2D6A4F', marginBottom: 4 },
   gpsBtn: { borderWidth: 1, borderColor: '#2D6A4F', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 8 },
   gpsBtnText: { color: '#2D6A4F', fontWeight: '600', fontSize: 15 },
   button: { backgroundColor: '#2D6A4F', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
