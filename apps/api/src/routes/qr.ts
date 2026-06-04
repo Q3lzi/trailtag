@@ -7,17 +7,24 @@ router.get('/:token', async (req: Request, res: Response) => {
   const token = req.params['token'] as string
 
   const vehicle = await prisma.vehicle.findUnique({
-    where: { qrToken: token },
-    include: {
-      tours: {
-        where: { status: { in: ['ACTIVE', 'ALARM'] } },
-        orderBy: { startedAt: 'desc' },
-        take: 1,
-        include: { user: true }
+  where: { qrToken: token },
+  include: {
+    tours: {
+      where: { status: { in: ['ACTIVE', 'ALARM'] } },
+      orderBy: { startedAt: 'desc' },
+      take: 1,
+      include: {
+        user: {
+          include: {
+            emergencyContacts: {
+              orderBy: { isPrimary: 'desc' }
+            }
+          }
+        }
       }
     }
-  })
-
+  }
+})
   if (!vehicle) {
     return res.status(404).send(renderNotFound())
   }
@@ -162,6 +169,26 @@ function tourDetails(tour: any, vehicle: any) {
       <div class="card-title">📋 Notizen für Rettungskräfte</div>
       <p style="margin:0;font-size:15px;line-height:1.6">${tour.notes}</p>
     </div>` : ''}
+
+    ${tour.user.emergencyContacts?.length > 0 ? `
+<div class="card">
+  <div class="card-title">📞 Notfallkontakte</div>
+  ${tour.user.emergencyContacts.map((c: any) => `
+    <div class="detail-row">
+      <span>${c.isPrimary ? '⭐ ' : ''}${c.name}${c.relation ? ` · ${c.relation}` : ''}</span>
+      <a href="tel:${c.phone}" style="color:#e63946;font-weight:700">${c.phone}</a>
+    </div>
+  `).join('')}
+</div>` : ''}
+
+${(tour.user.bloodType || tour.user.allergies || tour.user.medications || tour.user.medicalNotes) ? `
+<div class="card">
+  <div class="card-title">🏥 Medizinische Informationen</div>
+  ${tour.user.bloodType ? `<div class="detail-row"><span>Blutgruppe</span><strong style="color:#e63946">${tour.user.bloodType}</strong></div>` : ''}
+  ${tour.user.allergies ? `<div class="detail-row"><span>Allergien</span><strong>${tour.user.allergies}</strong></div>` : ''}
+  ${tour.user.medications ? `<div class="detail-row"><span>Medikamente</span><strong>${tour.user.medications}</strong></div>` : ''}
+  ${tour.user.medicalNotes ? `<div class="detail-row"><span>Hinweise</span><strong>${tour.user.medicalNotes}</strong></div>` : ''}
+</div>` : ''}
   `
 }
 

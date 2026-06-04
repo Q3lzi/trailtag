@@ -159,6 +159,11 @@ export default function DashboardScreen() {
             <Text style={styles.vehicleText}>{vehicle ? `🚗 ${vehicle.make} ${vehicle.model} · ${vehicle.plate}` : '🚗 Fahrzeug hinzufügen'}</Text>
             <Text style={styles.vehicleArrow}>›</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.vehicleCard, { marginTop: 8 }]} onPress={() => router.push('/tours')}>
+  <Text style={styles.vehicleText}>📋 Meine Touren</Text>
+  <Text style={styles.vehicleArrow}>›</Text>
+</TouchableOpacity>
         </View>
       )}
     </View>
