@@ -3,19 +3,6 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import { apiFetch } from '../lib/api';
 
-if (Platform.OS === 'web') {
-  const style = document.createElement('style');
-  style.textContent = `
-    input:-webkit-autofill,
-    input:-webkit-autofill:hover,
-    input:-webkit-autofill:focus {
-      -webkit-box-shadow: 0 0 0px 1000px #fafafa inset !important;
-      -webkit-text-fill-color: #222 !important;
-      transition: background-color 5000s ease-in-out 0s;
-    }
-  `;
-  document.head.appendChild(style);
-}
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');

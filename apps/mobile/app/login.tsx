@@ -4,21 +4,6 @@ import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { apiFetch } from '../lib/api';
 
-// Autofill CSS fix — nur im Web
-if (Platform.OS === 'web') {
-  const style = document.createElement('style');
-  style.textContent = `
-    input:-webkit-autofill,
-    input:-webkit-autofill:hover,
-    input:-webkit-autofill:focus {
-      -webkit-box-shadow: 0 0 0px 1000px #fafafa inset !important;
-      -webkit-text-fill-color: #222 !important;
-      transition: background-color 5000s ease-in-out 0s;
-    }
-  `;
-  document.head.appendChild(style);
-}
-
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
