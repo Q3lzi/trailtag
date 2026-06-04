@@ -17,8 +17,27 @@ model User {
   phone         String?
   emailVerified Boolean   @default(false)
   createdAt     DateTime  @default(now())
-  tours         Tour[]
-  vehicles      Vehicle[]
+
+  // Medizinische Infos
+  bloodType     String?   // A+, A-, B+, B-, AB+, AB-, 0+, 0-
+  allergies     String?
+  medications   String?
+  medicalNotes  String?
+
+  tours              Tour[]
+  vehicles           Vehicle[]
+  emergencyContacts  EmergencyContact[]
+}
+
+model EmergencyContact {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  phone     String
+  relation  String?  // z.B. "Partner", "Mutter", "Freund"
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
 }
 
 model Tour {
@@ -28,34 +47,29 @@ model Tour {
   vehicleId       String?
   vehicle         Vehicle?    @relation(fields: [vehicleId], references: [id])
 
-  // Aktivität
   activity        ActivityType
   routeName       String?
-  difficulty      String?      // T1-T6, S1-S6 etc.
+  difficulty      String?
   persons         Int          @default(1)
 
-  // Distanz & Höhe
   distanceKm      Float?
   elevationUp     Int?
 
-  // Zeit
   startedAt       DateTime?
   eta             DateTime?
   bufferMinutes   Int          @default(15)
   checkedOutAt    DateTime?
 
-  // GPS
   startLat        Float?
   startLng        Float?
   lastLat         Float?
   lastLng         Float?
   locationUpdatedAt DateTime?
+  gpxTrack        Json?
 
-  // Zusatzinfos
   parkingLocation String?
   notes           String?
 
-  // Status
   status          TourStatus   @default(PLANNED)
   alarmStage      Int          @default(0)
   createdAt       DateTime     @default(now())
