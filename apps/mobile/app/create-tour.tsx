@@ -1,11 +1,12 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, ScrollView } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as Location from 'expo-location';
 import { apiFetch } from '../lib/api';
 import GpxMap from '../components/GpxMap';
 import ElevationChart from '../components/ElevationChart';
+
 
 async function getToken(): Promise<string | null> {
   if (Platform.OS === 'web') return localStorage.getItem('token');
@@ -45,6 +46,7 @@ export default function CreateTourScreen() {
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'ok' | 'denied'>('idle');
   const [gpxData, setGpxData] = useState<any>(null);
   const [gpxLoading, setGpxLoading] = useState(false);
+  const [vehicleId, setVehicleId] = useState<string | null>(null);
 
   async function getLocation() {
     if (Platform.OS === 'web') {
@@ -65,6 +67,19 @@ export default function CreateTourScreen() {
     setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
     setLocationStatus('ok');
   }
+
+useEffect(() => {
+  async function loadVehicle() {
+    try {
+      const token = await getToken();
+      const vehicles = await apiFetch('/vehicles', {}, token ?? undefined);
+      if (vehicles.length > 0) setVehicleId(vehicles[0].id);
+    } catch (err) {
+      console.log('Kein Fahrzeug gefunden');
+    }
+  }
+  loadVehicle();
+}, []);
 
   async function handleGpxUpload(event: any) {
     const file = event.target.files[0];
@@ -113,6 +128,7 @@ export default function CreateTourScreen() {
           notes: notes || null,
           startLat: location?.lat ?? null,
           startLng: location?.lng ?? null,
+          vehicleId: vehicleId ?? null,
         }),
       }, token ?? undefined);
 
