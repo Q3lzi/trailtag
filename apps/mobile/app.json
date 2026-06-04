@@ -12,7 +12,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "ch.trailtag.app"
+      "bundleIdentifier": "ch.trailtag.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,6 +27,11 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "backgroundColor": "#1a2e1a"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "00084d5b-6484-4583-a927-1d951a406b87"
+      }
     }
   }
 }

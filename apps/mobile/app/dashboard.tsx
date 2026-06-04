@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { apiFetch } from '../lib/api';
+import { showAlert, showConfirm } from '../lib/alert';
 
 async function getToken(): Promise<string | null> {
   if (Platform.OS === 'web') return localStorage.getItem('token');
@@ -62,23 +63,26 @@ export default function DashboardScreen() {
     }
   }
 
-  async function handleCheckout() {
-    const confirmed = window.confirm('Bist du sicher zurück?');
-    if (!confirmed) return;
-    try {
-      const token = await getToken();
-      await apiFetch(`/tours/${activeTour.id}/checkout`, { method: 'POST' }, token ?? undefined);
-      setActiveTour(null);
-    } catch (err: any) {
-      window.alert('Fehler: ' + err.message);
-    }
+async function handleCheckout() {
+  const confirmed = await showConfirm('Bist du sicher zurück?');
+  if (!confirmed) return;
+  try {
+    const token = await getToken();
+    await apiFetch(`/tours/${activeTour.id}/checkout`, { method: 'POST' }, token ?? undefined);
+    setActiveTour(null);
+  } catch (err: any) {
+    showAlert('Fehler', err.message);
   }
+}
 
-  async function handleLogout() {
-    if (Platform.OS === 'web') localStorage.removeItem('token');
-    else await SecureStore.deleteItemAsync('token');
-    router.replace('/');
+async function handleLogout() {
+  if (Platform.OS === 'web') {
+    localStorage.removeItem('token');
+  } else {
+    await SecureStore.deleteItemAsync('token');
   }
+  router.replace('/');
+}
 
   const isOverdue = activeTour?.eta && new Date(activeTour.eta).getTime() < Date.now();
   const qrUrl = vehicle ? `https://trailtag-production.up.railway.app/r/${vehicle.qrToken}` : null;
