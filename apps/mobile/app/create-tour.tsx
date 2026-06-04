@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -7,25 +7,24 @@ import { apiFetch } from '../lib/api';
 import GpxMap from '../components/GpxMap';
 import ElevationChart from '../components/ElevationChart';
 
-
 async function getToken(): Promise<string | null> {
   if (Platform.OS === 'web') return localStorage.getItem('token');
   return await SecureStore.getItemAsync('token');
 }
 
 const ACTIVITIES = [
-  { key: 'WANDERN', label: '🥾 Wandern' },
-  { key: 'BERGTOUR', label: '🏔️ Bergtour' },
-  { key: 'KLETTERN', label: '🧗 Klettern' },
-  { key: 'TRAILRUNNING', label: '🏃 Trailrunning' },
-  { key: 'MOUNTAINBIKE', label: '🚵 Mountainbike' },
-  { key: 'RADSPORT', label: '🚴 Radsport' },
-  { key: 'SKI_SNOWBOARD', label: '🎿 Ski/Snowboard' },
-  { key: 'SKITOUR', label: '⛷️ Skitour' },
-  { key: 'KLETTERSTEIG', label: '🪝 Klettersteig' },
-  { key: 'KANU_KAJAK', label: '🛶 Kanu/Kajak' },
-  { key: 'PARAGLIDING', label: '🪂 Paragliding' },
-  { key: 'ANDERE', label: '🏕️ Andere' },
+  { key: 'WANDERN', label: '🥾', name: 'Wandern' },
+  { key: 'BERGTOUR', label: '🏔️', name: 'Bergtour' },
+  { key: 'KLETTERN', label: '🧗', name: 'Klettern' },
+  { key: 'TRAILRUNNING', label: '🏃', name: 'Trail' },
+  { key: 'MOUNTAINBIKE', label: '🚵', name: 'MTB' },
+  { key: 'RADSPORT', label: '🚴', name: 'Rad' },
+  { key: 'SKI_SNOWBOARD', label: '🎿', name: 'Ski' },
+  { key: 'SKITOUR', label: '⛷️', name: 'Skitour' },
+  { key: 'KLETTERSTEIG', label: '🪝', name: 'Steig' },
+  { key: 'KANU_KAJAK', label: '🛶', name: 'Kanu' },
+  { key: 'PARAGLIDING', label: '🪂', name: 'Gliding' },
+  { key: 'ANDERE', label: '🏕️', name: 'Andere' },
 ];
 
 const DIFFICULTIES = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
@@ -48,14 +47,22 @@ export default function CreateTourScreen() {
   const [gpxLoading, setGpxLoading] = useState(false);
   const [vehicleId, setVehicleId] = useState<string | null>(null);
 
+  useEffect(() => {
+    async function loadVehicle() {
+      try {
+        const token = await getToken();
+        const vehicles = await apiFetch('/vehicles', {}, token ?? undefined);
+        if (vehicles.length > 0) setVehicleId(vehicles[0].id);
+      } catch (err) { console.log('Kein Fahrzeug'); }
+    }
+    loadVehicle();
+  }, []);
+
   async function getLocation() {
     if (Platform.OS === 'web') {
       setLocationStatus('loading');
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-          setLocationStatus('ok');
-        },
+        (pos) => { setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocationStatus('ok'); },
         () => setLocationStatus('denied')
       );
       return;
@@ -68,19 +75,6 @@ export default function CreateTourScreen() {
     setLocationStatus('ok');
   }
 
-useEffect(() => {
-  async function loadVehicle() {
-    try {
-      const token = await getToken();
-      const vehicles = await apiFetch('/vehicles', {}, token ?? undefined);
-      if (vehicles.length > 0) setVehicleId(vehicles[0].id);
-    } catch (err) {
-      console.log('Kein Fahrzeug gefunden');
-    }
-  }
-  loadVehicle();
-}, []);
-
   async function handleGpxUpload(event: any) {
     const file = event.target.files[0];
     if (!file) return;
@@ -88,232 +82,232 @@ useEffect(() => {
     try {
       const text = await file.text();
       const token = await getToken();
-      const data = await apiFetch('/gpx/parse', {
-        method: 'POST',
-        body: JSON.stringify({ gpxContent: text }),
-      }, token ?? undefined);
+      const data = await apiFetch('/gpx/parse', { method: 'POST', body: JSON.stringify({ gpxContent: text }) }, token ?? undefined);
       setGpxData(data);
       if (data.distanceKm) setDistanceKm(String(data.distanceKm));
       if (data.elevationUp) setElevationUp(String(data.elevationUp));
-      if (data.startLat) {
-        setLocation({ lat: data.startLat, lng: data.startLng });
-        setLocationStatus('ok');
-      }
+      if (data.startLat) { setLocation({ lat: data.startLat, lng: data.startLng }); setLocationStatus('ok'); }
     } catch (err: any) {
-      Alert.alert('Fehler', 'GPX-Datei konnte nicht gelesen werden.');
-    } finally {
-      setGpxLoading(false);
-    }
+      window.alert('GPX-Datei konnte nicht gelesen werden.');
+    } finally { setGpxLoading(false); }
   }
 
   async function handleStart() {
-    if (!activity) { Alert.alert('Fehler', 'Bitte Aktivität wählen.'); return; }
-    if (!etaHours) { Alert.alert('Fehler', 'Bitte geplante Dauer eingeben.'); return; }
-
+    if (!activity) { window.alert('Bitte Aktivität wählen.'); return; }
+    if (!etaHours) { window.alert('Bitte geplante Dauer wählen.'); return; }
     setLoading(true);
     try {
       const token = await getToken();
       const eta = new Date(Date.now() + parseFloat(etaHours) * 60 * 60 * 1000).toISOString();
-
       const tour = await apiFetch('/tours', {
         method: 'POST',
         body: JSON.stringify({
-          activity,
-          routeName: routeName || null,
-          difficulty: difficulty || null,
-          persons: parseInt(persons),
-          distanceKm: distanceKm ? parseFloat(distanceKm) : null,
+          activity, routeName: routeName || null, difficulty: difficulty || null,
+          persons: parseInt(persons), distanceKm: distanceKm ? parseFloat(distanceKm) : null,
           elevationUp: elevationUp ? parseInt(elevationUp) : null,
-          parkingLocation: parkingLocation || null,
-          notes: notes || null,
-          startLat: location?.lat ?? null,
-          startLng: location?.lng ?? null,
+          parkingLocation: parkingLocation || null, notes: notes || null,
+          startLat: location?.lat ?? null, startLng: location?.lng ?? null,
           vehicleId: vehicleId ?? null,
         }),
       }, token ?? undefined);
 
-      // GPX an Tour anhängen falls vorhanden
-      if (gpxData) {
-        const gpxContent = (document as any)._lastGpxContent;
-        if (gpxContent) {
-          await apiFetch(`/gpx/attach/${tour.id}`, {
-            method: 'POST',
-            body: JSON.stringify({ gpxContent }),
-          }, token ?? undefined);
-        }
-      }
-
-      await apiFetch(`/tours/${tour.id}/start`, {
-        method: 'POST',
-        body: JSON.stringify({ eta }),
-      }, token ?? undefined);
-
-      Alert.alert('🏔️ Tour gestartet!', `Geplante Rückkehr in ${etaHours}h. Viel Erfolg!`);
+      await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
       router.replace('/dashboard');
     } catch (err: any) {
-      Alert.alert('Fehler', err.message);
-    } finally {
-      setLoading(false);
-    }
+      window.alert('Fehler: ' + err.message);
+    } finally { setLoading(false); }
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Tour starten</Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Tour starten</Text>
+        <Text style={styles.subtitle}>Aktiviere deinen Safety-Timer</Text>
+      </View>
 
       {/* Aktivität */}
-      <Text style={styles.sectionTitle}>① Aktivität wählen</Text>
-      <View style={styles.grid}>
-        {ACTIVITIES.map(a => (
-          <TouchableOpacity
-            key={a.key}
-            style={[styles.activityBtn, activity === a.key && styles.activityBtnActive]}
-            onPress={() => setActivity(a.key)}
-          >
-            <Text style={[styles.activityText, activity === a.key && styles.activityTextActive]}>
-              {a.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>AKTIVITÄT</Text>
+        <View style={styles.activityGrid}>
+          {ACTIVITIES.map(a => (
+            <TouchableOpacity
+              key={a.key}
+              style={[styles.activityCard, activity === a.key && styles.activityCardActive]}
+              onPress={() => setActivity(a.key)}
+            >
+              <Text style={styles.activityEmoji}>{a.label}</Text>
+              <Text style={[styles.activityName, activity === a.key && styles.activityNameActive]}>{a.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Dauer */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>GEPLANTE DAUER</Text>
+        <View style={styles.chipRow}>
+          {QUICK_HOURS.map(h => (
+            <TouchableOpacity
+              key={h}
+              style={[styles.chip, etaHours === h && styles.chipActive]}
+              onPress={() => setEtaHours(h)}
+            >
+              <Text style={[styles.chipText, etaHours === h && styles.chipTextActive]}>{h}h</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       {/* Grundinfos */}
-      <Text style={styles.sectionTitle}>② Grundinformationen</Text>
-      <Text style={styles.label}>Routenname</Text>
-      <TextInput style={styles.input} placeholder="z.B. Säntis via Schwägalp" value={routeName} onChangeText={setRouteName} />
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>GRUNDINFORMATIONEN</Text>
+        <View style={styles.card}>
+          <Text style={styles.fieldLabel}>Routenname</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="z.B. Säntis via Schwägalp"
+            placeholderTextColor="#bbb"
+            value={routeName}
+            onChangeText={setRouteName}
+          />
 
-      <Text style={styles.label}>Anzahl Personen</Text>
-      <View style={styles.row}>
-        <TouchableOpacity style={styles.counterBtn} onPress={() => setPersons(p => String(Math.max(1, parseInt(p) - 1)))}>
-          <Text style={styles.counterText}>−</Text>
-        </TouchableOpacity>
-        <Text style={styles.counterValue}>{persons}</Text>
-        <TouchableOpacity style={styles.counterBtn} onPress={() => setPersons(p => String(parseInt(p) + 1))}>
-          <Text style={styles.counterText}>+</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Zeit */}
-      <Text style={styles.sectionTitle}>③ Geplante Dauer</Text>
-      <View style={styles.quickRow}>
-        {QUICK_HOURS.map(h => (
-          <TouchableOpacity
-            key={h}
-            style={[styles.quickBtn, etaHours === h && styles.quickBtnActive]}
-            onPress={() => setEtaHours(h)}
-          >
-            <Text style={[styles.quickText, etaHours === h && styles.quickTextActive]}>+{h}h</Text>
-          </TouchableOpacity>
-        ))}
+          <Text style={styles.fieldLabel}>Personen</Text>
+          <View style={styles.counterRow}>
+            <TouchableOpacity style={styles.counterBtn} onPress={() => setPersons(p => String(Math.max(1, parseInt(p) - 1)))}>
+              <Text style={styles.counterBtnText}>−</Text>
+            </TouchableOpacity>
+            <Text style={styles.counterVal}>{persons}</Text>
+            <TouchableOpacity style={styles.counterBtn} onPress={() => setPersons(p => String(parseInt(p) + 1))}>
+              <Text style={styles.counterBtnText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
 
       {/* Schwierigkeit */}
-      <Text style={styles.sectionTitle}>④ Schwierigkeit (SAC)</Text>
-      <View style={styles.quickRow}>
-        {DIFFICULTIES.map(d => (
-          <TouchableOpacity
-            key={d}
-            style={[styles.quickBtn, difficulty === d && styles.quickBtnActive]}
-            onPress={() => setDifficulty(d)}
-          >
-            <Text style={[styles.quickText, difficulty === d && styles.quickTextActive]}>{d}</Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>SCHWIERIGKEIT (SAC)</Text>
+        <View style={styles.chipRow}>
+          {DIFFICULTIES.map(d => (
+            <TouchableOpacity
+              key={d}
+              style={[styles.chip, difficulty === d && styles.chipActive]}
+              onPress={() => setDifficulty(d === difficulty ? '' : d)}
+            >
+              <Text style={[styles.chipText, difficulty === d && styles.chipTextActive]}>{d}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
-      {/* GPX Import */}
-      <Text style={styles.sectionTitle}>⑤ GPS-Route importieren (optional)</Text>
-      {Platform.OS === 'web' ? (
-        <View style={styles.gpxBox}>
-          <Text style={styles.gpxIcon}>🗺️</Text>
-          <Text style={styles.gpxText}>GPX Datei wählen</Text>
-          <Text style={styles.gpxSub}>Distanz + Höhenmeter werden automatisch berechnet · max. 5 MB</Text>
-          <input
-            type="file"
-            accept=".gpx"
-            style={{ opacity: 0, position: 'absolute', width: '100%', height: '100%', cursor: 'pointer' } as any}
-            onChange={handleGpxUpload}
-          />
-          {gpxLoading && <Text style={styles.gpxSub}>⏳ Wird analysiert...</Text>}
-{gpxData && (
-  <View style={styles.gpxResult}>
-    <Text style={styles.gpxResultText}>✅ Route geladen</Text>
-    <Text style={styles.gpxResultText}>📏 {gpxData.distanceKm} km · ⬆️ {gpxData.elevationUp} hm · ⬇️ {gpxData.elevationDown} hm</Text>
-    <Text style={styles.gpxResultText}>📍 {gpxData.points?.length} Punkte</Text>
-  </View>
-)}
-{gpxData?.points && Platform.OS === 'web' && (
-  <>
-    <GpxMap points={gpxData.points} />
-    <ElevationChart points={gpxData.points} />
-  </>
-)}
-        </View>
-      ) : (
-        <Text style={styles.gpxSub}>GPX-Import im Browser verfügbar</Text>
-      )}
+      {/* GPX */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>GPS-ROUTE (OPTIONAL)</Text>
+        {Platform.OS === 'web' ? (
+          <View style={styles.gpxZone}>
+            <Text style={styles.gpxIcon}>🗺️</Text>
+            <Text style={styles.gpxTitle}>{gpxLoading ? '⏳ Analysiere...' : 'GPX Datei wählen'}</Text>
+            <Text style={styles.gpxSub}>Distanz + Höhenmeter automatisch · max. 5 MB</Text>
+            <input
+              type="file" accept=".gpx"
+              style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' } as any}
+              onChange={handleGpxUpload}
+            />
+            {gpxData && (
+              <View style={styles.gpxBadge}>
+                <Text style={styles.gpxBadgeText}>✅ {gpxData.distanceKm} km · ⬆️ {gpxData.elevationUp} hm · {gpxData.points?.length} Punkte</Text>
+              </View>
+            )}
+          </View>
+        ) : null}
+        {gpxData?.points && Platform.OS === 'web' && (
+          <>
+            <GpxMap points={gpxData.points} />
+            <ElevationChart points={gpxData.points} />
+          </>
+        )}
+      </View>
 
-      {/* GPS Standort */}
-      <Text style={styles.sectionTitle}>⑥ Startpunkt (GPS)</Text>
-      <TouchableOpacity style={styles.gpsBtn} onPress={getLocation}>
-        <Text style={styles.gpsBtnText}>
-          {locationStatus === 'idle' && '📍 Standort ermitteln'}
-          {locationStatus === 'loading' && '⏳ Ermittle Standort...'}
-          {locationStatus === 'ok' && `✅ ${location?.lat.toFixed(4)}, ${location?.lng.toFixed(4)}`}
-          {locationStatus === 'denied' && '❌ Zugriff verweigert'}
-        </Text>
-      </TouchableOpacity>
+      {/* GPS */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>STARTPUNKT</Text>
+        <TouchableOpacity
+          style={[styles.gpsBtn, locationStatus === 'ok' && styles.gpsBtnOk]}
+          onPress={getLocation}
+        >
+          <Text style={styles.gpsBtnText}>
+            {locationStatus === 'idle' && '📍 Standort ermitteln'}
+            {locationStatus === 'loading' && '⏳ Ermittle...'}
+            {locationStatus === 'ok' && `✅ ${location?.lat.toFixed(4)}, ${location?.lng.toFixed(4)}`}
+            {locationStatus === 'denied' && '❌ Kein Zugriff'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Details */}
-      <Text style={styles.sectionTitle}>⑦ Details (optional)</Text>
-      <Text style={styles.label}>Distanz (km)</Text>
-      <TextInput style={styles.input} placeholder="z.B. 12" value={distanceKm} onChangeText={setDistanceKm} keyboardType="numeric" />
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>DETAILS (OPTIONAL)</Text>
+        <View style={styles.card}>
+          <Text style={styles.fieldLabel}>Distanz (km)</Text>
+          <TextInput style={styles.input} placeholder="z.B. 12" placeholderTextColor="#bbb" value={distanceKm} onChangeText={setDistanceKm} keyboardType="numeric" />
 
-      <Text style={styles.label}>Höhenmeter</Text>
-      <TextInput style={styles.input} placeholder="z.B. 800" value={elevationUp} onChangeText={setElevationUp} keyboardType="numeric" />
+          <Text style={styles.fieldLabel}>Höhenmeter</Text>
+          <TextInput style={styles.input} placeholder="z.B. 800" placeholderTextColor="#bbb" value={elevationUp} onChangeText={setElevationUp} keyboardType="numeric" />
 
-      <Text style={styles.label}>Parkplatz / Startort</Text>
-      <TextInput style={styles.input} placeholder="z.B. Wanderparkplatz Schwägalp" value={parkingLocation} onChangeText={setParkingLocation} />
+          <Text style={styles.fieldLabel}>Parkplatz / Startort</Text>
+          <TextInput style={styles.input} placeholder="z.B. Wanderparkplatz Schwägalp" placeholderTextColor="#bbb" value={parkingLocation} onChangeText={setParkingLocation} />
 
-      <Text style={styles.label}>Notizen für Rettungskräfte</Text>
-      <TextInput style={[styles.input, styles.textArea]} placeholder="z.B. Roter Rucksack, Hund dabei" value={notes} onChangeText={setNotes} multiline numberOfLines={3} />
+          <Text style={styles.fieldLabel}>Notizen für Rettungskräfte</Text>
+          <TextInput style={[styles.input, styles.textArea]} placeholder="z.B. Roter Rucksack, Hund dabei" placeholderTextColor="#bbb" value={notes} onChangeText={setNotes} multiline numberOfLines={3} />
+        </View>
+      </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleStart} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? 'Startet...' : '🏔️ Tour starten'}</Text>
+      {/* Start Button */}
+      <TouchableOpacity style={[styles.startBtn, loading && styles.startBtnDisabled]} onPress={handleStart} disabled={loading}>
+        <Text style={styles.startBtnText}>{loading ? 'Startet...' : 'Safety-Timer aktivieren'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 24, paddingTop: 60, paddingBottom: 60 },
-  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#2D6A4F', marginTop: 24, marginBottom: 12 },
-  label: { fontSize: 14, fontWeight: '600', color: '#444', marginBottom: 6 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 16, marginBottom: 16, fontSize: 16 },
+  container: { flex: 1, backgroundColor: '#f8faf8' },
+  content: { paddingBottom: 100 },
+  header: { backgroundColor: '#1a2e1a', paddingTop: 56, paddingBottom: 28, paddingHorizontal: 24 },
+  title: { fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 4 },
+  section: { paddingHorizontal: 24, paddingTop: 24 },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#aaa', letterSpacing: 1, marginBottom: 12 },
+  activityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  activityCard: { alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 12, width: 70, borderWidth: 1.5, borderColor: '#f0f0f0' },
+  activityCardActive: { borderColor: '#2D6A4F', backgroundColor: '#f0faf4' },
+  activityEmoji: { fontSize: 24, marginBottom: 4 },
+  activityName: { fontSize: 11, color: '#888', fontWeight: '600' },
+  activityNameActive: { color: '#2D6A4F' },
+  chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  chip: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 100, backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#e8e8e8' },
+  chipActive: { backgroundColor: '#1a2e1a', borderColor: '#1a2e1a' },
+  chipText: { fontSize: 14, color: '#555', fontWeight: '600' },
+  chipTextActive: { color: '#fff' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 20, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
+  fieldLabel: { fontSize: 12, fontWeight: '700', color: '#aaa', letterSpacing: 0.5, marginBottom: 8, marginTop: 4 },
+  input: { backgroundColor: '#f8f8f8', borderRadius: 10, padding: 14, fontSize: 15, color: '#222', marginBottom: 16, borderWidth: 1, borderColor: '#f0f0f0' },
   textArea: { height: 80, textAlignVertical: 'top' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  activityBtn: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#f9f9f9' },
-  activityBtnActive: { borderColor: '#2D6A4F', backgroundColor: '#D8F3DC' },
-  activityText: { fontSize: 13, color: '#444' },
-  activityTextActive: { color: '#2D6A4F', fontWeight: '700' },
-  quickRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 8 },
-  quickBtn: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
-  quickBtnActive: { borderColor: '#2D6A4F', backgroundColor: '#2D6A4F' },
-  quickText: { fontSize: 14, color: '#444' },
-  quickTextActive: { color: '#fff', fontWeight: '700' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 },
-  counterBtn: { backgroundColor: '#2D6A4F', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  counterText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  counterValue: { fontSize: 20, fontWeight: 'bold', minWidth: 30, textAlign: 'center' },
-  gpxBox: { borderWidth: 2, borderColor: '#ddd', borderStyle: 'dashed', borderRadius: 12, padding: 24, alignItems: 'center', marginBottom: 16, position: 'relative', overflow: 'hidden' },
+  counterRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 },
+  counterBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1a2e1a', alignItems: 'center', justifyContent: 'center' },
+  counterBtnText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  counterVal: { fontSize: 20, fontWeight: '800', color: '#111', minWidth: 24, textAlign: 'center' },
+  gpxZone: { backgroundColor: '#fff', borderRadius: 16, padding: 24, alignItems: 'center', borderWidth: 2, borderColor: '#e8e8e8', borderStyle: 'dashed', position: 'relative', overflow: 'hidden' },
   gpxIcon: { fontSize: 32, marginBottom: 8 },
-  gpxText: { fontSize: 15, fontWeight: '600', color: '#444' },
-  gpxSub: { fontSize: 12, color: '#999', marginTop: 4, textAlign: 'center' },
-  gpxResult: { marginTop: 12, backgroundColor: '#D8F3DC', borderRadius: 8, padding: 12, width: '100%' },
-  gpxResultText: { fontSize: 13, color: '#2D6A4F', marginBottom: 4 },
-  gpsBtn: { borderWidth: 1, borderColor: '#2D6A4F', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 8 },
-  gpsBtnText: { color: '#2D6A4F', fontWeight: '600', fontSize: 15 },
-  button: { backgroundColor: '#2D6A4F', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  gpxTitle: { fontSize: 15, fontWeight: '700', color: '#333' },
+  gpxSub: { fontSize: 12, color: '#aaa', marginTop: 4 },
+  gpxBadge: { marginTop: 12, backgroundColor: '#f0faf4', borderRadius: 8, padding: 10, width: '100%' },
+  gpxBadgeText: { fontSize: 13, color: '#2D6A4F', fontWeight: '600', textAlign: 'center' },
+  gpsBtn: { backgroundColor: '#fff', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1.5, borderColor: '#e8e8e8' },
+  gpsBtnOk: { borderColor: '#2D6A4F', backgroundColor: '#f0faf4' },
+  gpsBtnText: { fontSize: 15, fontWeight: '600', color: '#444' },
+  startBtn: { margin: 24, backgroundColor: '#2D6A4F', padding: 20, borderRadius: 18, alignItems: 'center' },
+  startBtnDisabled: { opacity: 0.6 },
+  startBtnText: { color: '#fff', fontWeight: '800', fontSize: 17 },
 });

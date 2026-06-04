@@ -1,15 +1,27 @@
 import { Stack } from 'expo-router';
+import { View } from 'react-native';
+import { usePathname } from 'expo-router';
+import BottomNav from '../components/BottomNav';
+
+const HIDE_NAV = ['/', '/login', '/register'];
 
 export default function RootLayout() {
+  const pathname = usePathname();
+  const showNav = !HIDE_NAV.includes(pathname);
+
   return (
-    <Stack>
-      <Stack.Screen name="index" options={{ title: 'Trailtag' }} />
-      <Stack.Screen name="login" options={{ title: 'Login' }} />
-      <Stack.Screen name="register" options={{ title: 'Registrieren' }} />
-      <Stack.Screen name="dashboard" options={{ title: 'Dashboard' }} />
-      <Stack.Screen name="create-tour" options={{ title: 'Tour starten' }} />
-      <Stack.Screen name="vehicle" options={{ title: 'Fahrzeug' }} />
-      <Stack.Screen name="profile" options={{ title: 'Profil' }} />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
+        <Stack.Screen name="dashboard" />
+        <Stack.Screen name="create-tour" />
+        <Stack.Screen name="tours" />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="vehicle" />
+      </Stack>
+      {showNav && <BottomNav />}
+    </View>
   );
 }

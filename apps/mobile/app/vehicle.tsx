@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { apiFetch } from '../lib/api';
@@ -17,27 +17,19 @@ export default function VehicleScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadVehicle();
-  }, []);
+  useEffect(() => { loadVehicle(); }, []);
 
   async function loadVehicle() {
     try {
       const token = await getToken();
       const data = await apiFetch('/vehicles', {}, token ?? undefined);
       if (data.length > 0) setVehicle(data[0]);
-    } catch (err) {
-      console.log('Kein Fahrzeug gefunden');
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.log('Kein Fahrzeug'); }
+    finally { setLoading(false); }
   }
 
   async function handleSave() {
-    if (!plate || !make || !model) {
-      Alert.alert('Fehler', 'Kennzeichen, Marke und Modell sind Pflichtfelder.');
-      return;
-    }
+    if (!plate || !make || !model) { window.alert('Kennzeichen, Marke und Modell sind Pflichtfelder.'); return; }
     setSaving(true);
     try {
       const token = await getToken();
@@ -46,59 +38,93 @@ export default function VehicleScreen() {
         body: JSON.stringify({ plate, make, model, color }),
       }, token ?? undefined);
       setVehicle(data);
-      Alert.alert('✅ Fahrzeug gespeichert!');
     } catch (err: any) {
-      Alert.alert('Fehler', err.message);
-    } finally {
-      setSaving(false);
-    }
+      window.alert('Fehler: ' + err.message);
+    } finally { setSaving(false); }
   }
 
-  const qrUrl = vehicle
-    ? `https://trailtag-production.up.railway.app/r/${vehicle.qrToken}`
-    : null;
+  const qrUrl = vehicle ? `https://trailtag-production.up.railway.app/r/${vehicle.qrToken}` : null;
 
-  if (loading) {
-    return <View style={styles.container}><Text>Lädt...</Text></View>;
-  }
+  if (loading) return <View style={styles.loading}><Text style={styles.loadingEmoji}>🚗</Text></View>;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>🚗 Fahrzeug</Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Mein Fahrzeug</Text>
+        <Text style={styles.subtitle}>QR-Code für das Erstretter-Portal</Text>
+      </View>
 
       {vehicle ? (
-        <View>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{vehicle.make} {vehicle.model}</Text>
-            <Text style={styles.cardSub}>{vehicle.plate} · {vehicle.color}</Text>
+        <>
+          {/* Fahrzeug Info */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>FAHRZEUG</Text>
+            <View style={styles.vehicleCard}>
+              <View style={styles.vehicleIcon}>
+                <Text style={styles.vehicleEmoji}>🚗</Text>
+              </View>
+              <View style={styles.vehicleInfo}>
+                <Text style={styles.vehicleName}>{vehicle.make} {vehicle.model}</Text>
+                <Text style={styles.vehicleMeta}>{vehicle.plate} · {vehicle.color}</Text>
+              </View>
+            </View>
           </View>
 
-          <View style={styles.qrCard}>
-            <Text style={styles.qrTitle}>🔗 QR-Code Link</Text>
-            <Text style={styles.qrUrl}>{qrUrl}</Text>
-            <Text style={styles.qrHint}>
-              Diesen Link als QR-Code ausdrucken und ans Auto kleben.
-              Wenn jemand den Code scannt, sieht er sofort deinen Alarm-Status.
-            </Text>
+          {/* QR Code */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>QR-CODE PORTAL</Text>
+            <View style={styles.qrCard}>
+              <View style={styles.qrTop}>
+                <Text style={styles.qrTitle}>🔗 Erstretter-Portal</Text>
+                <View style={styles.qrDot} />
+              </View>
+              <Text style={styles.qrUrl}>{qrUrl}</Text>
+              <View style={styles.qrDivider} />
+              <Text style={styles.qrHint}>
+                Drucke diesen Link als QR-Code aus und klebe ihn ans Auto. Wenn jemand den Code scannt, sieht er sofort deinen Alarm-Status und alle relevanten Informationen für Rettungskräfte.
+              </Text>
+              {Platform.OS === 'web' && (
+                <TouchableOpacity
+                  style={styles.copyBtn}
+                  onPress={() => { navigator.clipboard.writeText(qrUrl!); window.alert('Link kopiert!'); }}
+                >
+                  <Text style={styles.copyBtnText}>📋 Link kopieren</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        </View>
+
+          {/* QR Generator Hinweis */}
+          <View style={styles.section}>
+            <View style={styles.hintCard}>
+              <Text style={styles.hintTitle}>💡 QR-Code erstellen</Text>
+              <Text style={styles.hintText}>
+                Gehe auf qr-code-generator.com, füge den Link ein und drucke den QR-Code aus. Laminiere ihn und befestige ihn gut sichtbar am Fahrzeug.
+              </Text>
+            </View>
+          </View>
+        </>
       ) : (
-        <View>
-          <Text style={styles.label}>Kennzeichen *</Text>
-          <TextInput style={styles.input} placeholder="z.B. SG 123 456" value={plate} onChangeText={setPlate} autoCapitalize="characters" />
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>FAHRZEUG HINZUFÜGEN</Text>
+          <View style={styles.card}>
+            <Text style={styles.fieldLabel}>Kennzeichen *</Text>
+            <TextInput style={styles.input} placeholder="z.B. SG 123 456" placeholderTextColor="#bbb" value={plate} onChangeText={setPlate} autoCapitalize="characters" />
 
-          <Text style={styles.label}>Marke *</Text>
-          <TextInput style={styles.input} placeholder="z.B. VW" value={make} onChangeText={setMake} />
+            <Text style={styles.fieldLabel}>Marke *</Text>
+            <TextInput style={styles.input} placeholder="z.B. VW" placeholderTextColor="#bbb" value={make} onChangeText={setMake} />
 
-          <Text style={styles.label}>Modell *</Text>
-          <TextInput style={styles.input} placeholder="z.B. Golf" value={model} onChangeText={setModel} />
+            <Text style={styles.fieldLabel}>Modell *</Text>
+            <TextInput style={styles.input} placeholder="z.B. Golf" placeholderTextColor="#bbb" value={model} onChangeText={setModel} />
 
-          <Text style={styles.label}>Farbe</Text>
-          <TextInput style={styles.input} placeholder="z.B. Schwarz" value={color} onChangeText={setColor} />
+            <Text style={styles.fieldLabel}>Farbe</Text>
+            <TextInput style={styles.input} placeholder="z.B. Schwarz" placeholderTextColor="#bbb" value={color} onChangeText={setColor} />
 
-          <TouchableOpacity style={styles.button} onPress={handleSave} disabled={saving}>
-            <Text style={styles.buttonText}>{saving ? 'Speichert...' : '💾 Fahrzeug speichern'}</Text>
-          </TouchableOpacity>
+            <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
+              <Text style={styles.saveBtnText}>{saving ? 'Speichert...' : 'Fahrzeug speichern'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </ScrollView>
@@ -106,17 +132,36 @@ export default function VehicleScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 24, paddingTop: 60 },
-  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 32 },
-  card: { backgroundColor: '#f5f5f5', borderRadius: 16, padding: 20, marginBottom: 16 },
-  cardTitle: { fontSize: 20, fontWeight: 'bold' },
-  cardSub: { fontSize: 14, color: '#666', marginTop: 4 },
-  qrCard: { backgroundColor: '#EBF5FB', borderRadius: 16, padding: 20, gap: 12 },
-  qrTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A5276' },
-  qrUrl: { fontSize: 13, color: '#2980B9', fontFamily: 'monospace' },
-  qrHint: { fontSize: 14, color: '#555', lineHeight: 20 },
-  label: { fontSize: 14, fontWeight: '600', color: '#444', marginBottom: 6 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 16, marginBottom: 20, fontSize: 16 },
-  button: { backgroundColor: '#2D6A4F', padding: 16, borderRadius: 12, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingEmoji: { fontSize: 48 },
+  container: { flex: 1, backgroundColor: '#f8faf8' },
+  content: { paddingBottom: 100 },
+  header: { backgroundColor: '#1a2e1a', paddingTop: 56, paddingBottom: 28, paddingHorizontal: 24 },
+  title: { fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 4 },
+  section: { paddingHorizontal: 16, paddingTop: 24 },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#aaa', letterSpacing: 1, marginBottom: 12 },
+  vehicleCard: { backgroundColor: '#fff', borderRadius: 18, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
+  vehicleIcon: { width: 56, height: 56, backgroundColor: '#f0faf4', borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  vehicleEmoji: { fontSize: 28 },
+  vehicleInfo: { flex: 1 },
+  vehicleName: { fontSize: 20, fontWeight: '800', color: '#111' },
+  vehicleMeta: { fontSize: 14, color: '#aaa', marginTop: 2 },
+  qrCard: { backgroundColor: '#fff', borderRadius: 18, padding: 20, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
+  qrTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  qrTitle: { fontSize: 16, fontWeight: '700', color: '#111' },
+  qrDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#4ade80' },
+  qrUrl: { fontSize: 12, color: '#2D6A4F', fontFamily: 'monospace', backgroundColor: '#f0faf4', padding: 12, borderRadius: 10, marginBottom: 16 },
+  qrDivider: { height: 1, backgroundColor: '#f0f0f0', marginBottom: 16 },
+  qrHint: { fontSize: 14, color: '#888', lineHeight: 20 },
+  copyBtn: { marginTop: 16, backgroundColor: '#f0faf4', padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#d1fae5' },
+  copyBtnText: { color: '#2D6A4F', fontWeight: '700', fontSize: 14 },
+  hintCard: { backgroundColor: '#fff', borderRadius: 16, padding: 18, borderLeftWidth: 4, borderLeftColor: '#2D6A4F' },
+  hintTitle: { fontSize: 14, fontWeight: '700', color: '#111', marginBottom: 8 },
+  hintText: { fontSize: 13, color: '#888', lineHeight: 20 },
+  card: { backgroundColor: '#fff', borderRadius: 18, padding: 20, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: '#aaa', letterSpacing: 0.5, marginBottom: 6, marginTop: 12 },
+  input: { backgroundColor: '#f8f8f8', borderRadius: 10, padding: 14, fontSize: 15, color: '#222', borderWidth: 1, borderColor: '#f0f0f0', marginBottom: 4 },
+  saveBtn: { backgroundColor: '#1a2e1a', padding: 18, borderRadius: 16, alignItems: 'center', marginTop: 16 },
+  saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });
