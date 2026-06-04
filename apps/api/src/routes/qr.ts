@@ -66,9 +66,9 @@ function mapSection(tour: any) {
     <script>
       ${trackJs}
       var map = L.map('map');
-   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
   attribution: '© OpenStreetMap © CARTO'
-}), {attribution:'© OpenStreetMap'}).addTo(map);
+}).addTo(map);
 
       if (trackPoints && trackPoints.length > 0) {
         var poly = L.polyline(trackPoints, {color:'#2D6A4F', weight:4}).addTo(map);
