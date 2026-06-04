@@ -1,8 +1,12 @@
+import { Platform } from 'react-native';
+
 interface Props {
   points: { lat: number; lng: number; ele?: number }[];
 }
 
 export default function ElevationChart({ points }: Props) {
+  if (Platform.OS !== 'web') return null;
+
   const withEle = points.filter(p => p.ele !== undefined);
   if (withEle.length === 0) return null;
 
@@ -10,10 +14,7 @@ export default function ElevationChart({ points }: Props) {
   const minEle = Math.min(...eles);
   const maxEle = Math.max(...eles);
   const range = maxEle - minEle || 1;
-
-  const width = 800;
-  const height = 120;
-  const padding = 10;
+  const width = 800, height = 120, padding = 10;
 
   const pointsStr = withEle.map((p, i) => {
     const x = padding + (i / (withEle.length - 1)) * (width - padding * 2);
@@ -35,7 +36,6 @@ export default function ElevationChart({ points }: Props) {
         </defs>
         <polygon points={areaStr} fill="url(#eleGrad)" />
         <polyline points={pointsStr} fill="none" stroke="#2D6A4F" strokeWidth="2" />
-        {/* Min/Max Labels */}
         <text x={padding} y={padding + 10} fontSize="10" fill="#666">{Math.round(maxEle)} m</text>
         <text x={padding} y={height - padding - 2} fontSize="10" fill="#666">{Math.round(minEle)} m</text>
       </svg>
