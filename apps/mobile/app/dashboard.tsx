@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -11,15 +11,11 @@ async function getToken(): Promise<string | null> {
 
 function useCountdown(eta: string | null) {
   const [timeLeft, setTimeLeft] = useState('');
-
   useEffect(() => {
     if (!eta) return;
     const interval = setInterval(() => {
       const diff = new Date(eta).getTime() - Date.now();
-      if (diff <= 0) {
-        setTimeLeft('⚠️ Überfällig!');
-        return;
-      }
+      if (diff <= 0) { setTimeLeft('⚠️ Überfällig!'); return; }
       const h = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
       const s = Math.floor((diff % 60000) / 1000);
@@ -27,7 +23,6 @@ function useCountdown(eta: string | null) {
     }, 1000);
     return () => clearInterval(interval);
   }, [eta]);
-
   return timeLeft;
 }
 
@@ -45,9 +40,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const timeLeft = useCountdown(activeTour?.eta ?? null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     try {
@@ -67,24 +60,15 @@ export default function DashboardScreen() {
   }
 
   async function handleCheckout() {
-    Alert.alert(
-      '✅ Tour abschliessen',
-      'Bist du sicher zurück?',
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Ja, ich bin zurück!', onPress: async () => {
-            try {
-              const token = await getToken();
-              await apiFetch(`/tours/${activeTour.id}/checkout`, { method: 'POST' }, token ?? undefined);
-              setActiveTour(null);
-            } catch (err: any) {
-              Alert.alert('Fehler', err.message);
-            }
-          }
-        }
-      ]
-    );
+    const confirmed = window.confirm('Bist du sicher zurück?');
+    if (!confirmed) return;
+    try {
+      const token = await getToken();
+      await apiFetch(`/tours/${activeTour.id}/checkout`, { method: 'POST' }, token ?? undefined);
+      setActiveTour(null);
+    } catch (err: any) {
+      window.alert('Fehler: ' + err.message);
+    }
   }
 
   async function handleLogout() {
@@ -102,73 +86,44 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>🏔️ Trailtag</Text>
-        <TouchableOpacity onPress={handleLogout}>
-          <Text style={styles.logout}>Logout</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <TouchableOpacity onPress={() => router.push('/profile')}>
+            <Text style={styles.profileLink}>👤</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout}>
+            <Text style={styles.logout}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {activeTour ? (
         <View>
-          {/* Status Banner */}
           <View style={[styles.statusBanner, isOverdue ? styles.statusRed : styles.statusGreen]}>
-            <Text style={styles.statusText}>
-              {isOverdue ? '⚠️ Tour überfällig!' : '🟢 Tour aktiv'}
-            </Text>
+            <Text style={styles.statusText}>{isOverdue ? '⚠️ Tour überfällig!' : '🟢 Tour aktiv'}</Text>
             <Text style={styles.countdown}>{timeLeft}</Text>
           </View>
 
-          {/* Tour Details */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>
-              {ACTIVITY_LABELS[activeTour.activity] ?? activeTour.activity}
-            </Text>
-            {activeTour.routeName && (
-              <Text style={styles.routeName}>{activeTour.routeName}</Text>
-            )}
+            <Text style={styles.cardTitle}>{ACTIVITY_LABELS[activeTour.activity] ?? activeTour.activity}</Text>
+            {activeTour.routeName && <Text style={styles.routeName}>{activeTour.routeName}</Text>}
 
             <View style={styles.statsRow}>
-              {activeTour.distanceKm && (
-                <View style={styles.stat}>
-                  <Text style={styles.statValue}>{activeTour.distanceKm}</Text>
-                  <Text style={styles.statLabel}>km</Text>
-                </View>
-              )}
-              {activeTour.elevationUp && (
-                <View style={styles.stat}>
-                  <Text style={styles.statValue}>{activeTour.elevationUp}</Text>
-                  <Text style={styles.statLabel}>hm ⬆️</Text>
-                </View>
-              )}
-              {activeTour.persons > 1 && (
-                <View style={styles.stat}>
-                  <Text style={styles.statValue}>{activeTour.persons}</Text>
-                  <Text style={styles.statLabel}>Personen</Text>
-                </View>
-              )}
-              {activeTour.difficulty && (
-                <View style={styles.stat}>
-                  <Text style={styles.statValue}>{activeTour.difficulty}</Text>
-                  <Text style={styles.statLabel}>SAC</Text>
-                </View>
-              )}
+              {activeTour.distanceKm && <View style={styles.stat}><Text style={styles.statValue}>{activeTour.distanceKm}</Text><Text style={styles.statLabel}>km</Text></View>}
+              {activeTour.elevationUp && <View style={styles.stat}><Text style={styles.statValue}>{activeTour.elevationUp}</Text><Text style={styles.statLabel}>hm ⬆️</Text></View>}
+              {activeTour.persons > 1 && <View style={styles.stat}><Text style={styles.statValue}>{activeTour.persons}</Text><Text style={styles.statLabel}>Personen</Text></View>}
+              {activeTour.difficulty && <View style={styles.stat}><Text style={styles.statValue}>{activeTour.difficulty}</Text><Text style={styles.statLabel}>SAC</Text></View>}
             </View>
 
             <View style={styles.divider} />
-
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Gestartet</Text>
-              <Text style={styles.infoValue}>
-                {new Date(activeTour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}
-              </Text>
+              <Text style={styles.infoValue}>{new Date(activeTour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Geplante Rückkehr</Text>
-              <Text style={styles.infoValue}>
-                {new Date(activeTour.eta).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}
-              </Text>
+              <Text style={styles.infoValue}>{new Date(activeTour.eta).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
             </View>
             {activeTour.parkingLocation && (
               <View style={styles.infoRow}>
@@ -178,7 +133,6 @@ export default function DashboardScreen() {
             )}
           </View>
 
-          {/* QR Link */}
           {qrUrl && (
             <View style={styles.qrCard}>
               <Text style={styles.qrText}>🔗 Erstretter-Portal aktiv</Text>
@@ -186,11 +140,7 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          {/* Checkout Button */}
-          <TouchableOpacity
-            style={[styles.checkoutBtn, isOverdue && styles.checkoutBtnRed]}
-            onPress={handleCheckout}
-          >
+          <TouchableOpacity style={[styles.checkoutBtn, isOverdue && styles.checkoutBtnRed]} onPress={handleCheckout}>
             <Text style={styles.checkoutText}>✅ Ich bin zurück</Text>
           </TouchableOpacity>
         </View>
@@ -205,19 +155,10 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {vehicle && (
-            <TouchableOpacity style={styles.vehicleCard} onPress={() => router.push('/vehicle')}>
-              <Text style={styles.vehicleText}>🚗 {vehicle.make} {vehicle.model} · {vehicle.plate}</Text>
-              <Text style={styles.vehicleArrow}>›</Text>
-            </TouchableOpacity>
-          )}
-
-          {!vehicle && (
-            <TouchableOpacity style={styles.vehicleCard} onPress={() => router.push('/vehicle')}>
-              <Text style={styles.vehicleText}>🚗 Fahrzeug hinzufügen</Text>
-              <Text style={styles.vehicleArrow}>›</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity style={styles.vehicleCard} onPress={() => router.push('/vehicle')}>
+            <Text style={styles.vehicleText}>{vehicle ? `🚗 ${vehicle.make} ${vehicle.model} · ${vehicle.plate}` : '🚗 Fahrzeug hinzufügen'}</Text>
+            <Text style={styles.vehicleArrow}>›</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -229,12 +170,13 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   title: { fontSize: 24, fontWeight: 'bold' },
   logout: { color: '#999', fontSize: 14 },
+  profileLink: { fontSize: 22 },
   statusBanner: { borderRadius: 16, padding: 20, marginBottom: 16, alignItems: 'center' },
   statusGreen: { backgroundColor: '#2D6A4F' },
   statusRed: { backgroundColor: '#C53030' },
   statusText: { color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 4 },
-  countdown: { color: '#fff', fontSize: 28, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  countdown: { color: '#fff', fontSize: 28, fontWeight: '800' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16 },
   cardTitle: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
   routeName: { fontSize: 14, color: '#666', marginBottom: 16 },
   statsRow: { flexDirection: 'row', gap: 16, marginBottom: 16 },
@@ -247,17 +189,17 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 13, fontWeight: '600', color: '#333' },
   qrCard: { backgroundColor: '#EBF5FB', borderRadius: 12, padding: 16, marginBottom: 16 },
   qrText: { fontSize: 14, fontWeight: '700', color: '#1A5276', marginBottom: 4 },
-  qrSub: { fontSize: 11, color: '#2980B9', fontFamily: 'monospace' },
+  qrSub: { fontSize: 11, color: '#2980B9' },
   checkoutBtn: { backgroundColor: '#2D6A4F', padding: 18, borderRadius: 16, alignItems: 'center' },
   checkoutBtnRed: { backgroundColor: '#C53030' },
   checkoutText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  noTourCard: { backgroundColor: '#fff', borderRadius: 16, padding: 32, alignItems: 'center', marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  noTourCard: { backgroundColor: '#fff', borderRadius: 16, padding: 32, alignItems: 'center', marginBottom: 16 },
   noTourEmoji: { fontSize: 48, marginBottom: 12 },
   noTourTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
   noTourSub: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
   startBtn: { backgroundColor: '#2D6A4F', padding: 16, borderRadius: 12, alignItems: 'center', width: '100%' },
   startBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  vehicleCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  vehicleCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   vehicleText: { fontSize: 14, fontWeight: '600', color: '#333' },
   vehicleArrow: { fontSize: 20, color: '#999' },
 });

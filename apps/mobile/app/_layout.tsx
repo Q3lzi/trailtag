@@ -9,6 +9,7 @@ export default function RootLayout() {
       <Stack.Screen name="dashboard" options={{ title: 'Dashboard' }} />
       <Stack.Screen name="create-tour" options={{ title: 'Tour starten' }} />
       <Stack.Screen name="vehicle" options={{ title: 'Fahrzeug' }} />
+      <Stack.Screen name="profile" options={{ title: 'Profil' }} />
     </Stack>
   );
 }
