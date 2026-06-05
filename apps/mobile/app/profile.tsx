@@ -1,12 +1,8 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
 import { apiFetch } from '../lib/api';
-
-async function getToken(): Promise<string | null> {
-  if (Platform.OS === 'web') return localStorage.getItem('token');
-  return await SecureStore.getItemAsync('token');
-}
+import { getToken } from '../lib/storage';
+import { showAlert, showConfirm } from '../lib/alert';
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', '0+', '0-'];
 
@@ -42,43 +38,44 @@ export default function ProfileScreen() {
   }
 
   async function handleSave() {
-    setSaving(true);
-    try {
-      const token = await getToken();
-      await apiFetch('/profile', {
-        method: 'PUT',
-        body: JSON.stringify({ name, phone, birthYear: birthYear ? parseInt(birthYear) : null, bloodType, allergies, medications, medicalNotes }),
-      }, token ?? undefined);
-      if (Platform.OS === 'web') window.alert('✅ Profil gespeichert!');
-    } catch (err: any) {
-      if (Platform.OS === 'web') window.alert('Fehler: ' + err.message);
-    } finally { setSaving(false); }
-  }
+  setSaving(true);
+  try {
+    const token = await getToken();
+    await apiFetch('/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ name, phone, birthYear: birthYear ? parseInt(birthYear) : null, bloodType, allergies, medications, medicalNotes }),
+    }, token ?? undefined);
+    showAlert('✅ Profil gespeichert!');
+  } catch (err: any) {
+    showAlert('Fehler', err.message);
+  } finally { setSaving(false); }
+}
 
-  async function handleAddContact() {
-    if (!newName || !newPhone) { window.alert('Name und Telefon sind Pflichtfelder'); return; }
-    setAddingContact(true);
-    try {
-      const token = await getToken();
-      const contact = await apiFetch('/profile/emergency-contacts', {
-        method: 'POST',
-        body: JSON.stringify({ name: newName, phone: newPhone, relation: newRelation || null, isPrimary: profile.emergencyContacts.length === 0 }),
-      }, token ?? undefined);
-      setProfile((p: any) => ({ ...p, emergencyContacts: [...p.emergencyContacts, contact] }));
-      setNewName(''); setNewPhone(''); setNewRelation('');
-    } catch (err: any) {
-      window.alert('Fehler: ' + err.message);
-    } finally { setAddingContact(false); }
-  }
+async function handleAddContact() {
+  if (!newName || !newPhone) { showAlert('Fehler', 'Name und Telefon sind Pflichtfelder'); return; }
+  setAddingContact(true);
+  try {
+    const token = await getToken();
+    const contact = await apiFetch('/profile/emergency-contacts', {
+      method: 'POST',
+      body: JSON.stringify({ name: newName, phone: newPhone, relation: newRelation || null, isPrimary: profile.emergencyContacts.length === 0 }),
+    }, token ?? undefined);
+    setProfile((p: any) => ({ ...p, emergencyContacts: [...p.emergencyContacts, contact] }));
+    setNewName(''); setNewPhone(''); setNewRelation('');
+  } catch (err: any) {
+    showAlert('Fehler', err.message);
+  } finally { setAddingContact(false); }
+}
 
-  async function handleDeleteContact(id: string) {
-    if (!window.confirm('Kontakt löschen?')) return;
-    try {
-      const token = await getToken();
-      await apiFetch(`/profile/emergency-contacts/${id}`, { method: 'DELETE' }, token ?? undefined);
-      setProfile((p: any) => ({ ...p, emergencyContacts: p.emergencyContacts.filter((c: any) => c.id !== id) }));
-    } catch (err: any) { window.alert('Fehler: ' + err.message); }
-  }
+async function handleDeleteContact(id: string) {
+  const confirmed = await showConfirm('Kontakt löschen?');
+  if (!confirmed) return;
+  try {
+    const token = await getToken();
+    await apiFetch(`/profile/emergency-contacts/${id}`, { method: 'DELETE' }, token ?? undefined);
+    setProfile((p: any) => ({ ...p, emergencyContacts: p.emergencyContacts.filter((c: any) => c.id !== id) }));
+  } catch (err: any) { showAlert('Fehler', err.message); }
+}
 
   if (loading) return <View style={styles.loading}><Text style={styles.loadingEmoji}>👤</Text></View>;
 

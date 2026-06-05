@@ -1,8 +1,8 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { apiFetch } from '../lib/api';
+import { setToken } from '../lib/storage';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -18,8 +18,7 @@ export default function LoginScreen() {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      if (Platform.OS === 'web') localStorage.setItem('token', data.token);
-      else await SecureStore.setItemAsync('token', data.token);
+      await setToken(data.token);
       router.replace('/dashboard');
     } catch (err: any) {
       setError(err.message ?? 'Login fehlgeschlagen');
@@ -30,7 +29,6 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Section */}
       <View style={styles.top}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Text style={styles.backText}>← Zurück</Text>
@@ -39,7 +37,6 @@ export default function LoginScreen() {
         <Text style={styles.sub}>Schön dich wieder zu sehen 👋</Text>
       </View>
 
-      {/* Form */}
       <View style={styles.form}>
         {error ? (
           <View style={styles.errorBox}>
@@ -49,49 +46,31 @@ export default function LoginScreen() {
 
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>E-Mail</Text>
-          {Platform.OS === 'web' ? (
-            <input
-              type="email"
-              placeholder="deine@email.ch"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              style={{
-                width: '100%', padding: '14px 16px', fontSize: 16,
-                borderRadius: 12, border: '1.5px solid #e0e0e0',
-                outline: 'none', backgroundColor: '#fafafa',
-                fontFamily: 'inherit', color: '#222', boxSizing: 'border-box'
-              } as any}
-            />
-          ) : (
-            <TextInput style={styles.input} placeholder="deine@email.ch" placeholderTextColor="#bbb" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-          )}
+          <TextInput
+            style={styles.input}
+            placeholder="deine@email.ch"
+            placeholderTextColor="#bbb"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoCorrect={false}
+          />
         </View>
 
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>Passwort</Text>
-          {Platform.OS === 'web' ? (
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              style={{
-                width: '100%', padding: '14px 16px', fontSize: 16,
-                borderRadius: 12, border: '1.5px solid #e0e0e0',
-                outline: 'none', backgroundColor: '#fafafa',
-                fontFamily: 'inherit', color: '#222', boxSizing: 'border-box'
-              } as any}
-            />
-          ) : (
-            <TextInput style={styles.input} placeholder="••••••••" placeholderTextColor="#bbb" value={password} onChangeText={setPassword} secureTextEntry />
-          )}
+          <TextInput
+            style={styles.input}
+            placeholder="••••••••"
+            placeholderTextColor="#bbb"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
         </View>
 
-        <TouchableOpacity
-          style={[styles.btn, loading && styles.btnDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
-        >
+        <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleLogin} disabled={loading}>
           <Text style={styles.btnText}>{loading ? 'Anmelden...' : 'Einloggen'}</Text>
         </TouchableOpacity>
 
@@ -107,7 +86,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  top: { paddingTop: 60, paddingHorizontal: 28, paddingBottom: 32, backgroundColor: '#fff' },
+  top: { paddingTop: 60, paddingHorizontal: 28, paddingBottom: 32 },
   backBtn: { marginBottom: 24 },
   backText: { color: '#2D6A4F', fontSize: 15, fontWeight: '600' },
   title: { fontSize: 34, fontWeight: '800', color: '#111', marginBottom: 8, letterSpacing: -0.5 },

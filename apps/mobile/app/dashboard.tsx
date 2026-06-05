@@ -1,14 +1,9 @@
 import { View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { apiFetch } from '../lib/api';
 import { showAlert, showConfirm } from '../lib/alert';
-
-async function getToken(): Promise<string | null> {
-  if (Platform.OS === 'web') return localStorage.getItem('token');
-  return await SecureStore.getItemAsync('token');
-}
+import { getToken, removeToken } from '../lib/storage';
 
 function useCountdown(eta: string | null) {
   const [timeLeft, setTimeLeft] = useState('');
@@ -76,11 +71,7 @@ async function handleCheckout() {
 }
 
 async function handleLogout() {
-  if (Platform.OS === 'web') {
-    localStorage.removeItem('token');
-  } else {
-    await SecureStore.deleteItemAsync('token');
-  }
+  await removeToken();
   router.replace('/');
 }
 

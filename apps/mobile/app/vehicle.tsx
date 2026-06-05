@@ -1,12 +1,8 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
 import { apiFetch } from '../lib/api';
-
-async function getToken(): Promise<string | null> {
-  if (Platform.OS === 'web') return localStorage.getItem('token');
-  return await SecureStore.getItemAsync('token');
-}
+import { getToken } from '../lib/storage';
+import { showAlert } from '../lib/alert';
 
 export default function VehicleScreen() {
   const [vehicle, setVehicle] = useState<any>(null);
@@ -28,20 +24,20 @@ export default function VehicleScreen() {
     finally { setLoading(false); }
   }
 
-  async function handleSave() {
-    if (!plate || !make || !model) { window.alert('Kennzeichen, Marke und Modell sind Pflichtfelder.'); return; }
-    setSaving(true);
-    try {
-      const token = await getToken();
-      const data = await apiFetch('/vehicles', {
-        method: 'POST',
-        body: JSON.stringify({ plate, make, model, color }),
-      }, token ?? undefined);
-      setVehicle(data);
-    } catch (err: any) {
-      window.alert('Fehler: ' + err.message);
-    } finally { setSaving(false); }
-  }
+async function handleSave() {
+  if (!plate || !make || !model) { showAlert('Fehler', 'Kennzeichen, Marke und Modell sind Pflichtfelder.'); return; }
+  setSaving(true);
+  try {
+    const token = await getToken();
+    const data = await apiFetch('/vehicles', {
+      method: 'POST',
+      body: JSON.stringify({ plate, make, model, color }),
+    }, token ?? undefined);
+    setVehicle(data);
+  } catch (err: any) {
+    showAlert('Fehler', err.message);
+  } finally { setSaving(false); }
+}
 
   const qrUrl = vehicle ? `https://trailtag-production.up.railway.app/r/${vehicle.qrToken}` : null;
 
@@ -85,13 +81,13 @@ export default function VehicleScreen() {
                 Drucke diesen Link als QR-Code aus und klebe ihn ans Auto. Wenn jemand den Code scannt, sieht er sofort deinen Alarm-Status und alle relevanten Informationen für Rettungskräfte.
               </Text>
               {Platform.OS === 'web' && (
-                <TouchableOpacity
-                  style={styles.copyBtn}
-                  onPress={() => { navigator.clipboard.writeText(qrUrl!); window.alert('Link kopiert!'); }}
-                >
-                  <Text style={styles.copyBtnText}>📋 Link kopieren</Text>
-                </TouchableOpacity>
-              )}
+  <TouchableOpacity
+    style={styles.copyBtn}
+    onPress={() => { navigator.clipboard.writeText(qrUrl!); showAlert('✅ Link kopiert!'); }}
+  >
+    <Text style={styles.copyBtnText}>📋 Link kopieren</Text>
+  </TouchableOpacity>
+)}
             </View>
           </View>
 

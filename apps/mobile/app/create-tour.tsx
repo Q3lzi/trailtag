@@ -1,16 +1,10 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import * as Location from 'expo-location';
 import { apiFetch } from '../lib/api';
-import GpxMap from '../components/GpxMap';
-import ElevationChart from '../components/ElevationChart';
-
-async function getToken(): Promise<string | null> {
-  if (Platform.OS === 'web') return localStorage.getItem('token');
-  return await SecureStore.getItemAsync('token');
-}
+import { getToken } from '../lib/storage';
+import { showAlert } from '../lib/alert';
 
 const ACTIVITIES = [
   { key: 'WANDERN', label: '🥾', name: 'Wandern' },
@@ -58,7 +52,7 @@ export default function CreateTourScreen() {
     loadVehicle();
   }, []);
 
-  async function getLocation() {
+  async function handleGetLocation() {
     if (Platform.OS === 'web') {
       setLocationStatus('loading');
       navigator.geolocation.getCurrentPosition(
@@ -76,6 +70,7 @@ export default function CreateTourScreen() {
   }
 
   async function handleGpxUpload(event: any) {
+    if (Platform.OS !== 'web') return;
     const file = event.target.files[0];
     if (!file) return;
     setGpxLoading(true);
@@ -88,13 +83,13 @@ export default function CreateTourScreen() {
       if (data.elevationUp) setElevationUp(String(data.elevationUp));
       if (data.startLat) { setLocation({ lat: data.startLat, lng: data.startLng }); setLocationStatus('ok'); }
     } catch (err: any) {
-      window.alert('GPX-Datei konnte nicht gelesen werden.');
+      showAlert('Fehler', 'GPX-Datei konnte nicht gelesen werden.');
     } finally { setGpxLoading(false); }
   }
 
   async function handleStart() {
-    if (!activity) { window.alert('Bitte Aktivität wählen.'); return; }
-    if (!etaHours) { window.alert('Bitte geplante Dauer wählen.'); return; }
+    if (!activity) { showAlert('Fehler', 'Bitte Aktivität wählen.'); return; }
+    if (!etaHours) { showAlert('Fehler', 'Bitte geplante Dauer wählen.'); return; }
     setLoading(true);
     try {
       const token = await getToken();
@@ -110,32 +105,25 @@ export default function CreateTourScreen() {
           vehicleId: vehicleId ?? null,
         }),
       }, token ?? undefined);
-
       await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
       router.replace('/dashboard');
     } catch (err: any) {
-      window.alert('Fehler: ' + err.message);
+      showAlert('Fehler', err.message);
     } finally { setLoading(false); }
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Tour starten</Text>
         <Text style={styles.subtitle}>Aktiviere deinen Safety-Timer</Text>
       </View>
 
-      {/* Aktivität */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>AKTIVITÄT</Text>
         <View style={styles.activityGrid}>
           {ACTIVITIES.map(a => (
-            <TouchableOpacity
-              key={a.key}
-              style={[styles.activityCard, activity === a.key && styles.activityCardActive]}
-              onPress={() => setActivity(a.key)}
-            >
+            <TouchableOpacity key={a.key} style={[styles.activityCard, activity === a.key && styles.activityCardActive]} onPress={() => setActivity(a.key)}>
               <Text style={styles.activityEmoji}>{a.label}</Text>
               <Text style={[styles.activityName, activity === a.key && styles.activityNameActive]}>{a.name}</Text>
             </TouchableOpacity>
@@ -143,35 +131,22 @@ export default function CreateTourScreen() {
         </View>
       </View>
 
-      {/* Dauer */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>GEPLANTE DAUER</Text>
         <View style={styles.chipRow}>
           {QUICK_HOURS.map(h => (
-            <TouchableOpacity
-              key={h}
-              style={[styles.chip, etaHours === h && styles.chipActive]}
-              onPress={() => setEtaHours(h)}
-            >
+            <TouchableOpacity key={h} style={[styles.chip, etaHours === h && styles.chipActive]} onPress={() => setEtaHours(h)}>
               <Text style={[styles.chipText, etaHours === h && styles.chipTextActive]}>{h}h</Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
-      {/* Grundinfos */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>GRUNDINFORMATIONEN</Text>
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>Routenname</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="z.B. Säntis via Schwägalp"
-            placeholderTextColor="#bbb"
-            value={routeName}
-            onChangeText={setRouteName}
-          />
-
+          <TextInput style={styles.input} placeholder="z.B. Säntis via Schwägalp" placeholderTextColor="#bbb" value={routeName} onChangeText={setRouteName} />
           <Text style={styles.fieldLabel}>Personen</Text>
           <View style={styles.counterRow}>
             <TouchableOpacity style={styles.counterBtn} onPress={() => setPersons(p => String(Math.max(1, parseInt(p) - 1)))}>
@@ -185,57 +160,32 @@ export default function CreateTourScreen() {
         </View>
       </View>
 
-      {/* Schwierigkeit */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>SCHWIERIGKEIT (SAC)</Text>
         <View style={styles.chipRow}>
           {DIFFICULTIES.map(d => (
-            <TouchableOpacity
-              key={d}
-              style={[styles.chip, difficulty === d && styles.chipActive]}
-              onPress={() => setDifficulty(d === difficulty ? '' : d)}
-            >
+            <TouchableOpacity key={d} style={[styles.chip, difficulty === d && styles.chipActive]} onPress={() => setDifficulty(d === difficulty ? '' : d)}>
               <Text style={[styles.chipText, difficulty === d && styles.chipTextActive]}>{d}</Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
-      {/* GPX */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>GPS-ROUTE (OPTIONAL)</Text>
-        {Platform.OS === 'web' ? (
-          <View style={styles.gpxZone}>
-            <Text style={styles.gpxIcon}>🗺️</Text>
-            <Text style={styles.gpxTitle}>{gpxLoading ? '⏳ Analysiere...' : 'GPX Datei wählen'}</Text>
-            <Text style={styles.gpxSub}>Distanz + Höhenmeter automatisch · max. 5 MB</Text>
-            <input
-              type="file" accept=".gpx"
-              style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' } as any}
-              onChange={handleGpxUpload}
-            />
-            {gpxData && (
-              <View style={styles.gpxBadge}>
-                <Text style={styles.gpxBadgeText}>✅ {gpxData.distanceKm} km · ⬆️ {gpxData.elevationUp} hm · {gpxData.points?.length} Punkte</Text>
-              </View>
-            )}
-          </View>
-        ) : null}
-        {gpxData?.points && Platform.OS === 'web' && (
-          <>
-            <GpxMap points={gpxData.points} />
-            <ElevationChart points={gpxData.points} />
-          </>
-        )}
-      </View>
+      {/* GPX — nur Web */}
+{Platform.OS === 'web' && (
+  <View style={styles.section}>
+    <Text style={styles.sectionLabel}>GPS-ROUTE (OPTIONAL)</Text>
+    <View style={styles.gpxZone}>
+      <Text style={styles.gpxIcon}>🗺️</Text>
+      <Text style={styles.gpxTitle}>{gpxLoading ? '⏳ Analysiere...' : 'GPX Datei wählen'}</Text>
+      <Text style={styles.gpxSub}>Nur im Browser verfügbar</Text>
+    </View>
+  </View>
+)}
 
-      {/* GPS */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>STARTPUNKT</Text>
-        <TouchableOpacity
-          style={[styles.gpsBtn, locationStatus === 'ok' && styles.gpsBtnOk]}
-          onPress={getLocation}
-        >
+        <TouchableOpacity style={[styles.gpsBtn, locationStatus === 'ok' && styles.gpsBtnOk]} onPress={handleGetLocation}>
           <Text style={styles.gpsBtnText}>
             {locationStatus === 'idle' && '📍 Standort ermitteln'}
             {locationStatus === 'loading' && '⏳ Ermittle...'}
@@ -245,25 +195,20 @@ export default function CreateTourScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Details */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>DETAILS (OPTIONAL)</Text>
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>Distanz (km)</Text>
           <TextInput style={styles.input} placeholder="z.B. 12" placeholderTextColor="#bbb" value={distanceKm} onChangeText={setDistanceKm} keyboardType="numeric" />
-
           <Text style={styles.fieldLabel}>Höhenmeter</Text>
           <TextInput style={styles.input} placeholder="z.B. 800" placeholderTextColor="#bbb" value={elevationUp} onChangeText={setElevationUp} keyboardType="numeric" />
-
           <Text style={styles.fieldLabel}>Parkplatz / Startort</Text>
           <TextInput style={styles.input} placeholder="z.B. Wanderparkplatz Schwägalp" placeholderTextColor="#bbb" value={parkingLocation} onChangeText={setParkingLocation} />
-
           <Text style={styles.fieldLabel}>Notizen für Rettungskräfte</Text>
           <TextInput style={[styles.input, styles.textArea]} placeholder="z.B. Roter Rucksack, Hund dabei" placeholderTextColor="#bbb" value={notes} onChangeText={setNotes} multiline numberOfLines={3} />
         </View>
       </View>
 
-      {/* Start Button */}
       <TouchableOpacity style={[styles.startBtn, loading && styles.startBtnDisabled]} onPress={handleStart} disabled={loading}>
         <Text style={styles.startBtnText}>{loading ? 'Startet...' : 'Safety-Timer aktivieren'}</Text>
       </TouchableOpacity>
@@ -290,7 +235,7 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: '#1a2e1a', borderColor: '#1a2e1a' },
   chipText: { fontSize: 14, color: '#555', fontWeight: '600' },
   chipTextActive: { color: '#fff' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 20, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 20 },
   fieldLabel: { fontSize: 12, fontWeight: '700', color: '#aaa', letterSpacing: 0.5, marginBottom: 8, marginTop: 4 },
   input: { backgroundColor: '#f8f8f8', borderRadius: 10, padding: 14, fontSize: 15, color: '#222', marginBottom: 16, borderWidth: 1, borderColor: '#f0f0f0' },
   textArea: { height: 80, textAlignVertical: 'top' },

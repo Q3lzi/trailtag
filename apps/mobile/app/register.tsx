@@ -1,8 +1,7 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { apiFetch } from '../lib/api';
-
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -15,7 +14,6 @@ export default function RegisterScreen() {
     setError('');
     if (!name || !email || !password) { setError('Alle Felder sind Pflichtfelder.'); return; }
     if (password.length < 8) { setError('Passwort muss mindestens 8 Zeichen haben.'); return; }
-
     setLoading(true);
     try {
       await apiFetch('/auth/register', {
@@ -29,13 +27,6 @@ export default function RegisterScreen() {
       setLoading(false);
     }
   }
-
-  const inputStyle = {
-    width: '100%', padding: '14px 16px', fontSize: 16,
-    borderRadius: 12, border: '1.5px solid #e0e0e0',
-    outline: 'none', backgroundColor: '#fafafa',
-    fontFamily: 'inherit', color: '#222', boxSizing: 'border-box'
-  } as any;
 
   return (
     <View style={styles.container}>
@@ -56,29 +47,17 @@ export default function RegisterScreen() {
 
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>Name</Text>
-          {Platform.OS === 'web' ? (
-            <input type="text" placeholder="Max Muster" value={name} onChange={e => setName((e.target as any).value)} style={inputStyle} />
-          ) : (
-            <TextInput style={styles.input} placeholder="Max Muster" placeholderTextColor="#bbb" value={name} onChangeText={setName} />
-          )}
+          <TextInput style={styles.input} placeholder="Max Muster" placeholderTextColor="#bbb" value={name} onChangeText={setName} />
         </View>
 
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>E-Mail</Text>
-          {Platform.OS === 'web' ? (
-            <input type="email" placeholder="deine@email.ch" value={email} onChange={e => setEmail((e.target as any).value)} style={inputStyle} />
-          ) : (
-            <TextInput style={styles.input} placeholder="deine@email.ch" placeholderTextColor="#bbb" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-          )}
+          <TextInput style={styles.input} placeholder="deine@email.ch" placeholderTextColor="#bbb" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoCorrect={false} />
         </View>
 
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>Passwort</Text>
-          {Platform.OS === 'web' ? (
-            <input type="password" placeholder="Min. 8 Zeichen" value={password} onChange={e => setPassword((e.target as any).value)} style={inputStyle} />
-          ) : (
-            <TextInput style={styles.input} placeholder="Min. 8 Zeichen" placeholderTextColor="#bbb" value={password} onChangeText={setPassword} secureTextEntry />
-          )}
+          <TextInput style={styles.input} placeholder="Min. 8 Zeichen" placeholderTextColor="#bbb" value={password} onChangeText={setPassword} secureTextEntry />
         </View>
 
         <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleRegister} disabled={loading}>
