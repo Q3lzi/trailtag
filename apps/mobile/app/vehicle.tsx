@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/storage';
