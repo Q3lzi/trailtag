@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
-import BottomNav from '../components/BottomNav';
 import { useSegments } from 'expo-router';
+import BottomNav from '../components/BottomNav';
 
 function Layout() {
   const segments = useSegments();
