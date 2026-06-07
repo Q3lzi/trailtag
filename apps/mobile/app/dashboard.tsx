@@ -1,9 +1,10 @@
-import { View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView, Linking } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { apiFetch } from '../lib/api';
 import { showAlert, showConfirm } from '../lib/alert';
 import { getToken, removeToken } from '../lib/storage';
+
 
 function useCountdown(eta: string | null) {
   const [timeLeft, setTimeLeft] = useState('');
@@ -161,16 +162,23 @@ async function handleLogout() {
             )}
           </View>
 
-          {/* QR Portal */}
-          {qrUrl && (
-            <View style={styles.portalCard}>
-              <View style={styles.portalLeft}>
-                <Text style={styles.portalTitle}>🔗 Erstretter-Portal aktiv</Text>
-                <Text style={styles.portalSub}>QR-Code am Auto befestigen</Text>
-              </View>
-              <View style={styles.portalDot} />
-            </View>
-          )}
+{/* QR Portal */}
+{qrUrl && (
+  <TouchableOpacity style={styles.portalCard} onPress={() => {
+    if (typeof window !== 'undefined') {
+      window.open(qrUrl, '_blank');
+    } else {
+      const { Linking } = require('react-native');
+      Linking.openURL(qrUrl);
+    }
+  }}>
+    <View style={styles.portalLeft}>
+      <Text style={styles.portalTitle}>🔗 Erstretter-Portal öffnen</Text>
+      <Text style={styles.portalSub}>Tippe um das Portal zu öffnen</Text>
+    </View>
+    <Text style={styles.portalArrow}>→</Text>
+  </TouchableOpacity>
+)}
 
           {/* Checkout */}
           <TouchableOpacity
@@ -264,4 +272,5 @@ const styles = StyleSheet.create({
   quickIcon: { fontSize: 28, marginBottom: 8 },
   quickTitle: { fontSize: 14, fontWeight: '700', color: '#111', marginBottom: 2 },
   quickSub: { fontSize: 12, color: '#aaa' },
+  portalArrow: { fontSize: 18, color: '#2D6A4F', fontWeight: '700' },
 });
