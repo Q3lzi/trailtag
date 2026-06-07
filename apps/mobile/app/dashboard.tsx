@@ -165,12 +165,9 @@ async function handleCheckout() {
           {/* QR Portal */}
           {qrUrl && (
             <TouchableOpacity style={styles.portalCard} onPress={() => {
-              if (typeof window !== 'undefined') {
-                window.open(qrUrl, '_blank');
-              } else {
                 Linking.openURL(qrUrl);
               }
-            }}>
+            }>
               <View style={styles.portalLeft}>
                 <Text style={styles.portalTitle}>🔗 Erstretter-Portal öffnen</Text>
                 <Text style={styles.portalSub}>Tippe um das Portal zu öffnen</Text>
