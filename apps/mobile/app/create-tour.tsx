@@ -6,6 +6,8 @@ import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/storage';
 import { showAlert } from '../lib/alert';
 import { scheduleOverdueNotification } from '../lib/notifications';
+import GpxMap from '../components/GpxMap';
+import ElevationChart from '../components/ElevationChart';
 
 const ACTIVITIES = [
   { key: 'WANDERN', label: '🥾', name: 'Wandern' },
@@ -200,22 +202,28 @@ export default function CreateTourScreen() {
         </View>
       )}
 
-      {Platform.OS === 'web' && (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>GPS-ROUTE (OPTIONAL)</Text>
-          <View style={styles.gpxZone}>
-            <Text style={styles.gpxIcon}>🗺️</Text>
-            <Text style={styles.gpxTitle}>{gpxLoading ? '⏳ Analysiere...' : 'GPX Datei wählen'}</Text>
-            <Text style={styles.gpxSub}>Distanz + Höhenmeter automatisch · max. 5 MB</Text>
-            <input type="file" accept=".gpx" style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' } as any} onChange={handleGpxUpload} />
-            {gpxData && (
-              <View style={styles.gpxBadge}>
-                <Text style={styles.gpxBadgeText}>✅ {gpxData.distanceKm} km · ⬆️ {gpxData.elevationUp} hm · {gpxData.points?.length} Punkte</Text>
-              </View>
-            )}
-          </View>
+typescript{Platform.OS === 'web' && (
+  <View style={styles.section}>
+    <Text style={styles.sectionLabel}>GPS-ROUTE (OPTIONAL)</Text>
+    <View style={styles.gpxZone}>
+      <Text style={styles.gpxIcon}>🗺️</Text>
+      <Text style={styles.gpxTitle}>{gpxLoading ? '⏳ Analysiere...' : 'GPX Datei wählen'}</Text>
+      <Text style={styles.gpxSub}>Distanz + Höhenmeter automatisch · max. 5 MB</Text>
+      <input type="file" accept=".gpx" style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' } as any} onChange={handleGpxUpload} />
+      {gpxData && (
+        <View style={styles.gpxBadge}>
+          <Text style={styles.gpxBadgeText}>✅ {gpxData.distanceKm} km · ⬆️ {gpxData.elevationUp} hm · {gpxData.points?.length} Punkte</Text>
         </View>
       )}
+    </View>
+    {gpxData?.points?.length > 0 && (
+      <>
+        <GpxMap points={gpxData.points} />
+        <ElevationChart points={gpxData.points} />
+      </>
+    )}
+  </View>
+)}
 
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>STARTPUNKT</Text>
