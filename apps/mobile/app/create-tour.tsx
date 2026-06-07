@@ -8,6 +8,7 @@ import { showAlert } from '../lib/alert';
 import { scheduleOverdueNotification } from '../lib/notifications';
 import GpxMap from '../components/GpxMap';
 import ElevationChart from '../components/ElevationChart';
+import { startLocationTracking } from '../lib/tracking';
 
 const ACTIVITIES = [
   { key: 'WANDERN', label: '🥾', name: 'Wandern' },
@@ -114,12 +115,14 @@ export default function CreateTourScreen() {
           vehicleId: vehicleId ?? null,
         }),
       }, token ?? undefined);
-      await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
-      await scheduleOverdueNotification(etaDate);
-      router.replace('/dashboard');
+await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
+await startLocationTracking(tour.id);
+await scheduleOverdueNotification(etaDate);
+router.replace('/dashboard');
     } catch (err: any) {
       showAlert('Fehler', err.message);
     } finally { setLoading(false); }
+  
   }
 
   return (
@@ -202,7 +205,8 @@ export default function CreateTourScreen() {
         </View>
       )}
 
-typescript{Platform.OS === 'web' && (
+
+{Platform.OS === 'web' && (
   <View style={styles.section}>
     <Text style={styles.sectionLabel}>GPS-ROUTE (OPTIONAL)</Text>
     <View style={styles.gpxZone}>
@@ -216,10 +220,12 @@ typescript{Platform.OS === 'web' && (
         </View>
       )}
     </View>
-{gpxData?.points?.length > 0 && Platform.OS === 'web' && (
-  <View style={{ marginTop: 8 }}>
-    <GpxMap points={gpxData.points} />
-    <ElevationChart points={gpxData.points} />
+    {gpxData?.points?.length > 0 && (
+      <View style={{ marginTop: 8 }}>
+        <GpxMap points={gpxData.points} />
+        <ElevationChart points={gpxData.points} />
+      </View>
+    )}
   </View>
 )}
 

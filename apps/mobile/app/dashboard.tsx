@@ -5,6 +5,7 @@ import { apiFetch } from '../lib/api';
 import { showAlert, showConfirm } from '../lib/alert';
 import { getToken, removeToken } from '../lib/storage';
 import { cancelAllNotifications } from '../lib/notifications';
+import { stopLocationTracking } from '../lib/tracking';
 
 function useCountdown(eta: string | null) {
   const [timeLeft, setTimeLeft] = useState('');
@@ -59,18 +60,19 @@ export default function DashboardScreen() {
     }
   }
 
-  async function handleCheckout() {
-    const confirmed = await showConfirm('Bist du sicher zurück?');
-    if (!confirmed) return;
-    try {
-      const token = await getToken();
-      await apiFetch(`/tours/${activeTour.id}/checkout`, { method: 'POST' }, token ?? undefined);
-      await cancelAllNotifications();
-      setActiveTour(null);
-    } catch (err: any) {
-      showAlert('Fehler', err.message);
-    }
+async function handleCheckout() {
+  const confirmed = await showConfirm('Bist du sicher zurück?');
+  if (!confirmed) return;
+  try {
+    const token = await getToken();
+    await apiFetch(`/tours/${activeTour.id}/checkout`, { method: 'POST' }, token ?? undefined);
+    await stopLocationTracking();
+    await cancelAllNotifications();
+    setActiveTour(null);
+  } catch (err: any) {
+    showAlert('Fehler', err.message);
   }
+}
 
   async function handleLogout() {
     await removeToken();
