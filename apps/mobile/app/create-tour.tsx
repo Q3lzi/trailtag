@@ -5,6 +5,7 @@ import * as Location from 'expo-location';
 import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/storage';
 import { showAlert } from '../lib/alert';
+import { scheduleOverdueNotification } from '../lib/notifications';
 
 const ACTIVITIES = [
   { key: 'WANDERN', label: '🥾', name: 'Wandern' },
@@ -112,6 +113,14 @@ export default function CreateTourScreen() {
     } catch (err: any) {
       showAlert('Fehler', err.message);
     } finally { setLoading(false); }
+
+    await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
+
+// Notification schedulen
+const etaDate = new Date(Date.now() + parseFloat(etaHours) * 60 * 60 * 1000);
+await scheduleOverdueNotification(etaDate);
+
+router.replace('/dashboard');
   }
 
   return (

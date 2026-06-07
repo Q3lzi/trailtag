@@ -4,6 +4,20 @@ import { router } from 'expo-router';
 import { apiFetch } from '../lib/api';
 import { showAlert, showConfirm } from '../lib/alert';
 import { getToken, removeToken } from '../lib/storage';
+import { cancelAllNotifications } from '../lib/notifications';
+
+async function handleCheckout() {
+  const confirmed = await showConfirm('Bist du sicher zurück?');
+  if (!confirmed) return;
+  try {
+    const token = await getToken();
+    await apiFetch(`/tours/${activeTour.id}/checkout`, { method: 'POST' }, token ?? undefined);
+    await cancelAllNotifications();
+    setActiveTour(null);
+  } catch (err: any) {
+    showAlert('Fehler', err.message);
+  }
+}
 
 
 function useCountdown(eta: string | null) {
