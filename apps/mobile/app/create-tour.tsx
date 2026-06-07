@@ -23,7 +23,6 @@ const ACTIVITIES = [
 ];
 
 const DIFFICULTIES = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
-const QUICK_HOURS = ['2', '4', '6', '8', '10', '12'];
 
 export default function CreateTourScreen() {
   const [activity, setActivity] = useState('');
@@ -32,7 +31,7 @@ export default function CreateTourScreen() {
   const [persons, setPersons] = useState('1');
   const [distanceKm, setDistanceKm] = useState('');
   const [elevationUp, setElevationUp] = useState('');
-  const [etaHours, setEtaHours] = useState('');
+  const [etaTime, setEtaTime] = useState('');
   const [parkingLocation, setParkingLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -90,38 +89,35 @@ export default function CreateTourScreen() {
     } finally { setGpxLoading(false); }
   }
 
-async function handleStart() {
-  if (!activity) { showAlert('Fehler', 'Bitte Aktivität wählen.'); return; }
-  if (!etaHours) { showAlert('Fehler', 'Bitte geplante Dauer wählen.'); return; }
-  setLoading(true);
-  try {
-    const token = await getToken();
-    const etaDate = new Date(Date.now() + parseFloat(etaHours) * 60 * 60 * 1000);
-    const eta = etaDate.toISOString();
-    const tour = await apiFetch('/tours', {
-      method: 'POST',
-      body: JSON.stringify({
-        activity, routeName: routeName || null, difficulty: difficulty || null,
-        persons: parseInt(persons), distanceKm: distanceKm ? parseFloat(distanceKm) : null,
-        elevationUp: elevationUp ? parseInt(elevationUp) : null,
-        parkingLocation: parkingLocation || null, notes: notes || null,
-        startLat: location?.lat ?? null, startLng: location?.lng ?? null,
-        vehicleId: vehicleId ?? null,
-      }),
-    }, token ?? undefined);
-    await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
-    await scheduleOverdueNotification(etaDate);
-    router.replace('/dashboard');
-  } catch (err: any) {
-    showAlert('Fehler', err.message);
-  } finally { setLoading(false); }
-}
-
-// Notification schedulen
-const etaDate = new Date(Date.now() + parseFloat(etaHours) * 60 * 60 * 1000);
-await scheduleOverdueNotification(etaDate);
-
-router.replace('/dashboard');
+  async function handleStart() {
+    if (!activity) { showAlert('Fehler', 'Bitte Aktivität wählen.'); return; }
+    if (!etaTime) { showAlert('Fehler', 'Bitte Rückkehrzeit eingeben.'); return; }
+    if (!etaTime.includes(':')) { showAlert('Fehler', 'Format: HH:MM (z.B. 17:30)'); return; }
+    setLoading(true);
+    try {
+      const token = await getToken();
+      const [hoursStr, minsStr] = etaTime.split(':');
+      const etaDate = new Date();
+      etaDate.setHours(parseInt(hoursStr), parseInt(minsStr ?? '0'), 0, 0);
+      if (etaDate.getTime() < Date.now()) etaDate.setDate(etaDate.getDate() + 1);
+      const eta = etaDate.toISOString();
+      const tour = await apiFetch('/tours', {
+        method: 'POST',
+        body: JSON.stringify({
+          activity, routeName: routeName || null, difficulty: difficulty || null,
+          persons: parseInt(persons), distanceKm: distanceKm ? parseFloat(distanceKm) : null,
+          elevationUp: elevationUp ? parseInt(elevationUp) : null,
+          parkingLocation: parkingLocation || null, notes: notes || null,
+          startLat: location?.lat ?? null, startLng: location?.lng ?? null,
+          vehicleId: vehicleId ?? null,
+        }),
+      }, token ?? undefined);
+      await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
+      await scheduleOverdueNotification(etaDate);
+      router.replace('/dashboard');
+    } catch (err: any) {
+      showAlert('Fehler', err.message);
+    } finally { setLoading(false); }
   }
 
   return (
@@ -144,13 +140,18 @@ router.replace('/dashboard');
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>GEPLANTE DAUER</Text>
-        <View style={styles.chipRow}>
-          {QUICK_HOURS.map(h => (
-            <TouchableOpacity key={h} style={[styles.chip, etaHours === h && styles.chipActive]} onPress={() => setEtaHours(h)}>
-              <Text style={[styles.chipText, etaHours === h && styles.chipTextActive]}>{h}h</Text>
-            </TouchableOpacity>
-          ))}
+        <Text style={styles.sectionLabel}>GEPLANTE RÜCKKEHR</Text>
+        <View style={styles.card}>
+          <Text style={styles.fieldLabel}>Uhrzeit der Rückkehr</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="z.B. 17:30"
+            placeholderTextColor="#bbb"
+            value={etaTime}
+            onChangeText={setEtaTime}
+            keyboardType="numbers-and-punctuation"
+          />
+          <Text style={styles.etaHint}>⏱️ Der Safety-Timer läuft bis zu dieser Uhrzeit heute.</Text>
         </View>
       </View>
 
@@ -183,7 +184,6 @@ router.replace('/dashboard');
         </View>
       </View>
 
-      {/* Fahrzeug */}
       {vehicles.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>FAHRZEUG</Text>
@@ -200,7 +200,6 @@ router.replace('/dashboard');
         </View>
       )}
 
-      {/* GPX — nur Web */}
       {Platform.OS === 'web' && (
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>GPS-ROUTE (OPTIONAL)</Text>
@@ -272,9 +271,10 @@ const styles = StyleSheet.create({
   chipTextActive: { color: '#fff' },
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 20 },
   fieldLabel: { fontSize: 12, fontWeight: '700', color: '#aaa', letterSpacing: 0.5, marginBottom: 8, marginTop: 4 },
-  input: { backgroundColor: '#f8f8f8', borderRadius: 10, padding: 14, fontSize: 15, color: '#222', marginBottom: 16, borderWidth: 1, borderColor: '#f0f0f0' },
+  input: { backgroundColor: '#f8f8f8', borderRadius: 10, padding: 14, fontSize: 15, color: '#222', marginBottom: 8, borderWidth: 1, borderColor: '#f0f0f0' },
+  etaHint: { fontSize: 12, color: '#aaa', marginTop: 4 },
   textArea: { height: 80, textAlignVertical: 'top' },
-  counterRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 },
+  counterRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 8 },
   counterBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1a2e1a', alignItems: 'center', justifyContent: 'center' },
   counterBtnText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   counterVal: { fontSize: 20, fontWeight: '800', color: '#111', minWidth: 24, textAlign: 'center' },
