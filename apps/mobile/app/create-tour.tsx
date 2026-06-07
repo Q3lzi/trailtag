@@ -90,31 +90,32 @@ export default function CreateTourScreen() {
     } finally { setGpxLoading(false); }
   }
 
-  async function handleStart() {
-    if (!activity) { showAlert('Fehler', 'Bitte Aktivität wählen.'); return; }
-    if (!etaHours) { showAlert('Fehler', 'Bitte geplante Dauer wählen.'); return; }
-    setLoading(true);
-    try {
-      const token = await getToken();
-      const eta = new Date(Date.now() + parseFloat(etaHours) * 60 * 60 * 1000).toISOString();
-      const tour = await apiFetch('/tours', {
-        method: 'POST',
-        body: JSON.stringify({
-          activity, routeName: routeName || null, difficulty: difficulty || null,
-          persons: parseInt(persons), distanceKm: distanceKm ? parseFloat(distanceKm) : null,
-          elevationUp: elevationUp ? parseInt(elevationUp) : null,
-          parkingLocation: parkingLocation || null, notes: notes || null,
-          startLat: location?.lat ?? null, startLng: location?.lng ?? null,
-          vehicleId: vehicleId ?? null,
-        }),
-      }, token ?? undefined);
-      await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
-      router.replace('/dashboard');
-    } catch (err: any) {
-      showAlert('Fehler', err.message);
-    } finally { setLoading(false); }
-
+async function handleStart() {
+  if (!activity) { showAlert('Fehler', 'Bitte Aktivität wählen.'); return; }
+  if (!etaHours) { showAlert('Fehler', 'Bitte geplante Dauer wählen.'); return; }
+  setLoading(true);
+  try {
+    const token = await getToken();
+    const etaDate = new Date(Date.now() + parseFloat(etaHours) * 60 * 60 * 1000);
+    const eta = etaDate.toISOString();
+    const tour = await apiFetch('/tours', {
+      method: 'POST',
+      body: JSON.stringify({
+        activity, routeName: routeName || null, difficulty: difficulty || null,
+        persons: parseInt(persons), distanceKm: distanceKm ? parseFloat(distanceKm) : null,
+        elevationUp: elevationUp ? parseInt(elevationUp) : null,
+        parkingLocation: parkingLocation || null, notes: notes || null,
+        startLat: location?.lat ?? null, startLng: location?.lng ?? null,
+        vehicleId: vehicleId ?? null,
+      }),
+    }, token ?? undefined);
     await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
+    await scheduleOverdueNotification(etaDate);
+    router.replace('/dashboard');
+  } catch (err: any) {
+    showAlert('Fehler', err.message);
+  } finally { setLoading(false); }
+}
 
 // Notification schedulen
 const etaDate = new Date(Date.now() + parseFloat(etaHours) * 60 * 60 * 1000);

@@ -1,24 +1,10 @@
-import { View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { apiFetch } from '../lib/api';
 import { showAlert, showConfirm } from '../lib/alert';
 import { getToken, removeToken } from '../lib/storage';
 import { cancelAllNotifications } from '../lib/notifications';
-
-async function handleCheckout() {
-  const confirmed = await showConfirm('Bist du sicher zurück?');
-  if (!confirmed) return;
-  try {
-    const token = await getToken();
-    await apiFetch(`/tours/${activeTour.id}/checkout`, { method: 'POST' }, token ?? undefined);
-    await cancelAllNotifications();
-    setActiveTour(null);
-  } catch (err: any) {
-    showAlert('Fehler', err.message);
-  }
-}
-
 
 function useCountdown(eta: string | null) {
   const [timeLeft, setTimeLeft] = useState('');
@@ -73,22 +59,23 @@ export default function DashboardScreen() {
     }
   }
 
-async function handleCheckout() {
-  const confirmed = await showConfirm('Bist du sicher zurück?');
-  if (!confirmed) return;
-  try {
-    const token = await getToken();
-    await apiFetch(`/tours/${activeTour.id}/checkout`, { method: 'POST' }, token ?? undefined);
-    setActiveTour(null);
-  } catch (err: any) {
-    showAlert('Fehler', err.message);
+  async function handleCheckout() {
+    const confirmed = await showConfirm('Bist du sicher zurück?');
+    if (!confirmed) return;
+    try {
+      const token = await getToken();
+      await apiFetch(`/tours/${activeTour.id}/checkout`, { method: 'POST' }, token ?? undefined);
+      await cancelAllNotifications();
+      setActiveTour(null);
+    } catch (err: any) {
+      showAlert('Fehler', err.message);
+    }
   }
-}
 
-async function handleLogout() {
-  await removeToken();
-  router.replace('/');
-}
+  async function handleLogout() {
+    await removeToken();
+    router.replace('/');
+  }
 
   const isOverdue = activeTour?.eta && new Date(activeTour.eta).getTime() < Date.now();
   const qrUrl = vehicle ? `https://trailtag-production.up.railway.app/r/${vehicle.qrToken}` : null;
@@ -134,7 +121,6 @@ async function handleLogout() {
             <Text style={styles.cardLabel}>AKTIVE TOUR</Text>
             <Text style={styles.tourActivity}>{ACTIVITY_LABELS[activeTour.activity] ?? activeTour.activity}</Text>
             {activeTour.routeName && <Text style={styles.tourRoute}>{activeTour.routeName}</Text>}
-
             <View style={styles.statsRow}>
               {activeTour.distanceKm && (
                 <View style={styles.statBox}>
@@ -161,9 +147,7 @@ async function handleLogout() {
                 </View>
               )}
             </View>
-
             <View style={styles.divider} />
-
             <View style={styles.infoRow}>
               <Text style={styles.infoLbl}>Gestartet</Text>
               <Text style={styles.infoVal}>{new Date(activeTour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
@@ -176,23 +160,22 @@ async function handleLogout() {
             )}
           </View>
 
-{/* QR Portal */}
-{qrUrl && (
-  <TouchableOpacity style={styles.portalCard} onPress={() => {
-    if (typeof window !== 'undefined') {
-      window.open(qrUrl, '_blank');
-    } else {
-      const { Linking } = require('react-native');
-      Linking.openURL(qrUrl);
-    }
-  }}>
-    <View style={styles.portalLeft}>
-      <Text style={styles.portalTitle}>🔗 Erstretter-Portal öffnen</Text>
-      <Text style={styles.portalSub}>Tippe um das Portal zu öffnen</Text>
-    </View>
-    <Text style={styles.portalArrow}>→</Text>
-  </TouchableOpacity>
-)}
+          {/* QR Portal */}
+          {qrUrl && (
+            <TouchableOpacity style={styles.portalCard} onPress={() => {
+              if (typeof window !== 'undefined') {
+                window.open(qrUrl, '_blank');
+              } else {
+                Linking.openURL(qrUrl);
+              }
+            }}>
+              <View style={styles.portalLeft}>
+                <Text style={styles.portalTitle}>🔗 Erstretter-Portal öffnen</Text>
+                <Text style={styles.portalSub}>Tippe um das Portal zu öffnen</Text>
+              </View>
+              <Text style={styles.portalArrow}>→</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Checkout */}
           <TouchableOpacity
@@ -204,7 +187,6 @@ async function handleLogout() {
         </>
       ) : (
         <>
-          {/* No Tour */}
           <View style={styles.noTourCard}>
             <Text style={styles.noTourEmoji}>🏔️</Text>
             <Text style={styles.noTourTitle}>Keine aktive Tour</Text>
@@ -213,8 +195,6 @@ async function handleLogout() {
               <Text style={styles.startBtnText}>Tour starten</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Quick Links */}
           <Text style={styles.sectionTitle}>Schnellzugriff</Text>
           <View style={styles.quickLinks}>
             <TouchableOpacity style={styles.quickCard} onPress={() => router.push('/vehicle')}>
@@ -270,7 +250,7 @@ const styles = StyleSheet.create({
   portalLeft: { gap: 2 },
   portalTitle: { fontSize: 14, fontWeight: '700', color: '#2D6A4F' },
   portalSub: { fontSize: 12, color: '#aaa' },
-  portalDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#4ade80' },
+  portalArrow: { fontSize: 18, color: '#2D6A4F', fontWeight: '700' },
   checkoutBtn: { backgroundColor: '#2D6A4F', padding: 18, borderRadius: 18, alignItems: 'center', marginTop: 4 },
   checkoutBtnRed: { backgroundColor: '#dc2626' },
   checkoutText: { color: '#fff', fontWeight: '800', fontSize: 16 },
@@ -286,5 +266,4 @@ const styles = StyleSheet.create({
   quickIcon: { fontSize: 28, marginBottom: 8 },
   quickTitle: { fontSize: 14, fontWeight: '700', color: '#111', marginBottom: 2 },
   quickSub: { fontSize: 12, color: '#aaa' },
-  portalArrow: { fontSize: 18, color: '#2D6A4F', fontWeight: '700' },
 });

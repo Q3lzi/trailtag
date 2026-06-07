@@ -1,6 +1,6 @@
-import { Stack } from 'expo-router';
+import { Stack, useSegments } from 'expo-router';
 import { View } from 'react-native';
-import { useSegments } from 'expo-router';
+import { useEffect } from 'react';
 import BottomNav from '../components/BottomNav';
 import { registerForPushNotifications } from '../lib/notifications';
 
@@ -12,17 +12,6 @@ function Layout() {
   useEffect(() => {
     registerForPushNotifications();
   }, []);
-
-  return (
-    ...
-  );
-}
-
-
-function Layout() {
-  const segments = useSegments();
-  const firstSegment = segments[0] ?? '';
-  const hideNav = ['', 'login', 'register'].includes(firstSegment);
 
   return (
     <View style={{ flex: 1 }}>

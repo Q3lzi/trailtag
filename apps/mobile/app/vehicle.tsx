@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Linking } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Linking, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import QRCode from 'react-native-qrcode-svg';
 import { apiFetch } from '../lib/api';
@@ -118,7 +118,7 @@ export default function VehicleScreen() {
                 <View style={styles.qrInfo}>
                   <Text style={styles.qrLabel}>Erstretter-Portal</Text>
 <TouchableOpacity onPress={() => {
-  if (typeof window !== 'undefined') {
+  if (Platform.OS === 'web') {
     window.open(qrUrl, '_blank');
   } else {
     Linking.openURL(qrUrl);
