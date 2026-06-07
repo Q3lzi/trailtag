@@ -40,17 +40,19 @@ export default function CreateTourScreen() {
   const [gpxData, setGpxData] = useState<any>(null);
   const [gpxLoading, setGpxLoading] = useState(false);
   const [vehicleId, setVehicleId] = useState<string | null>(null);
+const [vehicles, setVehicles] = useState<any[]>([]);
 
-  useEffect(() => {
-    async function loadVehicle() {
-      try {
-        const token = await getToken();
-        const vehicles = await apiFetch('/vehicles', {}, token ?? undefined);
-        if (vehicles.length > 0) setVehicleId(vehicles[0].id);
-      } catch (err) { console.log('Kein Fahrzeug'); }
-    }
-    loadVehicle();
-  }, []);
+useEffect(() => {
+  async function loadVehicles() {
+    try {
+      const token = await getToken();
+      const data = await apiFetch('/vehicles', {}, token ?? undefined);
+      setVehicles(data);
+      if (data.length > 0) setVehicleId(data[0].id);
+    } catch (err) { console.log('Kein Fahrzeug'); }
+  }
+  loadVehicles();
+}, []);
 
   async function handleGetLocation() {
     if (Platform.OS === 'web') {
@@ -68,6 +70,31 @@ export default function CreateTourScreen() {
     setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
     setLocationStatus('ok');
   }
+
+{vehicles.length > 0 && (
+  <View style={styles.section}>
+    <Text style={styles.sectionLabel}>FAHRZEUG</Text>
+    <View style={styles.chipRow}>
+      {vehicles.map(v => (
+        <TouchableOpacity
+          key={v.id}
+          style={[styles.chip, vehicleId === v.id && styles.chipActive]}
+          onPress={() => setVehicleId(v.id)}
+        >
+          <Text style={[styles.chipText, vehicleId === v.id && styles.chipTextActive]}>
+            🚗 {v.make} {v.model}
+          </Text>
+        </TouchableOpacity>
+      ))}
+      <TouchableOpacity
+        style={[styles.chip, vehicleId === null && styles.chipActive]}
+        onPress={() => setVehicleId(null)}
+      >
+        <Text style={[styles.chipText, vehicleId === null && styles.chipTextActive]}>Kein Fahrzeug</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+)}
 
   async function handleGpxUpload(event: any) {
     if (Platform.OS !== 'web') return;

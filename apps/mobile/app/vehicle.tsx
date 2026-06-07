@@ -117,9 +117,15 @@ export default function VehicleScreen() {
                 </View>
                 <View style={styles.qrInfo}>
                   <Text style={styles.qrLabel}>Erstretter-Portal</Text>
-                  <TouchableOpacity onPress={() => Linking.openURL(qrUrl)}>
-                    <Text style={styles.qrUrl} numberOfLines={2}>{qrUrl}</Text>
-                  </TouchableOpacity>
+<TouchableOpacity onPress={() => {
+  if (typeof window !== 'undefined') {
+    window.open(qrUrl, '_blank');
+  } else {
+    Linking.openURL(qrUrl);
+  }
+}}>
+  <Text style={styles.qrUrl} numberOfLines={2}>{qrUrl}</Text>
+</TouchableOpacity>
                   <View style={styles.qrDot} />
                 </View>
               </View>
