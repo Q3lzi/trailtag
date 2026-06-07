@@ -74,25 +74,33 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
 // GPS Standort updaten
 router.post('/:id/location', requireAuth, async (req: Request, res: Response) => {
   const id = req.params.id as string
-  const { lat, lng } = req.body
-
+  const { lat, lng, ele } = req.body
   if (!lat || !lng) return res.status(400).json({ error: 'lat und lng fehlen' })
-
   const tour = await prisma.tour.findFirst({
     where: { id, userId: req.userId as string }
   })
-
   if (!tour) return res.status(404).json({ error: 'Tour nicht gefunden' })
   if (tour.status !== 'ACTIVE') return res.status(400).json({ error: 'Tour nicht aktiv' })
 
-  const updated = await prisma.tour.update({
-    where: { id },
-    data: {
-      lastLat: Number(lat),
-      lastLng: Number(lng),
-      locationUpdatedAt: new Date(),
-    }
-  })
+  // Letzten Standort + Verlauf gleichzeitig speichern
+  const [updated] = await prisma.$transaction([
+    prisma.tour.update({
+      where: { id },
+      data: {
+        lastLat: Number(lat),
+        lastLng: Number(lng),
+        locationUpdatedAt: new Date(),
+      }
+    }),
+    prisma.tourLocation.create({
+      data: {
+        tourId: id,
+        lat: Number(lat),
+        lng: Number(lng),
+        ele: ele ? Number(ele) : null,
+      }
+    })
+  ])
 
   res.json({ message: 'Standort aktualisiert', tour: updated })
 })

@@ -17,13 +17,10 @@ model User {
   phone         String?
   emailVerified Boolean   @default(false)
   createdAt     DateTime  @default(now())
-
-  // Medizinische Infos
-  bloodType     String?   // A+, A-, B+, B-, AB+, AB-, 0+, 0-
+  bloodType     String?
   allergies     String?
   medications   String?
   medicalNotes  String?
-
   tours              Tour[]
   vehicles           Vehicle[]
   emergencyContacts  EmergencyContact[]
@@ -35,7 +32,7 @@ model EmergencyContact {
   user      User     @relation(fields: [userId], references: [id])
   name      String
   phone     String
-  relation  String?  // z.B. "Partner", "Mutter", "Freund"
+  relation  String?
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
 }
@@ -46,35 +43,39 @@ model Tour {
   user            User        @relation(fields: [userId], references: [id])
   vehicleId       String?
   vehicle         Vehicle?    @relation(fields: [vehicleId], references: [id])
-
   activity        ActivityType
   routeName       String?
   difficulty      String?
   persons         Int          @default(1)
-
   distanceKm      Float?
   elevationUp     Int?
-
   startedAt       DateTime?
   eta             DateTime?
   bufferMinutes   Int          @default(15)
   checkedOutAt    DateTime?
-
   startLat        Float?
   startLng        Float?
   lastLat         Float?
   lastLng         Float?
   locationUpdatedAt DateTime?
   gpxTrack        Json?
-
   parkingLocation String?
   notes           String?
-
   status          TourStatus   @default(PLANNED)
   alarmStage      Int          @default(0)
   createdAt       DateTime     @default(now())
-
   alarmEvents     AlarmEvent[]
+  locations       TourLocation[]
+}
+
+model TourLocation {
+  id        String   @id @default(uuid())
+  tourId    String
+  tour      Tour     @relation(fields: [tourId], references: [id])
+  lat       Float
+  lng       Float
+  ele       Float?
+  timestamp DateTime @default(now())
 }
 
 enum TourStatus {

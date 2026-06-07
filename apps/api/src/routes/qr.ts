@@ -6,7 +6,7 @@ const router = express.Router()
 router.get('/:token', async (req: Request, res: Response) => {
   const token = req.params['token'] as string
 
-  const vehicle = await prisma.vehicle.findUnique({
+const vehicle = await prisma.vehicle.findUnique({
   where: { qrToken: token },
   include: {
     tours: {
@@ -14,6 +14,9 @@ router.get('/:token', async (req: Request, res: Response) => {
       orderBy: { startedAt: 'desc' },
       take: 1,
       include: {
+        locations: {
+          orderBy: { timestamp: 'asc' },
+        },
         user: {
           include: {
             emergencyContacts: {
@@ -52,11 +55,16 @@ function mapSection(tour: any) {
 
   const lat = tour.lastLat ?? tour.startLat
   const lng = tour.lastLng ?? tour.startLng
-  const hasTrack = tour.gpxTrack?.points?.length > 0
-  const points = hasTrack ? tour.gpxTrack.points : null
 
-  const trackJs = points
-    ? `var trackPoints = ${JSON.stringify(points.map((p: any) => [p.lat, p.lng]))};`
+  // Verlauf aus TourLocation Tabelle
+  const trackPoints = tour.locations?.length > 0
+    ? tour.locations.map((l: any) => [l.lat, l.lng])
+    : tour.gpxTrack?.points?.length > 0
+      ? tour.gpxTrack.points.map((p: any) => [p.lat, p.lng])
+      : null
+
+  const trackJs = trackPoints
+    ? `var trackPoints = ${JSON.stringify(trackPoints)};`
     : 'var trackPoints = null;'
 
   return `
@@ -67,18 +75,19 @@ function mapSection(tour: any) {
         🗺️ In Google Maps öffnen
       </a>
       ${tour.locationUpdatedAt ? `<div class="meta">Standort aktualisiert: ${formatDate(tour.locationUpdatedAt)}</div>` : ''}
+      ${tour.locations?.length > 0 ? `<div class="meta">${tour.locations.length} GPS-Punkte aufgezeichnet</div>` : ''}
     </div>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
       ${trackJs}
       var map = L.map('map');
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-  attribution: '© OpenStreetMap © CARTO'
-}).addTo(map);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap © CARTO'
+      }).addTo(map);
 
-      if (trackPoints && trackPoints.length > 0) {
-        var poly = L.polyline(trackPoints, {color:'#2D6A4F', weight:4}).addTo(map);
+      if (trackPoints && trackPoints.length > 1) {
+        var poly = L.polyline(trackPoints, {color:'#2D6A4F', weight:4, opacity:0.9}).addTo(map);
         L.circleMarker(trackPoints[0], {radius:8,fillColor:'#2D6A4F',color:'#fff',weight:2,fillOpacity:1}).bindPopup('🟢 Start').addTo(map);
         map.fitBounds(poly.getBounds(), {padding:[20,20]});
       } else {
@@ -86,7 +95,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r
       }
 
       L.circleMarker([${lat}, ${lng}], {radius:10,fillColor:'#e63946',color:'#fff',weight:3,fillOpacity:1})
-        .bindPopup('📍 Letzter Standort').addTo(map).openPopup();
+        .bindPopup('📍 Letzter Standort<br>${tour.locationUpdatedAt ? formatDate(tour.locationUpdatedAt) : ''}').addTo(map).openPopup();
     </script>
   `
 }
