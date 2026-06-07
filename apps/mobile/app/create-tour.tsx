@@ -9,6 +9,7 @@ import { scheduleOverdueNotification } from '../lib/notifications';
 import GpxMap from '../components/GpxMap';
 import ElevationChart from '../components/ElevationChart';
 import { startLocationTracking } from '../lib/tracking';
+import * as DocumentPicker from 'expo-document-picker';
 
 const ACTIVITIES = [
   { key: 'WANDERN', label: '🥾', name: 'Wandern' },
@@ -74,8 +75,8 @@ export default function CreateTourScreen() {
     setLocationStatus('ok');
   }
 
-  async function handleGpxUpload(event: any) {
-    if (Platform.OS !== 'web') return;
+async function handleGpxUpload(event?: any) {
+  if (Platform.OS === 'web') {
     const file = event.target.files[0];
     if (!file) return;
     setGpxLoading(true);
@@ -90,7 +91,26 @@ export default function CreateTourScreen() {
     } catch (err: any) {
       showAlert('Fehler', 'GPX-Datei konnte nicht gelesen werden.');
     } finally { setGpxLoading(false); }
+  } else {
+    // iOS/Android — Document Picker
+    setGpxLoading(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+      if (result.canceled) { setGpxLoading(false); return; }
+      const file = result.assets[0];
+      const response = await fetch(file.uri);
+      const text = await response.text();
+      const token = await getToken();
+      const data = await apiFetch('/gpx/parse', { method: 'POST', body: JSON.stringify({ gpxContent: text }) }, token ?? undefined);
+      setGpxData(data);
+      if (data.distanceKm) setDistanceKm(String(data.distanceKm));
+      if (data.elevationUp) setElevationUp(String(data.elevationUp));
+      if (data.startLat) { setLocation({ lat: data.startLat, lng: data.startLng }); setLocationStatus('ok'); }
+    } catch (err: any) {
+      showAlert('Fehler', 'GPX-Datei konnte nicht gelesen werden.');
+    } finally { setGpxLoading(false); }
   }
+}
 
   async function handleStart() {
     if (!activity) { showAlert('Fehler', 'Bitte Aktivität wählen.'); return; }
@@ -206,9 +226,10 @@ router.replace('/dashboard');
       )}
 
 
-{Platform.OS === 'web' && (
-  <View style={styles.section}>
-    <Text style={styles.sectionLabel}>GPS-ROUTE (OPTIONAL)</Text>
+{/* GPX Upload */}
+<View style={styles.section}>
+  <Text style={styles.sectionLabel}>GPS-ROUTE (OPTIONAL)</Text>
+  {Platform.OS === 'web' ? (
     <View style={styles.gpxZone}>
       <Text style={styles.gpxIcon}>🗺️</Text>
       <Text style={styles.gpxTitle}>{gpxLoading ? '⏳ Analysiere...' : 'GPX Datei wählen'}</Text>
@@ -220,14 +241,22 @@ router.replace('/dashboard');
         </View>
       )}
     </View>
-    {gpxData?.points?.length > 0 && (
-      <View style={{ marginTop: 8 }}>
-        <GpxMap points={gpxData.points} />
-        <ElevationChart points={gpxData.points} />
-      </View>
-    )}
-  </View>
-)}
+  ) : (
+    <TouchableOpacity style={[styles.gpxZone, gpxData && styles.gpxZoneDone]} onPress={() => handleGpxUpload()}>
+      <Text style={styles.gpxIcon}>{gpxLoading ? '⏳' : gpxData ? '✅' : '🗺️'}</Text>
+      <Text style={styles.gpxTitle}>
+        {gpxLoading ? 'Analysiere...' : gpxData ? `${gpxData.distanceKm} km · ⬆️ ${gpxData.elevationUp} hm` : 'GPX Datei laden'}
+      </Text>
+      <Text style={styles.gpxSub}>{gpxData ? `${gpxData.points?.length} Punkte` : 'Aus Dateien öffnen'}</Text>
+    </TouchableOpacity>
+  )}
+  {gpxData?.points?.length > 0 && Platform.OS === 'web' && (
+    <View style={{ marginTop: 8 }}>
+      <GpxMap points={gpxData.points} />
+      <ElevationChart points={gpxData.points} />
+    </View>
+  )}
+</View>
 
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>STARTPUNKT</Text>
@@ -302,4 +331,5 @@ const styles = StyleSheet.create({
   startBtn: { margin: 24, backgroundColor: '#2D6A4F', padding: 20, borderRadius: 18, alignItems: 'center' },
   startBtnDisabled: { opacity: 0.6 },
   startBtnText: { color: '#fff', fontWeight: '800', fontSize: 17 },
+  gpxZoneDone: { borderColor: '#2D6A4F', backgroundColor: '#f0faf4' },
 });
