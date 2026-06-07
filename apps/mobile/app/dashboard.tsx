@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { apiFetch } from '../lib/api';
@@ -6,6 +6,7 @@ import { showAlert, showConfirm } from '../lib/alert';
 import { getToken, removeToken } from '../lib/storage';
 import { cancelAllNotifications } from '../lib/notifications';
 import { stopLocationTracking } from '../lib/tracking';
+
 
 function useCountdown(eta: string | null) {
   const [timeLeft, setTimeLeft] = useState('');
@@ -162,19 +163,22 @@ async function handleCheckout() {
             )}
           </View>
 
-          {/* QR Portal */}
-          {qrUrl && (
-            <TouchableOpacity style={styles.portalCard} onPress={() => {
-                Linking.openURL(qrUrl);
-              }
-            }>
-              <View style={styles.portalLeft}>
-                <Text style={styles.portalTitle}>🔗 Erstretter-Portal öffnen</Text>
-                <Text style={styles.portalSub}>Tippe um das Portal zu öffnen</Text>
-              </View>
-              <Text style={styles.portalArrow}>→</Text>
-            </TouchableOpacity>
-          )}
+{/* QR Portal */}
+{qrUrl && (
+  <TouchableOpacity style={styles.portalCard} onPress={() => {
+    if (Platform.OS === 'web') {
+      window.open(qrUrl!, '_blank');
+    } else {
+      Linking.openURL(qrUrl!);
+    }
+  }}>
+    <View style={styles.portalLeft}>
+      <Text style={styles.portalTitle}>🔗 Erstretter-Portal öffnen</Text>
+      <Text style={styles.portalSub}>Tippe um das Portal zu öffnen</Text>
+    </View>
+    <Text style={styles.portalArrow}>→</Text>
+  </TouchableOpacity>
+)}
 
           {/* Checkout */}
           <TouchableOpacity
