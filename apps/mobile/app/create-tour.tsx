@@ -216,12 +216,10 @@ typescript{Platform.OS === 'web' && (
         </View>
       )}
     </View>
-    {gpxData?.points?.length > 0 && (
-      <>
-        <GpxMap points={gpxData.points} />
-        <ElevationChart points={gpxData.points} />
-      </>
-    )}
+{gpxData?.points?.length > 0 && Platform.OS === 'web' && (
+  <View style={{ marginTop: 8 }}>
+    <GpxMap points={gpxData.points} />
+    <ElevationChart points={gpxData.points} />
   </View>
 )}
 
