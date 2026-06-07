@@ -1,10 +1,9 @@
 import express, { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 import { requireAuth } from '../middleware/auth'
-
 const router = express.Router()
 
-// GET /profile — eigenes Profil laden
+// GET /profile
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: req.userId as string },
@@ -15,10 +14,9 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   res.json(safeUser)
 })
 
-// PUT /profile — Profil aktualisieren
+// PUT /profile
 router.put('/', requireAuth, async (req: Request, res: Response) => {
   const { name, phone, birthYear, bloodType, allergies, medications, medicalNotes } = req.body
-
   const user = await prisma.user.update({
     where: { id: req.userId as string },
     data: {
@@ -35,42 +33,43 @@ router.put('/', requireAuth, async (req: Request, res: Response) => {
   res.json(safeUser)
 })
 
-// POST /profile/emergency-contacts — Notfallkontakt hinzufügen
+// POST /profile/emergency-contacts
 router.post('/emergency-contacts', requireAuth, async (req: Request, res: Response) => {
   const { name, phone, relation, isPrimary } = req.body
-
   if (!name || !phone) return res.status(400).json({ error: 'Name und Telefon sind Pflichtfelder' })
-
-  // Falls isPrimary → alle anderen auf false setzen
   if (isPrimary) {
     await prisma.emergencyContact.updateMany({
       where: { userId: req.userId as string },
       data: { isPrimary: false }
     })
   }
-
   const contact = await prisma.emergencyContact.create({
-    data: {
-      userId: req.userId as string,
-      name,
-      phone,
-      relation: relation || null,
-      isPrimary: isPrimary ?? false,
-    }
+    data: { userId: req.userId as string, name, phone, relation: relation || null, isPrimary: isPrimary ?? false }
   })
   res.status(201).json(contact)
 })
 
-// DELETE /profile/emergency-contacts/:id — Kontakt löschen
-router.delete('/emergency-contacts/:id', requireAuth, async (req: Request, res: Response) => {
-  const id = req.params.id as string
-
+// PUT /profile/emergency-contacts/:id
+router.put('/emergency-contacts/:id', requireAuth, async (req: Request, res: Response) => {
+  const { name, phone, relation } = req.body
   const contact = await prisma.emergencyContact.findFirst({
-    where: { id, userId: req.userId as string }
+    where: { id: req.params.id, userId: req.userId as string }
   })
   if (!contact) return res.status(404).json({ error: 'Kontakt nicht gefunden' })
+  const updated = await prisma.emergencyContact.update({
+    where: { id: req.params.id },
+    data: { name, phone, relation: relation || null }
+  })
+  res.json(updated)
+})
 
-  await prisma.emergencyContact.delete({ where: { id } })
+// DELETE /profile/emergency-contacts/:id
+router.delete('/emergency-contacts/:id', requireAuth, async (req: Request, res: Response) => {
+  const contact = await prisma.emergencyContact.findFirst({
+    where: { id: req.params.id, userId: req.userId as string }
+  })
+  if (!contact) return res.status(404).json({ error: 'Kontakt nicht gefunden' })
+  await prisma.emergencyContact.delete({ where: { id: req.params.id } })
   res.json({ message: 'Kontakt gelöscht' })
 })
 

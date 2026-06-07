@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/storage';
@@ -21,6 +21,7 @@ export default function ProfileScreen() {
   const [newPhone, setNewPhone] = useState('');
   const [newRelation, setNewRelation] = useState('');
   const [addingContact, setAddingContact] = useState(false);
+  const [editingContact, setEditingContact] = useState<any>(null);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -38,50 +39,83 @@ export default function ProfileScreen() {
   }
 
   async function handleSave() {
-  setSaving(true);
-  try {
-    const token = await getToken();
-    await apiFetch('/profile', {
-      method: 'PUT',
-      body: JSON.stringify({ name, phone, birthYear: birthYear ? parseInt(birthYear) : null, bloodType, allergies, medications, medicalNotes }),
-    }, token ?? undefined);
-    showAlert('✅ Profil gespeichert!');
-  } catch (err: any) {
-    showAlert('Fehler', err.message);
-  } finally { setSaving(false); }
-}
+    setSaving(true);
+    try {
+      const token = await getToken();
+      await apiFetch('/profile', {
+        method: 'PUT',
+        body: JSON.stringify({ name, phone, birthYear: birthYear ? parseInt(birthYear) : null, bloodType, allergies, medications, medicalNotes }),
+      }, token ?? undefined);
+      showAlert('✅ Profil gespeichert!');
+    } catch (err: any) {
+      showAlert('Fehler', err.message);
+    } finally { setSaving(false); }
+  }
 
-async function handleAddContact() {
-  if (!newName || !newPhone) { showAlert('Fehler', 'Name und Telefon sind Pflichtfelder'); return; }
-  setAddingContact(true);
-  try {
-    const token = await getToken();
-    const contact = await apiFetch('/profile/emergency-contacts', {
-      method: 'POST',
-      body: JSON.stringify({ name: newName, phone: newPhone, relation: newRelation || null, isPrimary: profile.emergencyContacts.length === 0 }),
-    }, token ?? undefined);
-    setProfile((p: any) => ({ ...p, emergencyContacts: [...p.emergencyContacts, contact] }));
+  async function handleAddContact() {
+    if (!newName || !newPhone) { showAlert('Fehler', 'Name und Telefon sind Pflichtfelder'); return; }
+    setAddingContact(true);
+    try {
+      const token = await getToken();
+      const contact = await apiFetch('/profile/emergency-contacts', {
+        method: 'POST',
+        body: JSON.stringify({ name: newName, phone: newPhone, relation: newRelation || null, isPrimary: profile.emergencyContacts.length === 0 }),
+      }, token ?? undefined);
+      setProfile((p: any) => ({ ...p, emergencyContacts: [...p.emergencyContacts, contact] }));
+      setNewName(''); setNewPhone(''); setNewRelation('');
+    } catch (err: any) {
+      showAlert('Fehler', err.message);
+    } finally { setAddingContact(false); }
+  }
+
+  async function handleEditContact() {
+    if (!newName || !newPhone) { showAlert('Fehler', 'Name und Telefon sind Pflichtfelder'); return; }
+    setAddingContact(true);
+    try {
+      const token = await getToken();
+      await apiFetch(`/profile/emergency-contacts/${editingContact.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: newName, phone: newPhone, relation: newRelation || null }),
+      }, token ?? undefined);
+      setProfile((p: any) => ({
+        ...p,
+        emergencyContacts: p.emergencyContacts.map((c: any) =>
+          c.id === editingContact.id ? { ...c, name: newName, phone: newPhone, relation: newRelation || null } : c
+        )
+      }));
+      setEditingContact(null);
+      setNewName(''); setNewPhone(''); setNewRelation('');
+    } catch (err: any) {
+      showAlert('Fehler', err.message);
+    } finally { setAddingContact(false); }
+  }
+
+  async function handleDeleteContact(id: string) {
+    const confirmed = await showConfirm('Kontakt löschen?');
+    if (!confirmed) return;
+    try {
+      const token = await getToken();
+      await apiFetch(`/profile/emergency-contacts/${id}`, { method: 'DELETE' }, token ?? undefined);
+      setProfile((p: any) => ({ ...p, emergencyContacts: p.emergencyContacts.filter((c: any) => c.id !== id) }));
+    } catch (err: any) { showAlert('Fehler', err.message); }
+  }
+
+  function startEditContact(c: any) {
+    setEditingContact(c);
+    setNewName(c.name);
+    setNewPhone(c.phone);
+    setNewRelation(c.relation ?? '');
+  }
+
+  function cancelEditContact() {
+    setEditingContact(null);
     setNewName(''); setNewPhone(''); setNewRelation('');
-  } catch (err: any) {
-    showAlert('Fehler', err.message);
-  } finally { setAddingContact(false); }
-}
-
-async function handleDeleteContact(id: string) {
-  const confirmed = await showConfirm('Kontakt löschen?');
-  if (!confirmed) return;
-  try {
-    const token = await getToken();
-    await apiFetch(`/profile/emergency-contacts/${id}`, { method: 'DELETE' }, token ?? undefined);
-    setProfile((p: any) => ({ ...p, emergencyContacts: p.emergencyContacts.filter((c: any) => c.id !== id) }));
-  } catch (err: any) { showAlert('Fehler', err.message); }
-}
+  }
 
   if (loading) return <View style={styles.loading}><Text style={styles.loadingEmoji}>👤</Text></View>;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Mein Profil</Text>
         <Text style={styles.subtitle}>Notfallinformationen & Kontakte</Text>
@@ -108,11 +142,7 @@ async function handleDeleteContact(id: string) {
           <Text style={styles.fieldLabel}>Blutgruppe</Text>
           <View style={styles.chipRow}>
             {BLOOD_TYPES.map(bt => (
-              <TouchableOpacity
-                key={bt}
-                style={[styles.chip, bloodType === bt && styles.chipActive]}
-                onPress={() => setBloodType(bt === bloodType ? '' : bt)}
-              >
+              <TouchableOpacity key={bt} style={[styles.chip, bloodType === bt && styles.chipActive]} onPress={() => setBloodType(bt === bloodType ? '' : bt)}>
                 <Text style={[styles.chipText, bloodType === bt && styles.chipTextActive]}>{bt}</Text>
               </TouchableOpacity>
             ))}
@@ -141,30 +171,38 @@ async function handleDeleteContact(id: string) {
           {profile.emergencyContacts.map((c: any) => (
             <View key={c.id} style={styles.contactCard}>
               <View style={styles.contactLeft}>
-                <Text style={styles.contactName}>
-                  {c.isPrimary ? '⭐ ' : ''}{c.name}
-                </Text>
+                <Text style={styles.contactName}>{c.isPrimary ? '⭐ ' : ''}{c.name}</Text>
                 <Text style={styles.contactMeta}>{c.relation ? `${c.relation} · ` : ''}{c.phone}</Text>
               </View>
-              <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDeleteContact(c.id)}>
-                <Text style={styles.deleteBtnText}>🗑️</Text>
-              </TouchableOpacity>
+              <View style={styles.contactActions}>
+                <TouchableOpacity style={styles.editContactBtn} onPress={() => startEditContact(c)}>
+                  <Text style={styles.editContactBtnText}>✏️</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.deleteContactBtn} onPress={() => handleDeleteContact(c.id)}>
+                  <Text style={styles.deleteContactBtnText}>🗑️</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ))}
         </View>
 
-        {/* Neuer Kontakt */}
-        <View style={[styles.card, { marginTop: 8 }]}>
-          <Text style={styles.addTitle}>+ Neuer Kontakt</Text>
+        {/* Kontakt hinzufügen / bearbeiten */}
+        <View style={[styles.card, { marginTop: 12 }]}>
+          <Text style={styles.addTitle}>{editingContact ? '✏️ Kontakt bearbeiten' : '+ Neuer Kontakt'}</Text>
           <Text style={styles.fieldLabel}>Name *</Text>
           <TextInput style={styles.input} value={newName} onChangeText={setNewName} placeholder="z.B. Anna Muster" placeholderTextColor="#bbb" />
           <Text style={styles.fieldLabel}>Telefon *</Text>
           <TextInput style={styles.input} value={newPhone} onChangeText={setNewPhone} placeholder="+41 79 123 45 67" placeholderTextColor="#bbb" keyboardType="phone-pad" />
           <Text style={styles.fieldLabel}>Beziehung</Text>
           <TextInput style={styles.input} value={newRelation} onChangeText={setNewRelation} placeholder="z.B. Partner, Mutter" placeholderTextColor="#bbb" />
-          <TouchableOpacity style={[styles.addBtn, addingContact && { opacity: 0.6 }]} onPress={handleAddContact} disabled={addingContact}>
-            <Text style={styles.addBtnText}>{addingContact ? 'Speichert...' : 'Kontakt hinzufügen'}</Text>
+          <TouchableOpacity style={[styles.addBtn, addingContact && { opacity: 0.6 }]} onPress={editingContact ? handleEditContact : handleAddContact} disabled={addingContact}>
+            <Text style={styles.addBtnText}>{addingContact ? 'Speichert...' : editingContact ? 'Änderungen speichern' : 'Kontakt hinzufügen'}</Text>
           </TouchableOpacity>
+          {editingContact && (
+            <TouchableOpacity style={styles.cancelBtn} onPress={cancelEditContact}>
+              <Text style={styles.cancelBtnText}>Abbrechen</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </ScrollView>
@@ -198,9 +236,14 @@ const styles = StyleSheet.create({
   contactLeft: { flex: 1 },
   contactName: { fontSize: 15, fontWeight: '700', color: '#111' },
   contactMeta: { fontSize: 13, color: '#aaa', marginTop: 2 },
-  deleteBtn: { padding: 8 },
-  deleteBtnText: { fontSize: 18 },
+  contactActions: { flexDirection: 'row', gap: 8 },
+  editContactBtn: { width: 36, height: 36, backgroundColor: '#f0faf4', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  editContactBtnText: { fontSize: 16 },
+  deleteContactBtn: { width: 36, height: 36, backgroundColor: '#fff5f5', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  deleteContactBtnText: { fontSize: 16 },
   addTitle: { fontSize: 15, fontWeight: '700', color: '#2D6A4F', marginBottom: 4 },
   addBtn: { backgroundColor: '#1a2e1a', padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 8 },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  cancelBtn: { padding: 14, borderRadius: 14, alignItems: 'center', marginTop: 4 },
+  cancelBtnText: { color: '#888', fontWeight: '600', fontSize: 14 },
 });
