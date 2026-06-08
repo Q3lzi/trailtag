@@ -245,10 +245,6 @@ function baseHtml(color: string, headerBg: string, badge: string, badgeColor: st
     .green-box p { color: #276749; font-size: 15px; line-height: 1.6; }
   </style>
 </head>
-<script>
-  // Auto-Refresh alle 60 Sekunden
-  setTimeout(() => location.reload(), 60000);
-</script>
 <body>
   <div class="header">
     <div class="header-top">
@@ -262,6 +258,9 @@ function baseHtml(color: string, headerBg: string, badge: string, badgeColor: st
   <div class="content">
     ${body}
   </div>
+<script>
+    setTimeout(() => location.reload(), 60000);
+  </script>
 </body>
 </html>`
 }
