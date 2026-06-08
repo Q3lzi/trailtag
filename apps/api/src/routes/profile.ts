@@ -51,13 +51,14 @@ router.post('/emergency-contacts', requireAuth, async (req: Request, res: Respon
 
 // PUT /profile/emergency-contacts/:id
 router.put('/emergency-contacts/:id', requireAuth, async (req: Request, res: Response) => {
+  const id = req.params['id'] as string
   const { name, phone, relation } = req.body
   const contact = await prisma.emergencyContact.findFirst({
-    where: { id: req.params.id, userId: req.userId as string }
+    where: { id, userId: req.userId as string }
   })
   if (!contact) return res.status(404).json({ error: 'Kontakt nicht gefunden' })
   const updated = await prisma.emergencyContact.update({
-    where: { id: req.params.id },
+    where: { id },
     data: { name, phone, relation: relation || null }
   })
   res.json(updated)
@@ -65,11 +66,12 @@ router.put('/emergency-contacts/:id', requireAuth, async (req: Request, res: Res
 
 // DELETE /profile/emergency-contacts/:id
 router.delete('/emergency-contacts/:id', requireAuth, async (req: Request, res: Response) => {
+  const id = req.params['id'] as string
   const contact = await prisma.emergencyContact.findFirst({
-    where: { id: req.params.id, userId: req.userId as string }
+    where: { id, userId: req.userId as string }
   })
   if (!contact) return res.status(404).json({ error: 'Kontakt nicht gefunden' })
-  await prisma.emergencyContact.delete({ where: { id: req.params.id } })
+  await prisma.emergencyContact.delete({ where: { id } })
   res.json({ message: 'Kontakt gelöscht' })
 })
 

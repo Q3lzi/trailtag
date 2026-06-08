@@ -20,27 +20,29 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   res.json(vehicles)
 })
 
-// PUT /vehicles/:id — Fahrzeug bearbeiten
+// PUT /vehicles/:id
 router.put('/:id', requireAuth, async (req: Request, res: Response) => {
   const { plate, make, model, color } = req.body
+  const id = req.params['id'] as string
   const vehicle = await prisma.vehicle.findFirst({
-    where: { id: req.params.id, userId: req.userId as string }
+    where: { id, userId: req.userId as string }
   })
   if (!vehicle) return res.status(404).json({ error: 'Fahrzeug nicht gefunden' })
   const updated = await prisma.vehicle.update({
-    where: { id: req.params.id },
+    where: { id },
     data: { plate, make, model, color }
   })
   res.json(updated)
 })
 
-// DELETE /vehicles/:id — Fahrzeug löschen
+// DELETE /vehicles/:id
 router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+  const id = req.params['id'] as string
   const vehicle = await prisma.vehicle.findFirst({
-    where: { id: req.params.id, userId: req.userId as string }
+    where: { id, userId: req.userId as string }
   })
   if (!vehicle) return res.status(404).json({ error: 'Fahrzeug nicht gefunden' })
-  await prisma.vehicle.delete({ where: { id: req.params.id } })
+  await prisma.vehicle.delete({ where: { id } })
   res.json({ success: true })
 })
 
