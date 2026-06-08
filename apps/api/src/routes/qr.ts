@@ -74,7 +74,17 @@ function mapSection(tour: any) {
       <a class="maps-link" href="https://maps.google.com/?q=${lat},${lng}" target="_blank">
         🗺️ In Google Maps öffnen
       </a>
-      ${tour.locationUpdatedAt ? `<div class="meta">Standort aktualisiert: ${formatDate(tour.locationUpdatedAt)}</div>` : ''}
+    ${tour.locationUpdatedAt ? (() => {
+  const updatedAt = new Date(tour.locationUpdatedAt);
+  const minutesAgo = Math.floor((Date.now() - updatedAt.getTime()) / 60000);
+  const isStale = minutesAgo > 30;
+  return `
+    <div class="meta" style="${isStale ? 'color:#e67e22;font-weight:600' : ''}">
+      ${isStale ? '⚠️' : '✅'} Standort aktualisiert: ${formatDate(tour.locationUpdatedAt)}
+      ${isStale ? `(vor ${minutesAgo} Minuten — möglicherweise kein Signal)` : ''}
+    </div>
+  `;
+})() : '<div class="meta" style="color:#e67e22">⚠️ Noch kein Standort-Update empfangen</div>'}
       ${tour.locations?.length > 0 ? `<div class="meta">${tour.locations.length} GPS-Punkte aufgezeichnet</div>` : ''}
     </div>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -235,6 +245,10 @@ function baseHtml(color: string, headerBg: string, badge: string, badgeColor: st
     .green-box p { color: #276749; font-size: 15px; line-height: 1.6; }
   </style>
 </head>
+<script>
+  // Auto-Refresh alle 60 Sekunden
+  setTimeout(() => location.reload(), 60000);
+</script>
 <body>
   <div class="header">
     <div class="header-top">
