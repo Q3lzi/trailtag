@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { useEffect } from 'react';
 import BottomNav from '../components/BottomNav';
 import { registerForPushNotifications } from '../lib/notifications';
+import '../lib/tracking'; // Task auf Top-Level registrieren
 
 function Layout() {
   const segments = useSegments();
