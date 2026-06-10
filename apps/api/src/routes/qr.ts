@@ -10,18 +10,18 @@ const vehicle = await prisma.vehicle.findUnique({
   where: { qrToken: token },
   include: {
     tours: {
-      where: { status: { in: ['ACTIVE', 'ALARM'] } },
+      where: { 
+        status: { in: ['ACTIVE', 'ALARM'] },
+        // Nur Touren die in den letzten 48 Stunden gestartet wurden
+        startedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) }
+      },
       orderBy: { startedAt: 'desc' },
       take: 1,
       include: {
-        locations: {
-          orderBy: { timestamp: 'asc' },
-        },
+        locations: { orderBy: { timestamp: 'asc' } },
         user: {
           include: {
-            emergencyContacts: {
-              orderBy: { isPrimary: 'desc' }
-            }
+            emergencyContacts: { orderBy: { isPrimary: 'desc' } }
           }
         }
       }
@@ -259,7 +259,7 @@ function baseHtml(color: string, headerBg: string, badge: string, badgeColor: st
     ${body}
   </div>
 <script>
-    setTimeout(() => location.reload(), 60000);
+    setTimeout(() => location.reload(), 30000);
   </script>
 </body>
 </html>`

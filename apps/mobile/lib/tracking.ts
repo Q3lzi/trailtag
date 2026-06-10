@@ -70,7 +70,7 @@ export async function startLocationTracking(tourId: string) {
         (err) => console.log('Web geolocation error:', err),
         { enableHighAccuracy: true }
       );
-    }, 3 * 60 * 1000);
+    }, 30 * 1000);
 
     console.log('🌐 Web location tracking started');
     return;
@@ -97,7 +97,7 @@ export async function startLocationTracking(tourId: string) {
 
     await Location.startLocationUpdatesAsync(LOCATION_TASK, {
       accuracy: Location.Accuracy.BestForNavigation,
-      timeInterval: 3 * 60 * 1000,
+      timeInterval: 30 * 1000,
       distanceInterval: 50,
       showsBackgroundLocationIndicator: true,
       pausesUpdatesAutomatically: false,
