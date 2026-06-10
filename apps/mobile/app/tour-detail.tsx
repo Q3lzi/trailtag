@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/storage';
@@ -114,7 +114,7 @@ export default function TourDetailScreen() {
   const [weather, setWeather] = useState<any>(null);
   const timeLeft = useCountdown(tour?.eta ?? null);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, time: string} | null>(null);
-  const mapRef = useRef<any>(null);
+  const leafletMapRef = useRef<any>(null);
 
   useEffect(() => {
     loadTour();
@@ -129,32 +129,36 @@ export default function TourDetailScreen() {
     if (lat && lng) fetchWeather(lat, lng).then(setWeather);
   }, [tour?.lastLat, tour?.lastLng]);
 
-  useEffect(() => {
-  if (!selectedLocation || Platform.OS !== 'web') return;
-  import('leaflet').then((L) => {
-    const container = document.getElementById('tour-map');
-    if (!container || !(container as any)._leaflet_id) return;
-    const map = (L.default as any).map(container);
-    map.setView([selectedLocation.lat, selectedLocation.lng], 15, { animate: true });
-    // Highlight Marker
-    L.default.circleMarker([selectedLocation.lat, selectedLocation.lng] as [number, number], {
-      radius: 14, fillColor: '#f59e0b', color: '#fff', weight: 3, fillOpacity: 0.9
-    }).bindPopup(`📍 ${selectedLocation.time}`).addTo(map).openPopup();
-  });
-}, [selectedLocation]);
+    useEffect(() => {
+    if (!selectedLocation || Platform.OS !== 'web') return;
+    if (!leafletMapRef.current) return;
+    import('leaflet').then((L) => {
+        leafletMapRef.current.setView([selectedLocation.lat, selectedLocation.lng], 15, { animate: true });
+        L.default.circleMarker([selectedLocation.lat, selectedLocation.lng] as [number, number], {
+        radius: 14, fillColor: '#f59e0b', color: '#fff', weight: 3, fillOpacity: 0.9
+        }).bindPopup(`📍 ${selectedLocation.time}`).addTo(leafletMapRef.current).openPopup();
+    });
+    }, [selectedLocation]);
 
-  useEffect(() => {
-    if (!tour || Platform.OS !== 'web') return;
-    const lat = tour.lastLat ?? tour.startLat;
-    const lng = tour.lastLng ?? tour.startLng;
-    if (!lat || !lng) return;
+useEffect(() => {
+  if (!tour || Platform.OS !== 'web') return;
+  const lat = tour.lastLat ?? tour.startLat;
+  const lng = tour.lastLng ?? tour.startLng;
+  if (!lat || !lng) return;
 
-    const points = tour.locations?.length > 0
-      ? tour.locations.map((l: any) => [l.lat, l.lng])
-      : [[lat, lng]];
-
+  const timer = setTimeout(() => {
     const container = document.getElementById('tour-map');
     if (!container) return;
+
+    const points = tour.gpxTrack?.points?.length > 0
+      ? tour.gpxTrack.points.map((p: any) => [p.lat, p.lng])
+      : tour.locations?.length > 0
+        ? tour.locations.map((l: any) => [l.lat, l.lng])
+        : [[lat, lng]];
+
+    const trackingPoints = tour.locations?.length > 0
+      ? tour.locations.map((l: any) => [l.lat, l.lng])
+      : null;
 
     if (!document.getElementById('leaflet-css-detail')) {
       const link = document.createElement('link');
@@ -170,22 +174,38 @@ export default function TourDetailScreen() {
         delete (container as any)._leaflet_id;
       }
       const map = L.default.map(container);
+      leafletMapRef.current = map;
+
       L.default.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '© OpenStreetMap © CARTO'
       }).addTo(map);
 
       if (points.length > 1) {
-        const poly = L.default.polyline(points as [number, number][], { color: '#2D6A4F', weight: 4, opacity: 0.9 }).addTo(map);
-        L.default.circleMarker(points[0] as [number, number], { radius: 8, fillColor: '#2D6A4F', color: '#fff', weight: 2, fillOpacity: 1 }).bindPopup('🟢 Start').addTo(map);
+        const poly = L.default.polyline(points as [number, number][], {
+          color: '#2D6A4F', weight: 4, opacity: 0.7
+        }).addTo(map);
+        L.default.circleMarker(points[0] as [number, number], {
+          radius: 8, fillColor: '#2D6A4F', color: '#fff', weight: 2, fillOpacity: 1
+        }).bindPopup('🟢 Start').addTo(map);
         map.fitBounds(poly.getBounds(), { padding: [20, 20] });
       } else {
         map.setView([lat, lng], 13);
       }
 
-      L.default.circleMarker([lat, lng] as [number, number], { radius: 10, fillColor: '#e63946', color: '#fff', weight: 3, fillOpacity: 1 })
-        .bindPopup('📍 Letzter Standort').addTo(map).openPopup();
+      if (trackingPoints && trackingPoints.length > 1 && tour.gpxTrack?.points?.length > 0) {
+        L.default.polyline(trackingPoints as [number, number][], {
+          color: '#e63946', weight: 3, opacity: 0.8, dashArray: '4,4'
+        }).addTo(map);
+      }
+
+      L.default.circleMarker([lat, lng] as [number, number], {
+        radius: 10, fillColor: '#e63946', color: '#fff', weight: 3, fillOpacity: 1
+      }).bindPopup('📍 Letzter Standort').addTo(map).openPopup();
     });
-  }, [tour?.locations?.length, tour?.lastLat, tour?.lastLng]);
+  }, 100);
+
+  return () => clearTimeout(timer);
+}, [tour?.locations?.length, tour?.lastLat, tour?.lastLng, tour?.gpxTrack]);
 
   async function loadTour() {
     try {
@@ -259,22 +279,27 @@ export default function TourDetailScreen() {
         )}
       </View>
 
-      {/* Karte */}
-      {(tour.startLat || tour.lastLat) && Platform.OS === 'web' && (
-        <View style={styles.mapSection}>
-          <div id="tour-map" style={{ width: '100%', height: 320 } as any} />
-          <View style={styles.mapFooter}>
-            <Text style={styles.mapFooterText}>
-              {locationCount > 0 ? `📍 ${locationCount} GPS-Punkte` : '📍 Startpunkt'}
-              {minutesSinceUpdate !== null && (
-                <Text style={[styles.mapFooterText, minutesSinceUpdate > 30 ? { color: '#e67e22' } : { color: '#2D6A4F' }]}>
-                  {' · '}vor {minutesSinceUpdate} Min. aktualisiert {minutesSinceUpdate > 30 ? '⚠️' : '✅'}
-                </Text>
-              )}
-            </Text>
-          </View>
-        </View>
+     {/* Karte */}
+{(tour.startLat || tour.lastLat) && Platform.OS === 'web' && (
+  <View style={styles.mapSection}>
+    <div id="tour-map" style={{ width: '100%', height: 320 } as any} />
+    <View style={styles.mapFooter}>
+      <Text style={styles.mapFooterText}>
+        {tour.gpxTrack?.points?.length > 0
+          ? `🗺️ GPX Route · ${tour.gpxTrack.points.length} Punkte`
+          : locationCount > 0
+            ? `📍 ${locationCount} Tracking-Punkte`
+            : '📍 Startpunkt'}
+        {tour.gpxTrack?.points?.length > 0 && locationCount > 0 && ` · 🔴 ${locationCount} Tracking-Punkte`}
+      </Text>
+      {minutesSinceUpdate !== null && (
+        <Text style={[styles.mapFooterText, minutesSinceUpdate > 30 ? { color: '#e67e22' } : { color: '#2D6A4F' }]}>
+          vor {minutesSinceUpdate} Min. aktualisiert {minutesSinceUpdate > 30 ? '⚠️' : '✅'}
+        </Text>
       )}
+    </View>
+  </View>
+)}
 
       {/* Stats */}
       {(tour.distanceKm || tour.elevationUp || tour.difficulty || tour.persons > 1) && (
