@@ -78,7 +78,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   const tour = await prisma.tour.findFirst({
     where: { id, userId: req.userId as string },
     include: {
-      locations: { orderBy: { timestamp: 'asc' } },
+      locations: { orderBy: { timestamp: 'asc' }, take: 100 },
       vehicle: true,
     }
   })

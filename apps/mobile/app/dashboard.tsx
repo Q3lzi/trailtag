@@ -119,8 +119,8 @@ async function handleCheckout() {
             </Text>
           </View>
 
-{/* Tour Card */}
-<TouchableOpacity style={styles.card} onPress={() => router.push(`/tour-detail?id=${activeTour.id}`)}>
+          {/* Tour Card */}
+          <TouchableOpacity style={styles.card} onPress={() => router.push(`/tour-detail?id=${activeTour.id}`)}>
             <Text style={styles.cardLabel}>AKTIVE TOUR</Text>
             <Text style={styles.tourActivity}>{ACTIVITY_LABELS[activeTour.activity] ?? activeTour.activity}</Text>
             {activeTour.routeName && <Text style={styles.tourRoute}>{activeTour.routeName}</Text>}
@@ -161,7 +161,7 @@ async function handleCheckout() {
                 <Text style={styles.infoVal}>{activeTour.parkingLocation}</Text>
               </View>
             )}
-          </View>
+          </TouchableOpacity>
 
 {/* QR Portal */}
 {qrUrl && (
