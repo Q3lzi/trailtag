@@ -1,11 +1,12 @@
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { router, usePathname } from 'expo-router';
+import { Home, Mountain, BookOpen, User, Plus } from 'lucide-react-native';
 
 const TABS = [
-  { route: '/dashboard', label: 'Home', icon: '🏠' },
-  { route: '/create-tour', label: 'Tour starten', icon: '🏔️' },
-  { route: '/tours', label: 'Archiv', icon: '📋' },
-  { route: '/profile', label: 'Profil', icon: '👤' },
+  { route: '/dashboard', label: 'Home', Icon: Home },
+  { route: '/create-tour', label: 'Tour', Icon: Mountain, isCenter: true },
+  { route: '/tours', label: 'Archiv', Icon: BookOpen },
+  { route: '/profile', label: 'Profil', Icon: User },
 ];
 
 export default function BottomNav() {
@@ -14,33 +15,41 @@ export default function BottomNav() {
   return (
     <View style={styles.wrapper}>
       <View style={styles.container}>
-        {TABS.map((tab, index) => {
+        {TABS.map((tab) => {
           const isActive = pathname === tab.route;
-          const isCenter = index === 1; // Tour starten — prominent
+          const { Icon } = tab;
+
+          if (tab.isCenter) {
+            return (
+              <TouchableOpacity
+                key={tab.route}
+                style={styles.centerTab}
+                onPress={() => router.push(tab.route as any)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.centerBtn, isActive && styles.centerBtnActive]}>
+                  <Plus size={26} color="#fff" strokeWidth={2.5} />
+                </View>
+                <Text style={[styles.label, isActive && styles.labelActive]}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          }
 
           return (
             <TouchableOpacity
               key={tab.route}
-              style={[styles.tab, isCenter && styles.tabCenter]}
+              style={styles.tab}
               onPress={() => router.push(tab.route as any)}
               activeOpacity={0.7}
             >
-              {isCenter ? (
-                <View style={[styles.centerBtn, isActive && styles.centerBtnActive]}>
-                  <Text style={styles.centerIcon}>{tab.icon}</Text>
-                </View>
-              ) : (
-                <View style={[styles.iconWrapper, isActive && styles.iconWrapperActive]}>
-                  <Text style={[styles.icon, isActive && styles.iconActive]}>{tab.icon}</Text>
-                </View>
-              )}
-              <Text style={[
-                styles.label,
-                isActive && styles.labelActive,
-                isCenter && styles.labelCenter,
-              ]}>
-                {tab.label}
-              </Text>
+              <View style={[styles.iconWrapper, isActive && styles.iconWrapperActive]}>
+                <Icon
+                  size={22}
+                  color={isActive ? '#2D6A4F' : '#bbb'}
+                  strokeWidth={isActive ? 2.5 : 1.8}
+                />
+              </View>
+              <Text style={[styles.label, isActive && styles.labelActive]}>{tab.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -51,69 +60,62 @@ export default function BottomNav() {
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 16,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+    backgroundColor: '#f8faf8',
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 12,
     paddingTop: 8,
   },
   container: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 28,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    borderRadius: 26,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 12,
+    shadowOpacity: 0.10,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 14,
     alignItems: 'center',
   },
   tab: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
+    gap: 5,
   },
-  tabCenter: {
-    flex: 1.2,
+  centerTab: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 5,
+    marginTop: -24,
   },
   iconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
   },
   iconWrapperActive: {
     backgroundColor: '#f0faf4',
   },
-  icon: {
-    fontSize: 22,
-    opacity: 0.35,
-  },
-  iconActive: {
-    opacity: 1,
-  },
   centerBtn: {
-    width: 52,
-    height: 52,
+    width: 56,
+    height: 56,
     borderRadius: 18,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#1a2e1a',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#1a2e1a',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+    borderWidth: 3,
+    borderColor: '#f8faf8',
   },
   centerBtnActive: {
-    backgroundColor: '#1a2e1a',
-  },
-  centerIcon: {
-    fontSize: 24,
+    backgroundColor: '#2D6A4F',
   },
   label: {
     fontSize: 10,
@@ -124,9 +126,5 @@ const styles = StyleSheet.create({
   labelActive: {
     color: '#2D6A4F',
     fontWeight: '700',
-  },
-  labelCenter: {
-    fontSize: 10,
-    color: '#888',
   },
 });
