@@ -4,7 +4,11 @@ import { apiFetch } from './api';
 
 const LOCATION_TASK = 'trailtag-location-task';
 
-// KRITISCH: Task muss auf Top-Level definiert sein — nicht lazy!
+// Web: Interval ID für watchPosition
+let webTrackingInterval: any = null;
+let webActiveTourId: string | null = null;
+
+// iOS/Android: Task auf Top-Level registrieren
 if (Platform.OS !== 'web') {
   const TaskManager = require('expo-task-manager');
   const SecureStore = require('expo-secure-store');
@@ -24,15 +28,55 @@ if (Platform.OS !== 'web') {
         method: 'POST',
         body: JSON.stringify({ lat: latitude, lng: longitude, ele: altitude }),
       }, token);
-      console.log('Location sent:', latitude, longitude);
+      console.log('📍 Background location sent:', latitude, longitude);
     } catch (err) {
       console.log('Location send error:', err);
     }
   });
 }
 
+async function sendLocation(lat: number, lng: number, ele: number | null, tourId: string) {
+  try {
+    const token = await getToken();
+    if (!token) return;
+    await apiFetch(`/tours/${tourId}/location`, {
+      method: 'POST',
+      body: JSON.stringify({ lat, lng, ele }),
+    }, token);
+    console.log('📍 Location sent:', lat, lng);
+  } catch (err) {
+    console.log('Send location error:', err);
+  }
+}
+
 export async function startLocationTracking(tourId: string) {
-  if (Platform.OS === 'web') return;
+  // WEB
+  if (Platform.OS === 'web') {
+    if (!navigator.geolocation) return;
+    webActiveTourId = tourId;
+
+    // Sofort einmal senden
+    navigator.geolocation.getCurrentPosition(
+      (pos) => sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.altitude, tourId),
+      (err) => console.log('Web geolocation error:', err),
+      { enableHighAccuracy: true }
+    );
+
+    // Dann alle 3 Minuten
+    webTrackingInterval = setInterval(() => {
+      if (!webActiveTourId) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.altitude, webActiveTourId!),
+        (err) => console.log('Web geolocation error:', err),
+        { enableHighAccuracy: true }
+      );
+    }, 3 * 60 * 1000);
+
+    console.log('🌐 Web location tracking started');
+    return;
+  }
+
+  // iOS/Android
   try {
     const SecureStore = require('expo-secure-store');
     const Location = require('expo-location');
@@ -42,7 +86,6 @@ export async function startLocationTracking(tourId: string) {
     const { status } = await Location.requestBackgroundPermissionsAsync();
     if (status !== 'granted') {
       console.log('Background location permission denied — trying foreground only');
-      // Fallback: Foreground only
       const fg = await Location.requestForegroundPermissionsAsync();
       if (fg.status !== 'granted') return;
     }
@@ -52,31 +95,41 @@ export async function startLocationTracking(tourId: string) {
       await Location.stopLocationUpdatesAsync(LOCATION_TASK).catch(() => {});
     }
 
-    // Primär: Significant Location Changes — zuverlässigster iOS Background Modus
-await Location.startLocationUpdatesAsync(LOCATION_TASK, {
-  accuracy: Location.Accuracy.BestForNavigation,
-  timeInterval: 3 * 60 * 1000,           // alle 3 Minuten
-  distanceInterval: 50,                    // oder bei 50m Bewegung
-  showsBackgroundLocationIndicator: true,
-  pausesUpdatesAutomatically: false,
-  activityType: Location.ActivityType.OtherNavigation,
-  deferredUpdatesInterval: 60 * 1000,     // mindestens alle 60 Sekunden
-  deferredUpdatesDistance: 50,
-  foregroundService: {
-    notificationTitle: '🏔️ Trailtag aktiv',
-    notificationBody: 'Standort-Tracking aktiv — bleib sicher!',
-    notificationColor: '#1a2e1a',
-  },
-});
+    await Location.startLocationUpdatesAsync(LOCATION_TASK, {
+      accuracy: Location.Accuracy.BestForNavigation,
+      timeInterval: 3 * 60 * 1000,
+      distanceInterval: 50,
+      showsBackgroundLocationIndicator: true,
+      pausesUpdatesAutomatically: false,
+      activityType: Location.ActivityType.OtherNavigation,
+      deferredUpdatesInterval: 60 * 1000,
+      deferredUpdatesDistance: 50,
+      foregroundService: {
+        notificationTitle: '🏔️ Trailtag aktiv',
+        notificationBody: 'Standort-Tracking aktiv — bleib sicher!',
+        notificationColor: '#1a2e1a',
+      },
+    });
 
-    console.log('Location tracking started for tour:', tourId);
+    console.log('📱 iOS location tracking started for tour:', tourId);
   } catch (err) {
     console.log('Start tracking error:', err);
   }
 }
 
 export async function stopLocationTracking() {
-  if (Platform.OS === 'web') return;
+  // Web
+  if (Platform.OS === 'web') {
+    if (webTrackingInterval) {
+      clearInterval(webTrackingInterval);
+      webTrackingInterval = null;
+    }
+    webActiveTourId = null;
+    console.log('🌐 Web location tracking stopped');
+    return;
+  }
+
+  // iOS/Android
   try {
     const SecureStore = require('expo-secure-store');
     const Location = require('expo-location');
@@ -85,7 +138,7 @@ export async function stopLocationTracking() {
     const isRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK).catch(() => false);
     if (isRunning) {
       await Location.stopLocationUpdatesAsync(LOCATION_TASK);
-      console.log('Location tracking stopped');
+      console.log('📱 iOS location tracking stopped');
     }
   } catch (err) {
     console.log('Stop tracking error:', err);

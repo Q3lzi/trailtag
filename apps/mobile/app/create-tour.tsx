@@ -43,6 +43,7 @@ export default function CreateTourScreen() {
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'ok' | 'denied'>('idle');
   const [gpxData, setGpxData] = useState<any>(null);
   const [gpxLoading, setGpxLoading] = useState(false);
+  const [gpxFileContent, setGpxFileContent] = useState<string | null>(null);
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<any[]>([]);
 
@@ -82,6 +83,7 @@ async function handleGpxUpload(event?: any) {
     setGpxLoading(true);
     try {
       const text = await file.text();
+      setGpxFileContent(text);
       const token = await getToken();
       const data = await apiFetch('/gpx/parse', { method: 'POST', body: JSON.stringify({ gpxContent: text }) }, token ?? undefined);
       setGpxData(data);
@@ -100,6 +102,7 @@ async function handleGpxUpload(event?: any) {
       const file = result.assets[0];
       const response = await fetch(file.uri);
       const text = await response.text();
+      setGpxFileContent(text);
       const token = await getToken();
       const data = await apiFetch('/gpx/parse', { method: 'POST', body: JSON.stringify({ gpxContent: text }) }, token ?? undefined);
       setGpxData(data);
@@ -136,14 +139,23 @@ async function handleGpxUpload(event?: any) {
         }),
       }, token ?? undefined);
 await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
+
+// GPX anhängen falls vorhanden
+if (gpxData && gpxFileContent) {
+  await apiFetch(`/gpx/attach/${tour.id}`, {
+    method: 'POST',
+    body: JSON.stringify({ gpxContent: gpxFileContent }),
+  }, token ?? undefined);
+}
+
 await startLocationTracking(tour.id);
 await scheduleOverdueNotification(etaDate);
 router.replace('/dashboard');
-    } catch (err: any) {
-      showAlert('Fehler', err.message);
-    } finally { setLoading(false); }
-  
-  }
+} catch (err: any) {
+  showAlert('Fehler', err.message);
+} finally { setLoading(false); }
+
+}
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
