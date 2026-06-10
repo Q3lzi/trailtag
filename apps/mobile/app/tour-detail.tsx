@@ -66,14 +66,43 @@ function useCountdown(eta: string | null) {
 async function fetchWeather(lat: number, lng: number) {
   try {
     const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weathercode,windspeed_10m,relative_humidity_2m&wind_speed_unit=kmh&timezone=Europe/Zurich`
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weathercode,windspeed_10m,relative_humidity_2m,apparent_temperature&hourly=temperature_2m,weathercode,windspeed_10m,precipitation_probability,snowfall&wind_speed_unit=kmh&timezone=Europe/Zurich&forecast_days=1`
     );
     const data = await res.json();
+
+    // Nächste 6 Stunden analysieren
+    const now = new Date();
+    const currentHour = now.getHours();
+    const nextHours = Array.from({ length: 6 }, (_, i) => currentHour + i + 1).filter(h => h < 24);
+
+    const warnings: string[] = [];
+
+    for (const h of nextHours) {
+      const code = data.hourly.weathercode[h];
+      const wind = data.hourly.windspeed_10m[h];
+      const snow = data.hourly.snowfall[h];
+      const precip = data.hourly.precipitation_probability[h];
+      const temp = data.hourly.temperature_2m[h];
+      const timeStr = `${h}:00`;
+
+      if (code >= 95) warnings.push(`⛈️ Gewitter um ${timeStr} Uhr`);
+      else if (code >= 80) warnings.push(`🌧️ Starke Schauer um ${timeStr} Uhr`);
+      if (snow > 0.5) warnings.push(`❄️ Schneefall um ${timeStr} Uhr (${snow.toFixed(1)} cm)`);
+      if (wind > 60) warnings.push(`💨 Starker Wind um ${timeStr} Uhr (${wind} km/h)`);
+      if (temp < 0) warnings.push(`🥶 Frost um ${timeStr} Uhr (${temp}°C)`);
+      if (precip > 70 && code >= 61) warnings.push(`🌧️ Hohe Regenwahrscheinlichkeit um ${timeStr} Uhr (${precip}%)`);
+    }
+
+    // Deduplizieren
+    const uniqueWarnings = [...new Set(warnings)];
+
     return {
       temp: Math.round(data.current.temperature_2m),
+      feelsLike: Math.round(data.current.apparent_temperature),
       code: data.current.weathercode,
       wind: Math.round(data.current.windspeed_10m),
       humidity: data.current.relative_humidity_2m,
+      warnings: uniqueWarnings,
     };
   } catch { return null; }
 }
@@ -264,7 +293,20 @@ export default function TourDetailScreen() {
           )}
         </View>
       )}
-
+        {/* Wetter-Warnungen */}
+        {weather?.warnings?.length > 0 && (
+        <View style={styles.section}>
+            <Text style={styles.sectionLabel}>⚠️ WETTERWARNUNGEN</Text>
+            <View style={styles.warningsCard}>
+            {weather.warnings.map((w: string, i: number) => (
+                <View key={i} style={styles.warningRow}>
+                <Text style={styles.warningText}>{w}</Text>
+                </View>
+            ))}
+            <Text style={styles.warningHint}>Prüfe die Wetterentwicklung vor dem Aufstieg!</Text>
+            </View>
+        </View>
+        )}
       {/* Wetter Details */}
       {weather && weatherInfo && (
         <View style={styles.section}>
@@ -277,16 +319,20 @@ export default function TourDetailScreen() {
                 <Text style={styles.weatherBigDesc}>{weatherInfo.text}</Text>
               </View>
             </View>
-            <View style={styles.weatherDetails}>
-              <View style={styles.weatherDetail}>
-                <Text style={styles.weatherDetailVal}>💨 {weather.wind} km/h</Text>
-                <Text style={styles.weatherDetailLbl}>Wind</Text>
-              </View>
-              <View style={styles.weatherDetail}>
-                <Text style={styles.weatherDetailVal}>💧 {weather.humidity}%</Text>
-                <Text style={styles.weatherDetailLbl}>Luftfeuchtigkeit</Text>
-              </View>
-            </View>
+<View style={styles.weatherDetails}>
+  <View style={styles.weatherDetail}>
+    <Text style={styles.weatherDetailVal}>💨 {weather.wind} km/h</Text>
+    <Text style={styles.weatherDetailLbl}>Wind</Text>
+  </View>
+  <View style={styles.weatherDetail}>
+    <Text style={styles.weatherDetailVal}>💧 {weather.humidity}%</Text>
+    <Text style={styles.weatherDetailLbl}>Luftfeuchtigkeit</Text>
+  </View>
+  <View style={styles.weatherDetail}>
+    <Text style={styles.weatherDetailVal}>🌡️ {weather.feelsLike}°C</Text>
+    <Text style={styles.weatherDetailLbl}>Gefühlt</Text>
+  </View>
+</View>
           </View>
         </View>
       )}
@@ -458,4 +504,8 @@ const styles = StyleSheet.create({
   checkoutBtn: { flex: 1, backgroundColor: '#2D6A4F', padding: 18, borderRadius: 16, alignItems: 'center' },
   checkoutBtnRed: { backgroundColor: '#dc2626' },
   checkoutText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  warningsCard: { backgroundColor: '#fff8f0', borderRadius: 16, padding: 16, borderLeftWidth: 4, borderLeftColor: '#e67e22', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
+warningRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#fde8cc' },
+warningText: { fontSize: 14, fontWeight: '600', color: '#c0392b' },
+warningHint: { fontSize: 12, color: '#e67e22', marginTop: 10, fontStyle: 'italic' },
 });
