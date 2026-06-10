@@ -71,6 +71,22 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
   res.json({ message: 'Tour gestartet — Timer läuft', tour: started })
 })
 
+
+// GET /tours/:id — einzelne Tour mit Locations
+router.get('/:id', requireAuth, async (req: Request, res: Response) => {
+  const id = req.params['id'] as string
+  const tour = await prisma.tour.findFirst({
+    where: { id, userId: req.userId as string },
+    include: {
+      locations: { orderBy: { timestamp: 'asc' } },
+      vehicle: true,
+    }
+  })
+  if (!tour) return res.status(404).json({ error: 'Tour nicht gefunden' })
+  res.json(tour)
+})
+
+
 // GPS Standort updaten
 router.post('/:id/location', requireAuth, async (req: Request, res: Response) => {
   const id = req.params.id as string
