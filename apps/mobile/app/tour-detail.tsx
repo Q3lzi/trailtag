@@ -202,7 +202,7 @@ useEffect(() => {
         radius: 10, fillColor: '#e63946', color: '#fff', weight: 3, fillOpacity: 1
       }).bindPopup('📍 Letzter Standort').addTo(map).openPopup();
     });
-  }, 100);
+  }, 300);
 
   return () => clearTimeout(timer);
 }, [tour?.locations?.length, tour?.lastLat, tour?.lastLng, tour?.gpxTrack]);
