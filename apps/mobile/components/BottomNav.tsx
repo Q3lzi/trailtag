@@ -1,10 +1,10 @@
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { router, usePathname } from 'expo-router';
-import { Home, Mountain, BookOpen, User, Plus } from 'lucide-react-native';
+import { Home, Mountain, BookOpen, User } from 'lucide-react-native';
 
 const TABS = [
   { route: '/dashboard', label: 'Home', Icon: Home },
-  { route: '/create-tour', label: 'Tour', Icon: Mountain, isCenter: true },
+  { route: '/create-tour', label: 'Tour', Icon: Mountain },
   { route: '/tours', label: 'Archiv', Icon: BookOpen },
   { route: '/profile', label: 'Profil', Icon: User },
 ];
@@ -18,22 +18,6 @@ export default function BottomNav() {
         {TABS.map((tab) => {
           const isActive = pathname === tab.route;
           const { Icon } = tab;
-
-          if (tab.isCenter) {
-            return (
-              <TouchableOpacity
-                key={tab.route}
-                style={styles.centerTab}
-                onPress={() => router.push(tab.route as any)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.centerBtn, isActive && styles.centerBtnActive]}>
-                  <Plus size={26} color="#fff" strokeWidth={2.5} />
-                </View>
-                <Text style={[styles.label, isActive && styles.labelActive]}>{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          }
 
           return (
             <TouchableOpacity
@@ -64,58 +48,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 30 : 12,
     paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
   container: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 26,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
     shadowColor: '#000',
-    shadowOpacity: 0.10,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 14,
-    alignItems: 'center',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
-    gap: 5,
-  },
-  centerTab: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 5,
-    marginTop: -24,
+    gap: 4,
+    paddingVertical: 6,
   },
   iconWrapper: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconWrapperActive: {
     backgroundColor: '#f0faf4',
-  },
-  centerBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: '#1a2e1a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#1a2e1a',
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-    borderWidth: 3,
-    borderColor: '#f8faf8',
-  },
-  centerBtnActive: {
-    backgroundColor: '#2D6A4F',
   },
   label: {
     fontSize: 10,
