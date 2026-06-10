@@ -113,6 +113,8 @@ export default function TourDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState<any>(null);
   const timeLeft = useCountdown(tour?.eta ?? null);
+  const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, time: string} | null>(null);
+  const mapRef = useRef<any>(null);
 
   useEffect(() => {
     loadTour();
@@ -126,6 +128,20 @@ export default function TourDetailScreen() {
     const lng = tour.lastLng ?? tour.startLng;
     if (lat && lng) fetchWeather(lat, lng).then(setWeather);
   }, [tour?.lastLat, tour?.lastLng]);
+
+  useEffect(() => {
+  if (!selectedLocation || Platform.OS !== 'web') return;
+  import('leaflet').then((L) => {
+    const container = document.getElementById('tour-map');
+    if (!container || !(container as any)._leaflet_id) return;
+    const map = (L.default as any).map(container);
+    map.setView([selectedLocation.lat, selectedLocation.lng], 15, { animate: true });
+    // Highlight Marker
+    L.default.circleMarker([selectedLocation.lat, selectedLocation.lng] as [number, number], {
+      radius: 14, fillColor: '#f59e0b', color: '#fff', weight: 3, fillOpacity: 0.9
+    }).bindPopup(`📍 ${selectedLocation.time}`).addTo(map).openPopup();
+  });
+}, [selectedLocation]);
 
   useEffect(() => {
     if (!tour || Platform.OS !== 'web') return;
@@ -337,50 +353,86 @@ export default function TourDetailScreen() {
         </View>
       )}
 
-      {/* Zeitinfo */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>ZEITVERLAUF</Text>
-        <View style={styles.card}>
-          {tour.startedAt && (
-            <View style={styles.timeRow}>
-              <View style={styles.timeDot} />
-              <View style={styles.timeContent}>
-                <Text style={styles.timeLabel}>Gestartet</Text>
-                <Text style={styles.timeVal}>{new Date(tour.startedAt).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</Text>
-              </View>
-            </View>
-          )}
-          {tour.locationUpdatedAt && (
-            <View style={styles.timeRow}>
-              <View style={[styles.timeDot, { backgroundColor: '#f59e0b' }]} />
-              <View style={styles.timeContent}>
-                <Text style={styles.timeLabel}>Letzter Standort</Text>
-                <Text style={styles.timeVal}>{new Date(tour.locationUpdatedAt).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</Text>
-              </View>
-            </View>
-          )}
-          {tour.eta && (
-            <View style={styles.timeRow}>
-              <View style={[styles.timeDot, { backgroundColor: isOverdue ? '#e63946' : '#2D6A4F' }]} />
-              <View style={styles.timeContent}>
-                <Text style={styles.timeLabel}>Geplante Rückkehr</Text>
-                <Text style={[styles.timeVal, isOverdue && { color: '#e63946', fontWeight: '800' }]}>
-                  {new Date(tour.eta).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
-                </Text>
-              </View>
-            </View>
-          )}
-          {tour.checkedOutAt && (
-            <View style={styles.timeRow}>
-              <View style={[styles.timeDot, { backgroundColor: '#4ade80' }]} />
-              <View style={styles.timeContent}>
-                <Text style={styles.timeLabel}>Ausgecheckt ✅</Text>
-                <Text style={styles.timeVal}>{new Date(tour.checkedOutAt).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</Text>
-              </View>
-            </View>
-          )}
+{/* Zeitverlauf */}
+<View style={styles.section}>
+  <Text style={styles.sectionLabel}>ZEITVERLAUF</Text>
+  <View style={styles.card}>
+    {tour.startedAt && (
+      <TouchableOpacity
+        style={styles.timeRow}
+        onPress={() => tour.startLat && setSelectedLocation({
+          lat: tour.startLat, lng: tour.startLng,
+          time: new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+        })}
+      >
+        <View style={[styles.timeDot, { backgroundColor: '#2D6A4F' }]} />
+        <View style={styles.timeContent}>
+          <Text style={styles.timeLabel}>🟢 Gestartet</Text>
+          <Text style={styles.timeVal}>{new Date(tour.startedAt).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</Text>
+        </View>
+        {tour.startLat && <Text style={styles.timeArrow}>→</Text>}
+      </TouchableOpacity>
+    )}
+
+    {/* Tracking Punkte — alle 10. Punkt anzeigen um nicht zu überladen */}
+    {tour.locations?.filter((_: any, i: number) => i % 10 === 0 && i > 0).map((loc: any) => (
+      <TouchableOpacity
+        key={loc.id}
+        style={styles.timeRow}
+        onPress={() => setSelectedLocation({
+          lat: loc.lat, lng: loc.lng,
+          time: new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+        })}
+      >
+        <View style={[styles.timeDot, { backgroundColor: '#94a3b8', width: 6, height: 6 }]} />
+        <View style={styles.timeContent}>
+          <Text style={styles.timeLabel}>📍 Tracking-Punkt</Text>
+          <Text style={styles.timeVal}>{new Date(loc.timestamp).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</Text>
+        </View>
+        <Text style={styles.timeArrow}>→</Text>
+      </TouchableOpacity>
+    ))}
+
+    {tour.locationUpdatedAt && (
+      <TouchableOpacity
+        style={styles.timeRow}
+        onPress={() => tour.lastLat && setSelectedLocation({
+          lat: tour.lastLat, lng: tour.lastLng,
+          time: new Date(tour.locationUpdatedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+        })}
+      >
+        <View style={[styles.timeDot, { backgroundColor: '#f59e0b' }]} />
+        <View style={styles.timeContent}>
+          <Text style={styles.timeLabel}>📡 Letzter Standort</Text>
+          <Text style={styles.timeVal}>{new Date(tour.locationUpdatedAt).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</Text>
+        </View>
+        {tour.lastLat && <Text style={styles.timeArrow}>→</Text>}
+      </TouchableOpacity>
+    )}
+
+    {tour.eta && (
+      <View style={styles.timeRow}>
+        <View style={[styles.timeDot, { backgroundColor: isOverdue ? '#e63946' : '#2D6A4F' }]} />
+        <View style={styles.timeContent}>
+          <Text style={styles.timeLabel}>🏁 Geplante Rückkehr</Text>
+          <Text style={[styles.timeVal, isOverdue && { color: '#e63946', fontWeight: '800' }]}>
+            {new Date(tour.eta).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+          </Text>
         </View>
       </View>
+    )}
+
+    {tour.checkedOutAt && (
+      <View style={styles.timeRow}>
+        <View style={[styles.timeDot, { backgroundColor: '#4ade80' }]} />
+        <View style={styles.timeContent}>
+          <Text style={styles.timeLabel}>✅ Ausgecheckt</Text>
+          <Text style={styles.timeVal}>{new Date(tour.checkedOutAt).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</Text>
+        </View>
+      </View>
+    )}
+  </View>
+</View>
 
       {/* Parkplatz & Notizen */}
       {(tour.parkingLocation || tour.notes) && (
@@ -508,4 +560,5 @@ const styles = StyleSheet.create({
 warningRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#fde8cc' },
 warningText: { fontSize: 14, fontWeight: '600', color: '#c0392b' },
 warningHint: { fontSize: 12, color: '#e67e22', marginTop: 10, fontStyle: 'italic' },
+timeArrow: { fontSize: 16, color: '#2D6A4F', fontWeight: '700', paddingLeft: 8 },
 });
