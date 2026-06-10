@@ -52,19 +52,22 @@ export async function startLocationTracking(tourId: string) {
       await Location.stopLocationUpdatesAsync(LOCATION_TASK).catch(() => {});
     }
 
-    await Location.startLocationUpdatesAsync(LOCATION_TASK, {
-      accuracy: Location.Accuracy.Balanced,
-      timeInterval: 5 * 60 * 1000,      // alle 5 Minuten
-      distanceInterval: 100,              // oder bei 100m Bewegung
-      showsBackgroundLocationIndicator: true,
-      pausesUpdatesAutomatically: false,  // iOS soll NICHT pausieren
-      activityType: Location.ActivityType.Fitness,
-      foregroundService: {
-        notificationTitle: '🏔️ Trailtag aktiv',
-        notificationBody: 'Standort wird alle 5 Min. für Sicherheitsfunktion gesendet.',
-        notificationColor: '#1a2e1a',
-      },
-    });
+    // Primär: Significant Location Changes — zuverlässigster iOS Background Modus
+await Location.startLocationUpdatesAsync(LOCATION_TASK, {
+  accuracy: Location.Accuracy.BestForNavigation,
+  timeInterval: 3 * 60 * 1000,           // alle 3 Minuten
+  distanceInterval: 50,                    // oder bei 50m Bewegung
+  showsBackgroundLocationIndicator: true,
+  pausesUpdatesAutomatically: false,
+  activityType: Location.ActivityType.OtherNavigation,
+  deferredUpdatesInterval: 60 * 1000,     // mindestens alle 60 Sekunden
+  deferredUpdatesDistance: 50,
+  foregroundService: {
+    notificationTitle: '🏔️ Trailtag aktiv',
+    notificationBody: 'Standort-Tracking aktiv — bleib sicher!',
+    notificationColor: '#1a2e1a',
+  },
+});
 
     console.log('Location tracking started for tour:', tourId);
   } catch (err) {
