@@ -1,6 +1,9 @@
 import express, { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 
+console.log('Tours found:', vehicle?.tours?.length, vehicle?.tours?.map((t: any) => ({id: t.id, status: t.status, startedAt: t.startedAt})))
+console.log('isStale:', vehicle?.tours?.[0]?.startedAt, new Date(vehicle?.tours?.[0]?.startedAt ?? 0).getTime(), Date.now() - 24 * 60 * 60 * 1000)
+
 const router = express.Router()
 
 router.get('/:token', async (req: Request, res: Response) => {
