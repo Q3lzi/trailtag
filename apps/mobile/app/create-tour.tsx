@@ -175,8 +175,23 @@ async function handleStart() {
     ))}
   </View>
 </View>
-    {/* Datum */}
-    <Text style={styles.fieldLabel}>Datum</Text>
+  {/* Datum */}
+<Text style={styles.fieldLabel}>Datum</Text>
+{Platform.OS === 'web' ? (
+  <input
+    type="date"
+    style={{ backgroundColor: '#f8f8f8', borderRadius: 10, padding: 14, fontSize: 15, color: '#222', marginBottom: 8, border: '1px solid #f0f0f0', width: '100%' } as any}
+    min={new Date().toISOString().split('T')[0]}
+    value={etaDateTime.toISOString().split('T')[0]}
+    onChange={(e) => {
+      const [year, month, day] = e.target.value.split('-').map(Number);
+      const newDt = new Date(etaDateTime);
+      newDt.setFullYear(year, month - 1, day);
+      setEtaDateTime(newDt);
+    }}
+  />
+) : (
+  <>
     <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
       <Text style={styles.dateBtnText}>
         📅 {etaDateTime.toLocaleDateString('de-CH', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
@@ -186,22 +201,37 @@ async function handleStart() {
       <DateTimePicker
         value={etaDateTime}
         mode="date"
-        display={Platform.OS === 'ios' ? 'inline' : 'default'}
+        display="inline"
         minimumDate={new Date()}
         onChange={(event, date) => {
-          setShowDatePicker(Platform.OS === 'android' ? false : true);
           if (date) {
             const newDt = new Date(etaDateTime);
             newDt.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
             setEtaDateTime(newDt);
           }
-          if (Platform.OS === 'android') setShowDatePicker(false);
+          if (event.type === 'set') setShowDatePicker(false);
         }}
       />
     )}
+  </>
+)}
 
-    {/* Uhrzeit */}
-    <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Uhrzeit</Text>
+{/* Uhrzeit */}
+<Text style={[styles.fieldLabel, { marginTop: 12 }]}>Uhrzeit</Text>
+{Platform.OS === 'web' ? (
+  <input
+    type="time"
+    style={{ backgroundColor: '#f8f8f8', borderRadius: 10, padding: 14, fontSize: 15, color: '#222', marginBottom: 8, border: '1px solid #f0f0f0', width: '100%' } as any}
+    value={`${String(etaDateTime.getHours()).padStart(2, '0')}:${String(etaDateTime.getMinutes()).padStart(2, '0')}`}
+    onChange={(e) => {
+      const [hours, minutes] = e.target.value.split(':').map(Number);
+      const newDt = new Date(etaDateTime);
+      newDt.setHours(hours, minutes, 0, 0);
+      setEtaDateTime(newDt);
+    }}
+  />
+) : (
+  <>
     <TouchableOpacity style={styles.dateBtn} onPress={() => setShowTimePicker(true)}>
       <Text style={styles.dateBtnText}>
         🕐 {etaDateTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}
@@ -211,7 +241,7 @@ async function handleStart() {
       <DateTimePicker
         value={etaDateTime}
         mode="time"
-        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+        display="spinner"
         is24Hour={true}
         onChange={(event, date) => {
           if (date) {
@@ -219,10 +249,12 @@ async function handleStart() {
             newDt.setHours(date.getHours(), date.getMinutes(), 0, 0);
             setEtaDateTime(newDt);
           }
-          if (Platform.OS === 'android') setShowTimePicker(false);
+          if (event.type === 'set') setShowTimePicker(false);
         }}
       />
     )}
+  </>
+)}
 
     {Platform.OS === 'ios' && (showDatePicker || showTimePicker) && (
       <TouchableOpacity
