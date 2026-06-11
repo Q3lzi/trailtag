@@ -10,6 +10,7 @@ import GpxMap from '../components/GpxMap';
 import ElevationChart from '../components/ElevationChart';
 import { startLocationTracking } from '../lib/tracking';
 import * as DocumentPicker from 'expo-document-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const ACTIVITIES = [
   { key: 'WANDERN', label: '🥾', name: 'Wandern' },
@@ -35,8 +36,13 @@ export default function CreateTourScreen() {
   const [persons, setPersons] = useState('1');
   const [distanceKm, setDistanceKm] = useState('');
   const [elevationUp, setElevationUp] = useState('');
-  const [etaTime, setEtaTime] = useState('');
-  const [etaDate, setEtaDate] = useState(''); // DD.MM format
+ const [etaDateTime, setEtaDateTime] = useState<Date>(() => {
+  const d = new Date();
+  d.setHours(17, 0, 0, 0);
+  return d;
+});
+const [showDatePicker, setShowDatePicker] = useState(false);
+const [showTimePicker, setShowTimePicker] = useState(false);
   const [parkingLocation, setParkingLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -118,28 +124,11 @@ async function handleGpxUpload(event?: any) {
 
 async function handleStart() {
   if (!activity) { showAlert('Fehler', 'Bitte Aktivität wählen.'); return; }
-  if (!etaTime) { showAlert('Fehler', 'Bitte Rückkehrzeit eingeben.'); return; }
-  if (!etaTime.includes(':')) { showAlert('Fehler', 'Format: HH:MM (z.B. 17:30)'); return; }
+  if (etaDateTime.getTime() < Date.now()) { showAlert('Fehler', 'Rückkehrzeit muss in der Zukunft liegen.'); return; }
   setLoading(true);
   try {
     const token = await getToken();
-    const [hoursStr, minsStr] = etaTime.split(':');
-    const etaDateTime = new Date();
-
-    // Datum parsen falls eingegeben
-    if (etaDate && etaDate.includes('.')) {
-      const [dayStr, monthStr] = etaDate.split('.');
-      const day = parseInt(dayStr);
-      const month = parseInt(monthStr) - 1;
-      etaDateTime.setFullYear(new Date().getFullYear(), month, day);
-    }
-
-    etaDateTime.setHours(parseInt(hoursStr), parseInt(minsStr ?? '0'), 0, 0);
-    if (etaDateTime.getTime() < Date.now() && !etaDate) {
-      etaDateTime.setDate(etaDateTime.getDate() + 1);
-    }
     const eta = etaDateTime.toISOString();
-
     const tour = await apiFetch('/tours', {
       method: 'POST',
       body: JSON.stringify({
@@ -151,16 +140,13 @@ async function handleStart() {
         vehicleId: vehicleId ?? null,
       }),
     }, token ?? undefined);
-
     await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
-
     if (gpxData && gpxFileContent) {
       await apiFetch(`/gpx/attach/${tour.id}`, {
         method: 'POST',
         body: JSON.stringify({ gpxContent: gpxFileContent }),
       }, token ?? undefined);
     }
-
     await startLocationTracking(tour.id);
     await scheduleOverdueNotification(etaDateTime);
     router.replace('/dashboard');
@@ -168,7 +154,6 @@ async function handleStart() {
     showAlert('Fehler', err.message);
   } finally { setLoading(false); }
 }
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
@@ -179,41 +164,76 @@ async function handleStart() {
       <View style={styles.section}>
   <Text style={styles.sectionLabel}>GEPLANTE RÜCKKEHR</Text>
   <View style={styles.card}>
-    <Text style={styles.fieldLabel}>Datum (leer = heute)</Text>
-    <TextInput
-      style={styles.input}
-      placeholder="z.B. 2506 → 25.06"
-      placeholderTextColor="#bbb"
-      value={etaDate}
-      onChangeText={(text) => {
-        const digits = text.replace(/\D/g, '');
-        if (digits.length <= 2) {
-          setEtaDate(digits);
-        } else if (digits.length <= 4) {
-          setEtaDate(`${digits.slice(0, 2)}.${digits.slice(2)}`);
-        }
-      }}
-      keyboardType="number-pad"
-      maxLength={5}
-    />
-    <Text style={styles.fieldLabel}>Uhrzeit der Rückkehr</Text>
-    <TextInput
-      style={styles.input}
-      placeholder="z.B. 1730 → 17:30"
-      placeholderTextColor="#bbb"
-      value={etaTime}
-      onChangeText={(text) => {
-        const digits = text.replace(/\D/g, '');
-        if (digits.length <= 2) {
-          setEtaTime(digits);
-        } else if (digits.length <= 4) {
-          setEtaTime(`${digits.slice(0, 2)}:${digits.slice(2)}`);
-        }
-      }}
-      keyboardType="number-pad"
-      maxLength={5}
-    />
-    <Text style={styles.etaHint}>⏱️ Der Safety-Timer läuft bis zu diesem Zeitpunkt.</Text>
+  <View style={styles.section}>
+  <Text style={styles.sectionLabel}>AKTIVITÄT</Text>
+  <View style={styles.activityGrid}>
+    {ACTIVITIES.map(a => (
+      <TouchableOpacity key={a.key} style={[styles.activityCard, activity === a.key && styles.activityCardActive]} onPress={() => setActivity(a.key)}>
+        <Text style={styles.activityEmoji}>{a.label}</Text>
+        <Text style={[styles.activityName, activity === a.key && styles.activityNameActive]}>{a.name}</Text>
+      </TouchableOpacity>
+    ))}
+  </View>
+</View>
+    {/* Datum */}
+    <Text style={styles.fieldLabel}>Datum</Text>
+    <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
+      <Text style={styles.dateBtnText}>
+        📅 {etaDateTime.toLocaleDateString('de-CH', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
+      </Text>
+    </TouchableOpacity>
+    {showDatePicker && (
+      <DateTimePicker
+        value={etaDateTime}
+        mode="date"
+        display={Platform.OS === 'ios' ? 'inline' : 'default'}
+        minimumDate={new Date()}
+        onChange={(event, date) => {
+          setShowDatePicker(Platform.OS === 'android' ? false : true);
+          if (date) {
+            const newDt = new Date(etaDateTime);
+            newDt.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+            setEtaDateTime(newDt);
+          }
+          if (Platform.OS === 'android') setShowDatePicker(false);
+        }}
+      />
+    )}
+
+    {/* Uhrzeit */}
+    <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Uhrzeit</Text>
+    <TouchableOpacity style={styles.dateBtn} onPress={() => setShowTimePicker(true)}>
+      <Text style={styles.dateBtnText}>
+        🕐 {etaDateTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}
+      </Text>
+    </TouchableOpacity>
+    {showTimePicker && (
+      <DateTimePicker
+        value={etaDateTime}
+        mode="time"
+        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+        is24Hour={true}
+        onChange={(event, date) => {
+          if (date) {
+            const newDt = new Date(etaDateTime);
+            newDt.setHours(date.getHours(), date.getMinutes(), 0, 0);
+            setEtaDateTime(newDt);
+          }
+          if (Platform.OS === 'android') setShowTimePicker(false);
+        }}
+      />
+    )}
+
+    {Platform.OS === 'ios' && (showDatePicker || showTimePicker) && (
+      <TouchableOpacity
+        style={[styles.startBtn, { margin: 0, marginTop: 12, backgroundColor: '#1a2e1a' }]}
+        onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}
+      >
+        <Text style={styles.startBtnText}>Bestätigen</Text>
+      </TouchableOpacity>
+    )}
+
+    <Text style={styles.etaHint}>⏱️ Safety-Timer läuft bis zu diesem Zeitpunkt.</Text>
   </View>
 </View>
 
@@ -369,4 +389,6 @@ const styles = StyleSheet.create({
   startBtnDisabled: { opacity: 0.6 },
   startBtnText: { color: '#fff', fontWeight: '800', fontSize: 17 },
   gpxZoneDone: { borderColor: '#2D6A4F', backgroundColor: '#f0faf4' },
+  dateBtn: { backgroundColor: '#f8f8f8', borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#f0f0f0', marginBottom: 4 },
+dateBtnText: { fontSize: 15, color: '#222', fontWeight: '600' },
 });
