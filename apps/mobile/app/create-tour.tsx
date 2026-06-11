@@ -36,6 +36,7 @@ export default function CreateTourScreen() {
   const [distanceKm, setDistanceKm] = useState('');
   const [elevationUp, setElevationUp] = useState('');
   const [etaTime, setEtaTime] = useState('');
+  const [etaDate, setEtaDate] = useState(''); // DD.MM format
   const [parkingLocation, setParkingLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -115,46 +116,57 @@ async function handleGpxUpload(event?: any) {
   }
 }
 
-  async function handleStart() {
-    if (!activity) { showAlert('Fehler', 'Bitte Aktivität wählen.'); return; }
-    if (!etaTime) { showAlert('Fehler', 'Bitte Rückkehrzeit eingeben.'); return; }
-    if (!etaTime.includes(':')) { showAlert('Fehler', 'Format: HH:MM (z.B. 17:30)'); return; }
-    setLoading(true);
-    try {
-      const token = await getToken();
-      const [hoursStr, minsStr] = etaTime.split(':');
-      const etaDate = new Date();
-      etaDate.setHours(parseInt(hoursStr), parseInt(minsStr ?? '0'), 0, 0);
-      if (etaDate.getTime() < Date.now()) etaDate.setDate(etaDate.getDate() + 1);
-      const eta = etaDate.toISOString();
-      const tour = await apiFetch('/tours', {
+async function handleStart() {
+  if (!activity) { showAlert('Fehler', 'Bitte Aktivität wählen.'); return; }
+  if (!etaTime) { showAlert('Fehler', 'Bitte Rückkehrzeit eingeben.'); return; }
+  if (!etaTime.includes(':')) { showAlert('Fehler', 'Format: HH:MM (z.B. 17:30)'); return; }
+  setLoading(true);
+  try {
+    const token = await getToken();
+    const [hoursStr, minsStr] = etaTime.split(':');
+    const etaDateTime = new Date();
+
+    // Datum parsen falls eingegeben
+    if (etaDate && etaDate.includes('.')) {
+      const [dayStr, monthStr] = etaDate.split('.');
+      const day = parseInt(dayStr);
+      const month = parseInt(monthStr) - 1;
+      etaDateTime.setFullYear(new Date().getFullYear(), month, day);
+    }
+
+    etaDateTime.setHours(parseInt(hoursStr), parseInt(minsStr ?? '0'), 0, 0);
+    if (etaDateTime.getTime() < Date.now() && !etaDate) {
+      etaDateTime.setDate(etaDateTime.getDate() + 1);
+    }
+    const eta = etaDateTime.toISOString();
+
+    const tour = await apiFetch('/tours', {
+      method: 'POST',
+      body: JSON.stringify({
+        activity, routeName: routeName || null, difficulty: difficulty || null,
+        persons: parseInt(persons), distanceKm: distanceKm ? parseFloat(distanceKm) : null,
+        elevationUp: elevationUp ? parseInt(elevationUp) : null,
+        parkingLocation: parkingLocation || null, notes: notes || null,
+        startLat: location?.lat ?? null, startLng: location?.lng ?? null,
+        vehicleId: vehicleId ?? null,
+      }),
+    }, token ?? undefined);
+
+    await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
+
+    if (gpxData && gpxFileContent) {
+      await apiFetch(`/gpx/attach/${tour.id}`, {
         method: 'POST',
-        body: JSON.stringify({
-          activity, routeName: routeName || null, difficulty: difficulty || null,
-          persons: parseInt(persons), distanceKm: distanceKm ? parseFloat(distanceKm) : null,
-          elevationUp: elevationUp ? parseInt(elevationUp) : null,
-          parkingLocation: parkingLocation || null, notes: notes || null,
-          startLat: location?.lat ?? null, startLng: location?.lng ?? null,
-          vehicleId: vehicleId ?? null,
-        }),
+        body: JSON.stringify({ gpxContent: gpxFileContent }),
       }, token ?? undefined);
-await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
+    }
 
-// GPX anhängen falls vorhanden
-if (gpxData && gpxFileContent) {
-  await apiFetch(`/gpx/attach/${tour.id}`, {
-    method: 'POST',
-    body: JSON.stringify({ gpxContent: gpxFileContent }),
-  }, token ?? undefined);
-}
-
-await startLocationTracking(tour.id);
-await scheduleOverdueNotification(etaDate);
-router.replace('/dashboard');
-} catch (err: any) {
-  showAlert('Fehler', err.message);
-} finally { setLoading(false); }
-
+    await startLocationTracking(tour.id);
+    await scheduleOverdueNotification(etaDateTime);
+    router.replace('/dashboard');
+  } catch (err: any) {
+    showAlert('Fehler', err.message);
+  } finally { setLoading(false); }
 }
 
   return (
@@ -165,40 +177,45 @@ router.replace('/dashboard');
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>AKTIVITÄT</Text>
-        <View style={styles.activityGrid}>
-          {ACTIVITIES.map(a => (
-            <TouchableOpacity key={a.key} style={[styles.activityCard, activity === a.key && styles.activityCardActive]} onPress={() => setActivity(a.key)}>
-              <Text style={styles.activityEmoji}>{a.label}</Text>
-              <Text style={[styles.activityName, activity === a.key && styles.activityNameActive]}>{a.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>GEPLANTE RÜCKKEHR</Text>
-        <View style={styles.card}>
-          <Text style={styles.fieldLabel}>Uhrzeit der Rückkehr</Text>
-<TextInput
-  style={styles.input}
-  placeholder="z.B. 1730 → 17:30"
-  placeholderTextColor="#bbb"
-  value={etaTime}
-  onChangeText={(text) => {
-    const digits = text.replace(/\D/g, '');
-    if (digits.length <= 2) {
-      setEtaTime(digits);
-    } else if (digits.length <= 4) {
-      setEtaTime(`${digits.slice(0, 2)}:${digits.slice(2)}`);
-    }
-  }}
-  keyboardType="number-pad"
-  maxLength={5}
-/>
-          <Text style={styles.etaHint}>⏱️ Der Safety-Timer läuft bis zu dieser Uhrzeit heute.</Text>
-        </View>
-      </View>
+  <Text style={styles.sectionLabel}>GEPLANTE RÜCKKEHR</Text>
+  <View style={styles.card}>
+    <Text style={styles.fieldLabel}>Datum (leer = heute)</Text>
+    <TextInput
+      style={styles.input}
+      placeholder="z.B. 2506 → 25.06"
+      placeholderTextColor="#bbb"
+      value={etaDate}
+      onChangeText={(text) => {
+        const digits = text.replace(/\D/g, '');
+        if (digits.length <= 2) {
+          setEtaDate(digits);
+        } else if (digits.length <= 4) {
+          setEtaDate(`${digits.slice(0, 2)}.${digits.slice(2)}`);
+        }
+      }}
+      keyboardType="number-pad"
+      maxLength={5}
+    />
+    <Text style={styles.fieldLabel}>Uhrzeit der Rückkehr</Text>
+    <TextInput
+      style={styles.input}
+      placeholder="z.B. 1730 → 17:30"
+      placeholderTextColor="#bbb"
+      value={etaTime}
+      onChangeText={(text) => {
+        const digits = text.replace(/\D/g, '');
+        if (digits.length <= 2) {
+          setEtaTime(digits);
+        } else if (digits.length <= 4) {
+          setEtaTime(`${digits.slice(0, 2)}:${digits.slice(2)}`);
+        }
+      }}
+      keyboardType="number-pad"
+      maxLength={5}
+    />
+    <Text style={styles.etaHint}>⏱️ Der Safety-Timer läuft bis zu diesem Zeitpunkt.</Text>
+  </View>
+</View>
 
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>GRUNDINFORMATIONEN</Text>
