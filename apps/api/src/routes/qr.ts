@@ -13,7 +13,7 @@ const vehicle = await prisma.vehicle.findUnique({
       where: { 
         status: { in: ['ACTIVE', 'ALARM'] },
         // Nur Touren die in den letzten 48 Stunden gestartet wurden
-        startedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) }
+        startedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
       },
       orderBy: { startedAt: 'desc' },
       take: 1,

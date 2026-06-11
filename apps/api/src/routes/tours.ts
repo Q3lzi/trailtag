@@ -23,6 +23,15 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 
   if (!activity) return res.status(400).json({ error: 'Aktivität fehlt' })
 
+    // Alte aktive/alarm Touren abschliessen
+await prisma.tour.updateMany({
+  where: {
+    userId: req.userId as string,
+    status: { in: ['ACTIVE', 'ALARM'] }
+  },
+  data: { status: 'COMPLETED', checkedOutAt: new Date() }
+})
+
   const tour = await prisma.tour.create({
     data: {
       userId: req.userId as string,
@@ -120,19 +129,6 @@ router.post('/:id/location', requireAuth, async (req: Request, res: Response) =>
 
   res.json({ message: 'Standort aktualisiert', tour: updated })
 })
-
-// Einmalig: Alte ALARM Touren abschliessen
-router.post('/cleanup-alarms', requireAuth, async (req: Request, res: Response) => {
-  const updated = await prisma.tour.updateMany({
-    where: {
-      status: 'ALARM',
-      startedAt: { lt: new Date(Date.now() - 48 * 60 * 60 * 1000) }
-    },
-    data: { status: 'COMPLETED', checkedOutAt: new Date() }
-  })
-  res.json({ message: `${updated.count} alte Alarm-Touren abgeschlossen` })
-})
-
 
 // Tour abschliessen
 router.post('/:id/checkout', requireAuth, async (req: Request, res: Response) => {
