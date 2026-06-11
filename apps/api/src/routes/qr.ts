@@ -12,8 +12,6 @@ const vehicle = await prisma.vehicle.findUnique({
     tours: {
       where: { 
         status: { in: ['ACTIVE', 'ALARM'] },
-        // Nur Touren die in den letzten 48 Stunden gestartet wurden
-        startedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
       },
       orderBy: { startedAt: 'desc' },
       take: 1,
@@ -28,13 +26,20 @@ const vehicle = await prisma.vehicle.findUnique({
     }
   }
 })
+
+
   if (!vehicle) {
     return res.status(404).send(renderNotFound())
   }
 
   const activeTour = vehicle.tours[0]
 
-  if (!activeTour) {
+  // Tour ist veraltet wenn sie älter als 24h ist
+  const isStale = activeTour &&
+    activeTour.startedAt &&
+    new Date(activeTour.startedAt).getTime() < Date.now() - 24 * 60 * 60 * 1000
+
+  if (!activeTour || isStale) {
     return res.send(renderGreen(vehicle))
   }
 
@@ -110,6 +115,8 @@ function mapSection(tour: any) {
   `
 }
 
+
+
 function elevationSection(tour: any) {
   const points = tour?.gpxTrack?.points?.filter((p: any) => p.ele != null)
   if (!points || points.length === 0) return ''
@@ -155,6 +162,8 @@ function tourDetails(tour: any, vehicle: any) {
     SKITOUR: '⛷️ Skitour', KLETTERSTEIG: '🪝 Klettersteig',
     KANU_KAJAK: '🛶 Kanu/Kajak', PARAGLIDING: '🪂 Paragliding', ANDERE: '🏕️ Andere'
   }
+
+  
 
   return `
     <div class="card">
