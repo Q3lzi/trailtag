@@ -180,14 +180,22 @@ router.replace('/dashboard');
         <Text style={styles.sectionLabel}>GEPLANTE RÜCKKEHR</Text>
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>Uhrzeit der Rückkehr</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="z.B. 17:30"
-            placeholderTextColor="#bbb"
-            value={etaTime}
-            onChangeText={setEtaTime}
-            keyboardType="numbers-and-punctuation"
-          />
+<TextInput
+  style={styles.input}
+  placeholder="z.B. 1730 → 17:30"
+  placeholderTextColor="#bbb"
+  value={etaTime}
+  onChangeText={(text) => {
+    const digits = text.replace(/\D/g, '');
+    if (digits.length <= 2) {
+      setEtaTime(digits);
+    } else if (digits.length <= 4) {
+      setEtaTime(`${digits.slice(0, 2)}:${digits.slice(2)}`);
+    }
+  }}
+  keyboardType="number-pad"
+  maxLength={5}
+/>
           <Text style={styles.etaHint}>⏱️ Der Safety-Timer läuft bis zu dieser Uhrzeit heute.</Text>
         </View>
       </View>
