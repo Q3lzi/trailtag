@@ -6,6 +6,7 @@ import { getToken } from '../lib/storage';
 import { showAlert, showConfirm } from '../lib/alert';
 import { cancelAllNotifications } from '../lib/notifications';
 import { stopLocationTracking } from '../lib/tracking';
+import TrailMap from '../components/TrailMap';
 
 const ACTIVITY_LABELS: Record<string, { label: string; emoji: string }> = {
   WANDERN:      { label: 'Wandern',      emoji: '🥾' },
@@ -279,24 +280,24 @@ useEffect(() => {
         )}
       </View>
 
-     {/* Karte */}
-{(tour.startLat || tour.lastLat) && Platform.OS === 'web' && (
+{/* Karte */}
+{(tour.startLat || tour.lastLat) && (
   <View style={styles.mapSection}>
-    <div id="tour-map" style={{ width: '100%', height: 320 } as any} />
+    {Platform.OS === 'web' ? (
+      <>
+        <div id="tour-map" style={{ width: '100%', height: 320 } as any} />
+      </>
+    ) : (
+      <TrailMap points={
+        tour.locations?.length > 0
+          ? tour.locations.map((l: any) => ({ lat: l.lat, lng: l.lng, ele: l.ele }))
+          : tour.gpxTrack?.points?.length > 0
+            ? tour.gpxTrack.points
+            : [{ lat: tour.lastLat ?? tour.startLat, lng: tour.lastLng ?? tour.startLng }]
+      } />
+    )}
     <View style={styles.mapFooter}>
-      <Text style={styles.mapFooterText}>
-        {tour.gpxTrack?.points?.length > 0
-          ? `🗺️ GPX Route · ${tour.gpxTrack.points.length} Punkte`
-          : locationCount > 0
-            ? `📍 ${locationCount} Tracking-Punkte`
-            : '📍 Startpunkt'}
-        {tour.gpxTrack?.points?.length > 0 && locationCount > 0 && ` · 🔴 ${locationCount} Tracking-Punkte`}
-      </Text>
-      {minutesSinceUpdate !== null && (
-        <Text style={[styles.mapFooterText, minutesSinceUpdate > 30 ? { color: '#e67e22' } : { color: '#2D6A4F' }]}>
-          vor {minutesSinceUpdate} Min. aktualisiert {minutesSinceUpdate > 30 ? '⚠️' : '✅'}
-        </Text>
-      )}
+      ...
     </View>
   </View>
 )}
