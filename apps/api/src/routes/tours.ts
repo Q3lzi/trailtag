@@ -81,6 +81,17 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
 })
 
 
+// Tour löschen
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+  const id = req.params.id as string
+  const tour = await prisma.tour.findFirst({ where: { id, userId: req.userId as string } })
+  if (!tour) return res.status(404).json({ error: 'Tour nicht gefunden' })
+  await prisma.tourLocation.deleteMany({ where: { tourId: id } })
+  await prisma.alarmEvent.deleteMany({ where: { tourId: id } })
+  await prisma.tour.delete({ where: { id } })
+  res.json({ message: 'Tour gelöscht' })
+})
+
 // GET /tours/:id — einzelne Tour mit Locations
 router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   const id = req.params['id'] as string
@@ -128,6 +139,20 @@ router.post('/:id/location', requireAuth, async (req: Request, res: Response) =>
   ])
 
   res.json({ message: 'Standort aktualisiert', tour: updated })
+})
+
+
+//Tour planen
+router.post('/:id/plan', requireAuth, async (req: Request, res: Response) => {
+  const id = req.params.id as string
+  const { eta } = req.body
+  const tour = await prisma.tour.findFirst({ where: { id, userId: req.userId as string } })
+  if (!tour) return res.status(404).json({ error: 'Tour nicht gefunden' })
+  const updated = await prisma.tour.update({
+    where: { id },
+    data: { eta: eta ? new Date(eta) : null }
+  })
+  res.json({ message: 'Tour geplant', tour: updated })
 })
 
 // Tour abschliessen

@@ -1,12 +1,9 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
 import { apiFetch } from '../lib/api';
-
-async function getToken(): Promise<string | null> {
-  if (Platform.OS === 'web') return localStorage.getItem('token');
-  return await SecureStore.getItemAsync('token');
-}
+import { getToken } from '../lib/storage';
+import { router } from 'expo-router';
+import { showAlert, showConfirm } from '../lib/alert';
 
 const ACTIVITY_LABELS: Record<string, { emoji: string; name: string }> = {
   WANDERN: { emoji: '🥾', name: 'Wandern' }, BERGTOUR: { emoji: '🏔️', name: 'Bergtour' },
@@ -134,41 +131,81 @@ export default function ToursScreen() {
               </View>
 
               {/* Details */}
-              {isExpanded && (
-                <View style={styles.tourDetails}>
-                  <View style={styles.divider} />
-                  {tour.startedAt && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLbl}>Gestartet</Text>
-                      <Text style={styles.detailVal}>{formatDate(tour.startedAt)} {new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
-                    </View>
-                  )}
-                  {tour.checkedOutAt && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLbl}>Zurück</Text>
-                      <Text style={styles.detailVal}>{formatDate(tour.checkedOutAt)} {new Date(tour.checkedOutAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
-                    </View>
-                  )}
-                  {tour.startedAt && tour.checkedOutAt && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLbl}>Dauer</Text>
-                      <Text style={styles.detailVal}>{formatDuration(tour.startedAt, tour.checkedOutAt)}</Text>
-                    </View>
-                  )}
-                  {tour.parkingLocation && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLbl}>Parkplatz</Text>
-                      <Text style={styles.detailVal}>{tour.parkingLocation}</Text>
-                    </View>
-                  )}
-                  {tour.notes && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLbl}>Notizen</Text>
-                      <Text style={styles.detailVal}>{tour.notes}</Text>
-                    </View>
-                  )}
-                </View>
-              )}
+{isExpanded && (
+  <View style={styles.tourDetails}>
+    <View style={styles.divider} />
+    {tour.startedAt && (
+      <View style={styles.detailRow}>
+        <Text style={styles.detailLbl}>Gestartet</Text>
+        <Text style={styles.detailVal}>{formatDate(tour.startedAt)} {new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
+      </View>
+    )}
+    {tour.checkedOutAt && (
+      <View style={styles.detailRow}>
+        <Text style={styles.detailLbl}>Zurück</Text>
+        <Text style={styles.detailVal}>{formatDate(tour.checkedOutAt)} {new Date(tour.checkedOutAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
+      </View>
+    )}
+    {tour.startedAt && tour.checkedOutAt && (
+      <View style={styles.detailRow}>
+        <Text style={styles.detailLbl}>Dauer</Text>
+        <Text style={styles.detailVal}>{formatDuration(tour.startedAt, tour.checkedOutAt)}</Text>
+      </View>
+    )}
+    {tour.parkingLocation && (
+      <View style={styles.detailRow}>
+        <Text style={styles.detailLbl}>Parkplatz</Text>
+        <Text style={styles.detailVal}>{tour.parkingLocation}</Text>
+      </View>
+    )}
+    {tour.notes && (
+      <View style={styles.detailRow}>
+        <Text style={styles.detailLbl}>Notizen</Text>
+        <Text style={styles.detailVal}>{tour.notes}</Text>
+      </View>
+    )}
+
+    {/* Aktionen */}
+    <View style={styles.actionRow}>
+      <TouchableOpacity
+        style={styles.reuseBtn}
+        onPress={() => router.push({ pathname: '/create-tour', params: {
+          prefill: JSON.stringify({
+            activity: tour.activity,
+            routeName: tour.routeName,
+            difficulty: tour.difficulty,
+            persons: tour.persons,
+            distanceKm: tour.distanceKm,
+            elevationUp: tour.elevationUp,
+            parkingLocation: tour.parkingLocation,
+            notes: tour.notes,
+            vehicleId: tour.vehicleId,
+          })
+        }})}
+      >
+        <Text style={styles.reuseBtnText}>🔄 Wiederverwenden</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.deleteBtn}
+        onPress={async () => {
+          const confirmed = await showConfirm('Tour wirklich löschen?');
+          if (!confirmed) return;
+          try {
+            const token = await getToken();
+            await apiFetch(`/tours/${tour.id}`, { method: 'DELETE' }, token ?? undefined);
+            setTours(prev => prev.filter(t => t.id !== tour.id));
+          } catch (err) {
+            showAlert('Fehler', 'Tour konnte nicht gelöscht werden.');
+          }
+        }}
+      >
+        <Text style={styles.deleteBtnText}>🗑️ Löschen</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+)}
+
+              
 
               <Text style={styles.expandHint}>{isExpanded ? '▲' : '▼'}</Text>
             </TouchableOpacity>
@@ -214,4 +251,9 @@ const styles = StyleSheet.create({
   detailLbl: { fontSize: 13, color: '#aaa' },
   detailVal: { fontSize: 13, fontWeight: '600', color: '#333', flex: 1, textAlign: 'right' },
   expandHint: { textAlign: 'center', color: '#ddd', fontSize: 12, marginTop: 12 },
+  actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+reuseBtn: { flex: 1, backgroundColor: '#f0faf4', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#2D6A4F' },
+reuseBtnText: { color: '#2D6A4F', fontWeight: '700', fontSize: 13 },
+deleteBtn: { flex: 1, backgroundColor: '#fff5f5', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#fca5a5' },
+deleteBtnText: { color: '#dc2626', fontWeight: '700', fontSize: 13 },
 });

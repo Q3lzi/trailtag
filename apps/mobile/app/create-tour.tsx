@@ -11,6 +11,27 @@ import ElevationChart from '../components/ElevationChart';
 import { startLocationTracking } from '../lib/tracking';
 import * as DocumentPicker from 'expo-document-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useLocalSearchParams } from 'expo-router';
+
+// In der Komponente:
+const params = useLocalSearchParams<{ prefill?: string }>();
+
+useEffect(() => {
+  if (params.prefill) {
+    try {
+      const p = JSON.parse(params.prefill);
+      if (p.activity) setActivity(p.activity);
+      if (p.routeName) setRouteName(p.routeName);
+      if (p.difficulty) setDifficulty(p.difficulty);
+      if (p.persons) setPersons(String(p.persons));
+      if (p.distanceKm) setDistanceKm(String(p.distanceKm));
+      if (p.elevationUp) setElevationUp(String(p.elevationUp));
+      if (p.parkingLocation) setParkingLocation(p.parkingLocation);
+      if (p.notes) setNotes(p.notes);
+      if (p.vehicleId) setVehicleId(p.vehicleId);
+    } catch {}
+  }
+}, [params.prefill]);
 
 const ACTIVITIES = [
   { key: 'WANDERN', label: '🥾', name: 'Wandern' },
@@ -122,7 +143,7 @@ async function handleGpxUpload(event?: any) {
   }
 }
 
-async function handleStart() {
+async function handleStart(planOnly = false) {
   if (!activity) { showAlert('Fehler', 'Bitte Aktivität wählen.'); return; }
   if (etaDateTime.getTime() < Date.now()) { showAlert('Fehler', 'Rückkehrzeit muss in der Zukunft liegen.'); return; }
   setLoading(true);
@@ -140,16 +161,30 @@ async function handleStart() {
         vehicleId: vehicleId ?? null,
       }),
     }, token ?? undefined);
-    await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
-    if (gpxData && gpxFileContent) {
-      await apiFetch(`/gpx/attach/${tour.id}`, {
-        method: 'POST',
-        body: JSON.stringify({ gpxContent: gpxFileContent }),
-      }, token ?? undefined);
+
+    if (!planOnly) {
+      await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
+      if (gpxData && gpxFileContent) {
+        await apiFetch(`/gpx/attach/${tour.id}`, {
+          method: 'POST',
+          body: JSON.stringify({ gpxContent: gpxFileContent }),
+        }, token ?? undefined);
+      }
+      await startLocationTracking(tour.id);
+      await scheduleOverdueNotification(etaDateTime);
+      router.replace('/dashboard');
+    } else {
+      // Geplante Tour — ETA speichern ohne starten
+      await apiFetch(`/tours/${tour.id}/plan`, { method: 'POST', body: JSON.stringify({ eta }) }, token ?? undefined);
+      if (gpxData && gpxFileContent) {
+        await apiFetch(`/gpx/attach/${tour.id}`, {
+          method: 'POST',
+          body: JSON.stringify({ gpxContent: gpxFileContent }),
+        }, token ?? undefined);
+      }
+      showAlert('✅ Gespeichert', 'Tour wurde geplant und im Archiv gespeichert.');
+      router.replace('/tours');
     }
-    await startLocationTracking(tour.id);
-    await scheduleOverdueNotification(etaDateTime);
-    router.replace('/dashboard');
   } catch (err: any) {
     showAlert('Fehler', err.message);
   } finally { setLoading(false); }
@@ -373,9 +408,22 @@ async function handleStart() {
         </View>
       </View>
 
-      <TouchableOpacity style={[styles.startBtn, loading && styles.startBtnDisabled]} onPress={handleStart} disabled={loading}>
-        <Text style={styles.startBtnText}>{loading ? 'Startet...' : 'Safety-Timer aktivieren'}</Text>
-      </TouchableOpacity>
+<View style={{ flexDirection: 'row', gap: 10, margin: 24 }}>
+  <TouchableOpacity
+    style={[styles.planBtn, loading && styles.startBtnDisabled]}
+    onPress={() => handleStart(true)}
+    disabled={loading}
+  >
+    <Text style={styles.planBtnText}>📅 Planen</Text>
+  </TouchableOpacity>
+  <TouchableOpacity
+    style={[styles.startBtn, { flex: 1, margin: 0 }, loading && styles.startBtnDisabled]}
+    onPress={() => handleStart(false)}
+    disabled={loading}
+  >
+    <Text style={styles.startBtnText}>{loading ? 'Startet...' : '🚀 Jetzt starten'}</Text>
+  </TouchableOpacity>
+</View>
     </ScrollView>
   );
 }
@@ -423,4 +471,6 @@ const styles = StyleSheet.create({
   gpxZoneDone: { borderColor: '#2D6A4F', backgroundColor: '#f0faf4' },
   dateBtn: { backgroundColor: '#f8f8f8', borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#f0f0f0', marginBottom: 4 },
 dateBtnText: { fontSize: 15, color: '#222', fontWeight: '600' },
+planBtn: { backgroundColor: '#fff', padding: 20, borderRadius: 18, alignItems: 'center', borderWidth: 2, borderColor: '#1a2e1a', minWidth: 110 },
+planBtnText: { color: '#1a2e1a', fontWeight: '800', fontSize: 15 },
 });
