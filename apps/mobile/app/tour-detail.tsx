@@ -284,9 +284,7 @@ useEffect(() => {
 {(tour.startLat || tour.lastLat) && (
   <View style={styles.mapSection}>
     {Platform.OS === 'web' ? (
-      <>
-        <div id="tour-map" style={{ width: '100%', height: 320 } as any} />
-      </>
+      <div id="tour-map" style={{ width: '100%', height: 320 } as any} />
     ) : (
       <TrailMap points={
         tour.locations?.length > 0
@@ -297,7 +295,19 @@ useEffect(() => {
       } />
     )}
     <View style={styles.mapFooter}>
-      ...
+      <Text style={styles.mapFooterText}>
+        {tour.gpxTrack?.points?.length > 0
+          ? `🗺️ GPX Route · ${tour.gpxTrack.points.length} Punkte`
+          : locationCount > 0
+            ? `📍 ${locationCount} Tracking-Punkte`
+            : '📍 Startpunkt'}
+        {tour.gpxTrack?.points?.length > 0 && locationCount > 0 && ` · 🔴 ${locationCount} Tracking-Punkte`}
+      </Text>
+      {minutesSinceUpdate !== null && (
+        <Text style={[styles.mapFooterText, minutesSinceUpdate > 30 ? { color: '#e67e22' } : { color: '#2D6A4F' }]}>
+          vor {minutesSinceUpdate} Min. aktualisiert {minutesSinceUpdate > 30 ? '⚠️' : '✅'}
+        </Text>
+      )}
     </View>
   </View>
 )}
