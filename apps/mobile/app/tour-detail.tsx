@@ -6,7 +6,7 @@ import { getToken } from '../lib/storage';
 import { showAlert, showConfirm } from '../lib/alert';
 import { cancelAllNotifications } from '../lib/notifications';
 import { stopLocationTracking } from '../lib/tracking';
-import TrailMap from '../components/TrailMap';
+import { Platform } from 'react-native';
 
 const ACTIVITY_LABELS: Record<string, { label: string; emoji: string }> = {
   WANDERN:      { label: 'Wandern',      emoji: '🥾' },
@@ -286,13 +286,19 @@ useEffect(() => {
     {Platform.OS === 'web' ? (
       <div id="tour-map" style={{ width: '100%', height: 320 } as any} />
     ) : (
-      <TrailMap points={
-        tour.locations?.length > 0
-          ? tour.locations.map((l: any) => ({ lat: l.lat, lng: l.lng, ele: l.ele }))
-          : tour.gpxTrack?.points?.length > 0
-            ? tour.gpxTrack.points
-            : [{ lat: tour.lastLat ?? tour.startLat, lng: tour.lastLng ?? tour.startLng }]
-      } />
+      (() => {
+        try {
+          const TrailMap = require('../components/TrailMap').default;
+          const points = tour.locations?.length > 0
+            ? tour.locations.map((l: any) => ({ lat: l.lat, lng: l.lng, ele: l.ele }))
+            : tour.gpxTrack?.points?.length > 0
+              ? tour.gpxTrack.points
+              : [{ lat: tour.lastLat ?? tour.startLat, lng: tour.lastLng ?? tour.startLng }];
+          return <TrailMap points={points} />;
+        } catch (e) {
+          return null;
+        }
+      })()
     )}
     <View style={styles.mapFooter}>
       <Text style={styles.mapFooterText}>
@@ -311,7 +317,6 @@ useEffect(() => {
     </View>
   </View>
 )}
-
       {/* Stats */}
       {(tour.distanceKm || tour.elevationUp || tour.difficulty || tour.persons > 1) && (
         <View style={styles.statsSection}>
