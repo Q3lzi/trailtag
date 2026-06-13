@@ -37,37 +37,61 @@ export function startAlarmEngine() {
           // TODO: Push Notification senden
         })
       }
-      // STUFE 2: ETA überschritten → ALARM
-      if (diffMin >= 0 && diffMin < 60) {
+      // STUFE 2: ETA überschritten → sofort ALARM setzen (Portal zeigt Alarm)
+      if (diffMin >= 0) {
         await triggerStage(tour.id, 2, async () => {
-          console.log(`🟠 STUFE 2: ${tour.user.name} — ÜBERFÄLLIG!`)
-          // Tour auf ALARM setzen
+          console.log(`🟠 STUFE 2: ${tour.user.name} — ÜBERFÄLLIG! Status → ALARM`)
           await prisma.tour.update({
             where: { id: tour.id },
-            data: { alarmStage: 2 }
+            data: { status: 'ALARM', alarmStage: 2 }
           })
         })
       }
-      // STUFE 3+4: 60 min nach ETA → Notfall
+      // STUFE 3: 60 min nach ETA → SMS an Notfallkontakte
       if (diffMin >= 60) {
         await triggerStage(tour.id, 3, async () => {
-        console.log(`🔴 STUFE 3: ${tour.user.name} — ICE WIRD ALARMIERT!`)
-        await sendSms(
-            process.env.TWILIO_TO_NUMBER!,
-            `🚨 TRAILTAG ALARM: ${tour.user.name} ist seit über 1 Stunde überfällig. Bitte sofort melden!`
-        )
-        await prisma.tour.update({
+          console.log(`🔴 STUFE 3: ${tour.user.name} — SMS WIRD GESENDET!`)
+          // SMS an alle Notfallkontakte
+          const tourWithContacts = await prisma.tour.findUnique({
             where: { id: tour.id },
-            data: { status: 'ALARM', alarmStage: 3 }
-        })
-        })
-        await triggerStage(tour.id, 4, async () => {
-          console.log(`🚨 STUFE 4: ${tour.user.name} — MEDIZINDATEN FREIGEGEBEN`)
+            include: { user: { include: { emergencyContacts: true } } }
+          })
+          const contacts = tourWithContacts?.user?.emergencyContacts ?? []
+          if (contacts.length > 0) {
+            for (const contact of contacts) {
+              if (contact.phone) {
+                await sendSms(
+                  contact.phone,
+                  `🚨 TRAILTAG ALARM: ${tour.user.name} ist seit über 1 Stunde überfällig. Bitte sofort melden oder Rettung kontaktieren!`
+                )
+              }
+            }
+          } else {
+            // Fallback: TWILIO_TO_NUMBER
+            await sendSms(
+              process.env.TWILIO_TO_NUMBER!,
+              `🚨 TRAILTAG ALARM: ${tour.user.name} ist seit über 1 Stunde überfällig. Bitte sofort melden!`
+            )
+          }
           await prisma.tour.update({
             where: { id: tour.id },
-            data: { alarmStage: 4 }
+            data: { alarmStage: 3 }
           })
         })
+        // STUFE 4: 2h nach ETA → Zweite SMS
+        if (diffMin >= 120) {
+          await triggerStage(tour.id, 4, async () => {
+            console.log(`🚨 STUFE 4: ${tour.user.name} — ZWEITE SMS`)
+            await sendSms(
+              process.env.TWILIO_TO_NUMBER!,
+              `🚨 TRAILTAG NOTFALL: ${tour.user.name} ist seit über 2 Stunden überfällig. Emergency Services kontaktieren!`
+            )
+            await prisma.tour.update({
+              where: { id: tour.id },
+              data: { alarmStage: 4 }
+            })
+          })
+        }
       }
     }
   })

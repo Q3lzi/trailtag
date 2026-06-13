@@ -84,16 +84,25 @@ router.get('/:token', async (req: Request, res: Response) => {
     })
   }
 
-  // Step 3: check if active tour is stale (ACTIVE but ETA > 48h ago — probably forgotten)
+  // Step 3: determine effective status
+  const etaMs = activeTour?.eta ? new Date(activeTour.eta).getTime() : null
+  const nowMs = Date.now()
+
+  // Stale: ACTIVE tour with ETA > 48h ago (forgotten, ignore)
   const isStale = activeTour &&
     activeTour.status === 'ACTIVE' &&
-    activeTour.eta &&
-    new Date(activeTour.eta).getTime() < Date.now() - 48 * 60 * 60 * 1000
+    etaMs !== null &&
+    etaMs < nowMs - 48 * 60 * 60 * 1000
 
-  // Route based on what we found
+  // Overdue: ETA has passed (even if DB still says ACTIVE — cron may not have run yet)
+  const isOverdue = activeTour &&
+    etaMs !== null &&
+    etaMs < nowMs
+
   if (!activeTour || isStale) return res.send(renderGreen(vehicle))
-  if (activeTour.status === 'ACTIVE') return res.send(renderActive(vehicle, activeTour))
-  return res.send(renderAlarm(vehicle, activeTour))
+  // Show ALARM view if status is ALARM OR if ETA has passed (cron bridge)
+  if (activeTour.status === 'ALARM' || isOverdue) return res.send(renderAlarm(vehicle, activeTour))
+  return res.send(renderActive(vehicle, activeTour))
 })
 
 // ── Helpers ──────────────────────────────────────────────────────
