@@ -13,25 +13,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams } from 'expo-router';
 
-// In der Komponente:
-const params = useLocalSearchParams<{ prefill?: string }>();
-
-useEffect(() => {
-  if (params.prefill) {
-    try {
-      const p = JSON.parse(params.prefill);
-      if (p.activity) setActivity(p.activity);
-      if (p.routeName) setRouteName(p.routeName);
-      if (p.difficulty) setDifficulty(p.difficulty);
-      if (p.persons) setPersons(String(p.persons));
-      if (p.distanceKm) setDistanceKm(String(p.distanceKm));
-      if (p.elevationUp) setElevationUp(String(p.elevationUp));
-      if (p.parkingLocation) setParkingLocation(p.parkingLocation);
-      if (p.notes) setNotes(p.notes);
-      if (p.vehicleId) setVehicleId(p.vehicleId);
-    } catch {}
-  }
-}, [params.prefill]);
 
 const ACTIVITIES = [
   { key: 'WANDERN', label: '🥾', name: 'Wandern' },
@@ -74,6 +55,28 @@ const [showTimePicker, setShowTimePicker] = useState(false);
   const [gpxFileContent, setGpxFileContent] = useState<string | null>(null);
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<any[]>([]);
+
+
+// In der Komponente:
+const params = useLocalSearchParams<{ prefill?: string }>();
+
+useEffect(() => {
+  if (params.prefill) {
+    try {
+      const p = JSON.parse(params.prefill);
+      if (p.activity) setActivity(p.activity);
+      if (p.routeName) setRouteName(p.routeName);
+      if (p.difficulty) setDifficulty(p.difficulty);
+      if (p.persons) setPersons(String(p.persons));
+      if (p.distanceKm) setDistanceKm(String(p.distanceKm));
+      if (p.elevationUp) setElevationUp(String(p.elevationUp));
+      if (p.parkingLocation) setParkingLocation(p.parkingLocation);
+      if (p.notes) setNotes(p.notes);
+      if (p.vehicleId) setVehicleId(p.vehicleId);
+    } catch {}
+  }
+}, [params.prefill]);
+
 
   useEffect(() => {
     async function loadVehicles() {

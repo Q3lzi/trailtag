@@ -83,7 +83,7 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
 
 // Tour löschen
 router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
-  const id = req.params.id as string
+  const id = req.params['id'] as string
   const tour = await prisma.tour.findFirst({ where: { id, userId: req.userId as string } })
   if (!tour) return res.status(404).json({ error: 'Tour nicht gefunden' })
   await prisma.tourLocation.deleteMany({ where: { tourId: id } })
