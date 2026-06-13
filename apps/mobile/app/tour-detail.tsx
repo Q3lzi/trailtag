@@ -1,5 +1,14 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Polyline, Marker } from 'react-native-maps';
+// react-native-maps loaded dynamically to avoid build issues on web
+let MapView: any = null, Polyline: any = null, Marker: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    const RNMaps = require('react-native-maps');
+    MapView = RNMaps.default;
+    Polyline = RNMaps.Polyline;
+    Marker = RNMaps.Marker;
+  } catch { /* not available */ }
+}
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking, Share } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -129,7 +138,6 @@ export default function TourDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState<any>(null);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, time: string} | null>(null);
-  const insets = useSafeAreaInsets();
   const [checkedWaypoints, setCheckedWaypoints] = useState<Set<number>>(new Set());
   const insets = useSafeAreaInsets();
   const [showAllLogs, setShowAllLogs] = useState(false);
