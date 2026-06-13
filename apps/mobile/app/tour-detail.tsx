@@ -223,105 +223,144 @@ const timer = setTimeout(() => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
-      {/* Hero Header */}
-      <View style={[styles.hero, { backgroundColor: heroColor }]}>
-        {/* SVG Bergpanorama — nur Web */}
-        {Platform.OS === 'web' && (
-          <svg viewBox="0 0 400 260" preserveAspectRatio="xMidYMid slice"
-            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0.12 } as any}>
-            <polygon points="0,180 50,90 100,130 160,50 220,100 280,40 340,85 400,55 400,260 0,260" fill="white"/>
-            <polygon points="0,220 70,140 130,170 190,100 250,150 310,80 370,120 400,100 400,260 0,260" fill="white" opacity="0.6"/>
-            <polygon points="160,50 175,68 182,60 188,68 202,52 194,72 174,72" fill="white" opacity="2"/>
-            <polygon points="280,40 292,57 298,50 304,57 316,42 308,62 288,62" fill="white" opacity="2"/>
-          </svg>
-        )}
+{/* Hero Header */}
+<View style={[styles.hero, { backgroundColor: heroColor }]}>
+  {/* SVG Bergpanorama */}
+  {Platform.OS === 'web' && (
+    <svg viewBox="0 0 400 260" preserveAspectRatio="xMidYMid slice"
+      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0.12 } as any}>
+      <polygon points="0,180 50,90 100,130 160,50 220,100 280,40 340,85 400,55 400,260 0,260" fill="white"/>
+      <polygon points="0,220 70,140 130,170 190,100 250,150 310,80 370,120 400,100 400,260 0,260" fill="white" opacity="0.6"/>
+      <polygon points="160,50 175,68 182,60 188,68 202,52 194,72 174,72" fill="white" opacity="2"/>
+      <polygon points="280,40 292,57 298,50 304,57 316,42 308,62 288,62" fill="white" opacity="2"/>
+    </svg>
+  )}
 
-        {/* Top Bar */}
-        <View style={styles.heroTopBar}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <ArrowLeft size={18} color="rgba(255,255,255,0.8)" strokeWidth={2} />
-            <Text style={styles.backText}>Zurück</Text>
-          </TouchableOpacity>
-          <View style={[styles.statusPill, isOverdue ? styles.statusPillRed : isActive ? styles.statusPillGreen : styles.statusPillGray]}>
-            <View style={[styles.statusDot, isOverdue ? styles.dotRed : isActive ? styles.dotGreen : styles.dotGray]} />
-            <Text style={styles.statusPillText}>{isOverdue ? 'ALARM' : isActive ? 'AKTIV' : 'ABGESCHLOSSEN'}</Text>
-          </View>
+  {/* Top Bar */}
+  <View style={styles.heroTopBar}>
+    <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+      <ArrowLeft size={18} color="rgba(255,255,255,0.8)" strokeWidth={2} />
+      <Text style={styles.backText}>Zurück</Text>
+    </TouchableOpacity>
+    <View style={[styles.statusPill, isOverdue ? styles.statusPillRed : isActive ? styles.statusPillGreen : styles.statusPillGray]}>
+      <View style={[styles.statusDot, isOverdue ? styles.dotRed : isActive ? styles.dotGreen : styles.dotGray]} />
+      <Text style={styles.statusPillText}>{isOverdue ? 'ALARM' : isActive ? 'AKTIV' : 'ABGESCHLOSSEN'}</Text>
+    </View>
+  </View>
+
+  {/* Widgets Row — wie im Mockup oben */}
+  <View style={styles.heroWidgets}>
+    {/* Countdown Widget */}
+    {isActive && (
+      <View style={styles.countdownWidget}>
+        <View style={styles.progressBg}>
+          <View style={[styles.progressFill, { width: `${progress * 100}%` as any, backgroundColor: isOverdue ? '#f87171' : '#4ade80' }]} />
         </View>
-
-        {/* Aktivität + Route */}
-        <Text style={styles.heroActivity}>{activityLabel}</Text>
-        {tour.routeName && <Text style={styles.heroRoute}>{tour.routeName}</Text>}
-
-        {/* Stats Pills */}
-        <View style={styles.heroPills}>
-          {tour.distanceKm && <View style={styles.heroPill}><Navigation size={11} color="rgba(255,255,255,0.7)" /><Text style={styles.heroPillText}>{tour.distanceKm} km</Text></View>}
-          {tour.elevationUp && <View style={styles.heroPill}><Activity size={11} color="rgba(255,255,255,0.7)" /><Text style={styles.heroPillText}>{tour.elevationUp} hm</Text></View>}
-          {tour.difficulty && <View style={styles.heroPill}><Mountain size={11} color="rgba(255,255,255,0.7)" /><Text style={styles.heroPillText}>{tour.difficulty} SAC</Text></View>}
-          {tour.persons > 1 && <View style={styles.heroPill}><Users size={11} color="rgba(255,255,255,0.7)" /><Text style={styles.heroPillText}>{tour.persons} Personen</Text></View>}
+        <View style={styles.cwHeader}>
+          <Timer size={12} color="#434841" strokeWidth={2} />
+          <Text style={styles.cwLabel}>{isOverdue ? 'ÜBERFÄLLIG SEIT' : 'NEXT CHECK-IN'}</Text>
         </View>
-
-        {/* Countdown Widget + Wetter nebeneinander wie im Mockup */}
-        {isActive && (
-          <View style={styles.heroWidgets}>
-            {/* Countdown Widget */}
-            <View style={styles.countdownWidget}>
-              <View style={styles.progressBg}>
-                <View style={[styles.progressFill, { width: `${progress * 100}%` as any, backgroundColor: isOverdue ? '#f87171' : '#4ade80' }]} />
-              </View>
-              <Text style={styles.cwLabel}>{isOverdue ? 'ÜBERFÄLLIG SEIT' : 'VERBLEIBEND'}</Text>
-              <Text style={[styles.cwTime, isOverdue && { color: '#f87171' }]}>{timeLeft}</Text>
-              {isOverdue && (
-                <View style={styles.cwWarning}>
-                  <AlertTriangle size={11} color="#f87171" />
-                  <Text style={styles.cwWarningText}>Alarm aktiv</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Wetter Widget */}
-            {weather && weatherInfo && (
-              <View style={styles.weatherWidget}>
-                <Text style={styles.wwTemp}>{weather.temp}°C</Text>
-                <Text style={styles.wwDesc}>{weatherInfo.text}</Text>
-                {weather.warnings?.length > 0 && (
-                  <View style={styles.cwWarning}>
-                    <AlertTriangle size={11} color="#f87171" />
-                    <Text style={styles.cwWarningText}>Warnung</Text>
-                  </View>
-                )}
-              </View>
-            )}
+        <Text style={[styles.cwTime, isOverdue && { color: '#ba1a1a' }]}>{timeLeft}</Text>
+        {isOverdue && (
+          <View style={styles.cwWarning}>
+            <AlertTriangle size={11} color="#ba1a1a" />
+            <Text style={styles.cwWarningText}>Alarm ausgelöst</Text>
           </View>
         )}
       </View>
+    )}
 
-      {/* Safety Controls */}
-      {(isActive || qrUrl) && (
-        <View style={styles.safetySection}>
-          {isActive && (
-            <TouchableOpacity style={[styles.checkoutBtn, isOverdue && styles.checkoutBtnRed]} onPress={handleCheckout}>
-              <CheckCircle size={18} color="#fff" strokeWidth={2.5} />
-              <Text style={styles.checkoutText}>Ich bin sicher zurück</Text>
-            </TouchableOpacity>
-          )}
-          {qrUrl && (
-            <TouchableOpacity style={styles.portalBtn} onPress={() => Platform.OS === 'web' ? window.open(qrUrl!, '_blank') : Linking.openURL(qrUrl!)}>
-              <Link size={15} color="#2c694e" strokeWidth={2} />
-              <Text style={styles.portalBtnText}>Erstretter-Portal öffnen</Text>
-            </TouchableOpacity>
-          )}
-          {isActive && <Text style={styles.safetyNote}>"Sicher zurück" informiert deine Notfallkontakte und stoppt den Alarm-Timer.</Text>}
-        </View>
-      )}
+    {/* Wetter Widget */}
+    {weather && weatherInfo && (
+      <View style={styles.weatherWidget}>
+        <Text style={styles.wwLabel}>WETTER</Text>
+        <Text style={styles.wwTemp}>{weather.temp}°C</Text>
+        <Text style={styles.wwDesc}>{weatherInfo.text}</Text>
+        {weather.wind > 0 && <Text style={styles.wwWind}>{weather.wind} km/h</Text>}
+        {weather.warnings?.length > 0 && (
+          <View style={styles.cwWarning}>
+            <AlertTriangle size={10} color="#f87171" />
+            <Text style={styles.cwWarningText}>Warnung</Text>
+          </View>
+        )}
+      </View>
+    )}
 
-      {/* Stats Grid */}
-      {(tour.distanceKm || tour.elevationUp || tour.difficulty) && (
-        <View style={styles.statsGrid}>
-          {tour.distanceKm && <View style={styles.statItem}><Text style={styles.statKey}>DISTANZ</Text><Text style={styles.statVal}>{tour.distanceKm} <Text style={styles.statUnit}>km</Text></Text></View>}
-          {tour.elevationUp && <View style={styles.statItem}><Text style={styles.statKey}>HÖHENMETER</Text><Text style={styles.statVal}>{tour.elevationUp} <Text style={styles.statUnit}>m</Text></Text></View>}
-          {tour.difficulty && <View style={styles.statItem}><Text style={styles.statKey}>SCHWIERIGKEIT</Text><View style={styles.diffBadge}><Text style={styles.diffBadgeText}>{tour.difficulty}</Text></View></View>}
-        </View>
-      )}
+    {/* Live Badge */}
+    {isActive && (
+      <View style={styles.liveBadge}>
+        <View style={styles.liveDot} />
+        <Text style={styles.liveText}>LIVE</Text>
+        {minutesSinceUpdate !== null && (
+          <Text style={styles.liveSubText}>{minutesSinceUpdate}m</Text>
+        )}
+      </View>
+    )}
+  </View>
+
+  {/* Tour Titel + Aktivität */}
+  <Text style={styles.heroActivity}>{activityLabel}</Text>
+  {tour.routeName && <Text style={styles.heroRoute}>{tour.routeName}</Text>}
+
+  {/* Stats Row — einmalig hier im Hero */}
+  <View style={styles.heroStats}>
+    {tour.distanceKm && (
+      <View style={styles.heroStat}>
+        <Text style={styles.heroStatVal}>{tour.distanceKm}</Text>
+        <Text style={styles.heroStatKey}>km</Text>
+      </View>
+    )}
+    {tour.elevationUp && (
+      <View style={styles.heroStat}>
+        <Text style={styles.heroStatVal}>{tour.elevationUp}</Text>
+        <Text style={styles.heroStatKey}>hm ↑</Text>
+      </View>
+    )}
+    {tour.difficulty && (
+      <View style={styles.heroStat}>
+        <Text style={styles.heroStatVal}>{tour.difficulty}</Text>
+        <Text style={styles.heroStatKey}>SAC</Text>
+      </View>
+    )}
+    {tour.persons > 1 && (
+      <View style={styles.heroStat}>
+        <Text style={styles.heroStatVal}>{tour.persons}</Text>
+        <Text style={styles.heroStatKey}>Personen</Text>
+      </View>
+    )}
+    {tour.startedAt && (
+      <View style={styles.heroStat}>
+        <Text style={styles.heroStatVal}>{new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
+        <Text style={styles.heroStatKey}>Start</Text>
+      </View>
+    )}
+  </View>
+</View>
+
+{/* Safety Controls — prominent */}
+{(isActive || qrUrl) && (
+  <View style={styles.safetyCard}>
+    <Text style={styles.safetyCardLabel}>SAFETY CONTROLS</Text>
+    {isActive && (
+      <TouchableOpacity style={[styles.checkoutBtn, isOverdue && styles.checkoutBtnRed]} onPress={handleCheckout}>
+        <CheckCircle size={18} color="#fff" strokeWidth={2.5} />
+        <Text style={styles.checkoutText}>Ich bin sicher zurück</Text>
+      </TouchableOpacity>
+    )}
+    {qrUrl && (
+      <TouchableOpacity style={styles.portalBtn} onPress={() => Platform.OS === 'web' ? window.open(qrUrl!, '_blank') : Linking.openURL(qrUrl!)}>
+        <Link size={15} color="#dc2626" strokeWidth={2} />
+        <Text style={styles.portalBtnText}>Erstretter-Portal öffnen</Text>
+      </TouchableOpacity>
+    )}
+    {isActive && (
+      <Text style={styles.safetyNote}>
+        "Sicher zurück" informiert deine Notfallkontakte und stoppt den Alarm-Timer sofort.
+      </Text>
+    )}
+  </View>
+)}
+
 
       {/* Wetter Warnungen */}
       {weather?.warnings?.length > 0 && (
@@ -543,4 +582,42 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f5' },
   detailKey: { fontSize: 13, color: '#747871' },
   detailVal: { fontSize: 13, fontWeight: '600', color: '#191c1d', flex: 1, textAlign: 'right' },
+
+  // Hero
+hero: { paddingTop: 52, paddingBottom: 24, paddingHorizontal: 20, overflow: 'hidden', position: 'relative' as any },
+heroTopBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+heroWidgets: { flexDirection: 'row', gap: 8, marginBottom: 20, alignItems: 'flex-start' },
+countdownWidget: { flex: 1.6, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 6, padding: 12, overflow: 'hidden' as any },
+progressBg: { position: 'absolute' as any, top: 0, left: 0, right: 0, height: 3, backgroundColor: 'rgba(0,0,0,0.1)' },
+progressFill: { height: 3 },
+cwHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3, marginTop: 5 },
+cwLabel: { fontSize: 9, fontWeight: '700', color: '#434841', letterSpacing: 1 },
+cwTime: { fontSize: 20, fontWeight: '900', color: '#061907', letterSpacing: -0.5 },
+cwWarning: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5, paddingTop: 5, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.08)' },
+cwWarningText: { fontSize: 10, fontWeight: '700', color: '#ba1a1a' },
+weatherWidget: { flex: 1, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 6, padding: 12 },
+wwLabel: { fontSize: 9, fontWeight: '700', color: '#434841', letterSpacing: 1, marginBottom: 3 },
+wwTemp: { fontSize: 20, fontWeight: '800', color: '#061907' },
+wwDesc: { fontSize: 10, color: '#747871', marginTop: 1 },
+wwWind: { fontSize: 10, color: '#747871' },
+liveBadge: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: 8, alignItems: 'center', justifyContent: 'center', gap: 4, minWidth: 48 },
+liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4ade80' },
+liveText: { fontSize: 9, fontWeight: '800', color: '#fff', letterSpacing: 1 },
+liveSubText: { fontSize: 9, color: 'rgba(255,255,255,0.6)' },
+heroActivity: { fontSize: 28, fontWeight: '900', color: '#fff', letterSpacing: -0.5, marginBottom: 3 },
+heroRoute: { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 14 },
+heroStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
+heroStat: { alignItems: 'flex-start' },
+heroStatVal: { fontSize: 18, fontWeight: '800', color: '#fff' },
+heroStatKey: { fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 1, fontWeight: '600' },
+
+// Safety Card
+safetyCard: { marginHorizontal: 20, marginTop: 16, backgroundColor: '#edeeef', borderRadius: 6, padding: 16, borderWidth: 1, borderColor: '#e1e3e4' },
+safetyCardLabel: { fontSize: 10, fontWeight: '700', color: '#747871', letterSpacing: 1, marginBottom: 12 },
+checkoutBtn: { backgroundColor: '#061907', borderRadius: 4, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 8 },
+checkoutBtnRed: { backgroundColor: '#dc2626' },
+checkoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+portalBtn: { backgroundColor: '#fff', borderRadius: 4, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#fca5a5', marginBottom: 8 },
+portalBtnText: { color: '#dc2626', fontWeight: '700', fontSize: 13 },
+safetyNote: { fontSize: 11, color: '#747871', textAlign: 'center', lineHeight: 15 },
 });
