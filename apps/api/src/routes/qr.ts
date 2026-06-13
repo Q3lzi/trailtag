@@ -3,6 +3,28 @@ import { prisma } from '../lib/prisma'
 
 const router = express.Router()
 
+// Manual alarm trigger — for testing/reset (remove after testing)
+router.post('/trigger-alarm/:token', async (req: Request, res: Response) => {
+  const token = req.params['token'] as string
+  const vehicle = await prisma.vehicle.findUnique({ where: { qrToken: token }, select: { id: true, userId: true } })
+  if (!vehicle) return res.json({ error: 'Vehicle not found' })
+  
+  // Find active tour
+  const tour = await prisma.tour.findFirst({
+    where: { userId: vehicle.userId, status: { in: ['ACTIVE', 'ALARM'] } },
+    orderBy: { startedAt: 'desc' }
+  })
+  if (!tour) return res.json({ error: 'No active tour found' })
+  
+  // Delete existing alarm events so cron can re-run
+  await prisma.alarmEvent.deleteMany({ where: { tourId: tour.id } })
+  
+  // Set status to ALARM directly
+  await prisma.tour.update({ where: { id: tour.id }, data: { status: 'ALARM', alarmStage: 2 } })
+  
+  return res.json({ success: true, tourId: tour.id, message: 'Status set to ALARM' })
+})
+
 // Debug endpoint — remove after testing
 router.get('/debug/:token', async (req: Request, res: Response) => {
   const token = req.params['token'] as string
@@ -617,12 +639,7 @@ function renderAlarm(vehicle: any, tour: any) {
     </footer>
   </div>
 
-  <div class="fab-wrap">
-    <button class="fab-btn" onclick="alert('Suchstatus-Update: Diese Funktion ist verifizierten Einsatzkräften vorbehalten.')">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      Suchstatus aktualisieren
-    </button>
-  </div>`
+`
 
   return shell(content)
     .replace('__MODE_BADGE__', '<div class="mode-badge badge-alarm">⚠ EMERGENCY MODE</div>')

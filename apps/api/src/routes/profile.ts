@@ -75,4 +75,16 @@ router.delete('/emergency-contacts/:id', requireAuth, async (req: Request, res: 
   res.json({ message: 'Kontakt gelöscht' })
 })
 
+
+// POST /profile/push-token — save Expo push token
+router.post('/push-token', requireAuth, async (req: Request, res: Response) => {
+  const { token } = req.body
+  if (!token) return res.status(400).json({ error: 'Token required' })
+  await prisma.user.update({
+    where: { id: req.userId as string },
+    data: { expoPushToken: token }
+  })
+  res.json({ ok: true })
+})
+
 export default router

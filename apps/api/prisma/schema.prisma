@@ -21,6 +21,7 @@ model User {
   allergies     String?
   medications   String?
   medicalNotes  String?
+  expoPushToken String?
   tours              Tour[]
   vehicles           Vehicle[]
   emergencyContacts  EmergencyContact[]

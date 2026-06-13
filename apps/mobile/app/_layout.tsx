@@ -11,7 +11,23 @@ function Layout() {
   const hideNav = ['', 'login', 'register'].includes(firstSegment);
 
   useEffect(() => {
-    registerForPushNotifications();
+    (async () => {
+      const token = await registerForPushNotifications();
+      if (token) {
+        // Save push token to backend
+        try {
+          const { getToken: getAuthToken } = await import('../lib/storage');
+          const { apiFetch } = await import('../lib/api');
+          const authToken = await getAuthToken();
+          if (authToken) {
+            await apiFetch('/profile/push-token', {
+              method: 'POST',
+              body: JSON.stringify({ token }),
+            }, authToken);
+          }
+        } catch { /* ignore */ }
+      }
+    })();
   }, []);
 
   return (

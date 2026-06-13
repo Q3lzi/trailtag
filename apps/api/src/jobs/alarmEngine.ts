@@ -2,6 +2,22 @@ import 'dotenv/config'
 import cron from 'node-cron'
 import { prisma } from '../lib/prisma'
 import { sendSms } from '../lib/twilio'
+
+// Expo Push Notification
+async function sendExpoPush(expoPushToken: string, title: string, body: string) {
+  if (!expoPushToken.startsWith('ExponentPushToken')) return
+  try {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: expoPushToken, title, body, sound: 'default', priority: 'high' })
+    })
+    console.log('📲 Push sent to:', expoPushToken)
+  } catch (err) {
+    console.error('Push error:', err)
+  }
+}
+
 // Hilfsfunktion: Stufe nur auslösen wenn noch nicht geschehen
 async function triggerStage(tourId: string, stage: number, action: () => Promise<void>) {
   // Prüfen ob diese Stufe schon ausgelöst wurde
@@ -41,10 +57,12 @@ export function startAlarmEngine() {
       if (diffMin >= 0) {
         await triggerStage(tour.id, 2, async () => {
           console.log(`🟠 STUFE 2: ${tour.user.name} — ÜBERFÄLLIG! Status → ALARM`)
-          await prisma.tour.update({
-            where: { id: tour.id },
-            data: { status: 'ALARM', alarmStage: 2 }
-          })
+          await prisma.tour.update({ where: { id: tour.id }, data: { status: 'ALARM', alarmStage: 2 } })
+          // Push to user's device
+          const u = await prisma.user.findUnique({ where: { id: tour.userId }, select: { expoPushToken: true } })
+          if (u?.expoPushToken) {
+            await sendExpoPush(u.expoPushToken, '⚠️ Safety-Timer abgelaufen', 'Du bist noch nicht zurückgekehrt. Bitte jetzt einchecken oder Notfallkontakte werden alarmiert.')
+          }
         })
       }
       // STUFE 3: 60 min nach ETA → SMS an Notfallkontakte

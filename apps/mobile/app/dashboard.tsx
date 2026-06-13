@@ -58,6 +58,7 @@ export default function DashboardScreen() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState<any>(null);
+  const [extendLoading, setExtendLoading] = useState(false);
   const { timeLeft, isOverdue, progress } = useCountdown(activeTour?.eta ?? null);
 
   useEffect(() => { loadData(); }, []);
@@ -155,6 +156,26 @@ export default function DashboardScreen() {
               <CheckCircle size={18} color="#fff" strokeWidth={2.5} />
               <Text style={styles.checkoutText}>Ich bin sicher zurück</Text>
             </TouchableOpacity>
+            {/* Zeitverlängerung */}
+            <View style={styles.extendRow}>
+              {[30, 60, 120].map(mins => (
+                <TouchableOpacity key={mins} style={styles.extendBtn} disabled={extendLoading}
+                  onPress={async () => {
+                    setExtendLoading(true);
+                    try {
+                      const token = await getToken();
+                      const res = await apiFetch(`/tours/${activeTour.id}/extend`, {
+                        method: 'POST', body: JSON.stringify({ minutes: mins })
+                      }, token ?? undefined);
+                      setActiveTour((t: any) => ({ ...t, eta: res.tour.eta, status: 'ACTIVE' }));
+                    } catch (err: any) { }
+                    finally { setExtendLoading(false); }
+                  }}>
+                  <Text style={styles.extendBtnTxt}>+{mins >= 60 ? `${mins/60}h` : `${mins}min`}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.extendHint}>Tour verlängern — setzt Alarm-Timer zurück</Text>
           </View>
 
 {/* Tour + Wetter */}
@@ -223,7 +244,7 @@ export default function DashboardScreen() {
             >
               <View style={styles.rescueTop}>
                 <AlertTriangle size={28} color="#93000a" strokeWidth={2} />
-                <View style={styles.rescueBadge}><Text style={styles.rescueBadgeText}>QR Code</Text></View>
+                <View style={styles.rescueBadge}><Text style={styles.rescueBadgeText}>KRITISCH</Text></View>
               </View>
               <Text style={styles.rescueTitle}>Erstretter-Portal</Text>
               <Text style={styles.rescueSub}>
@@ -350,6 +371,10 @@ const styles = StyleSheet.create({
   quickCard: { flex: 1, backgroundColor: '#fff', borderRadius: 6, padding: 14, borderWidth: 1, borderColor: '#edeeef', gap: 6 },
   quickTitle: { fontSize: 12, fontWeight: '700', color: '#111' },
   quickSub: { fontSize: 10, color: '#aaa' },
+  extendRow: { flexDirection: 'row', gap: 8, width: '100%', marginTop: 10 },
+  extendBtn: { flex: 1, borderRadius: 6, borderWidth: 1.5, borderColor: '#e1e3e4', paddingVertical: 10, alignItems: 'center', backgroundColor: '#f8f9fa' },
+  extendBtnTxt: { fontSize: 13, fontWeight: '700', color: '#434841' },
+  extendHint: { fontSize: 11, color: '#aaa', marginTop: 6, textAlign: 'center' },
 
 
   tourCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
