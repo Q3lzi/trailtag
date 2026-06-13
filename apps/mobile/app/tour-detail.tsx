@@ -90,30 +90,32 @@ function ElevationChart({ points }: { points: any[] }) {
   const minEle = Math.min(...eles);
   const maxEle = Math.max(...eles);
   const range = maxEle - minEle || 1;
-  const w = 800, h = 100, pad = 10;
+  const svgW = Math.max(600, filtered.length * 1.5);
+  const h = 100, pad = 10;
   const pts = filtered.map((p: any, i: number) => {
-    const x = pad + (i / (filtered.length - 1)) * (w - pad * 2);
+    const x = pad + (i / (filtered.length - 1)) * (svgW - pad * 2);
     const y = h - pad - ((p.ele - minEle) / range) * (h - pad * 2);
     return `${x},${y}`;
   }).join(' ');
-  const area = `${pad},${h - pad} ${pts} ${w - pad},${h - pad}`;
+  const area = `${pad},${h - pad} ${pts} ${svgW - pad},${h - pad}`;
   return (
     <View style={{ marginTop: 12 }}>
       <Text style={{ fontSize: 10, fontWeight: '700', color: '#747871', letterSpacing: 1, marginBottom: 8 }}>HÖHENPROFIL</Text>
-      <View style={{ backgroundColor: '#fff', borderRadius: 4, padding: 10, borderWidth: 1, borderColor: '#e1e3e4' }}>
-  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: Math.max(300, filtered.length * 0.8), height: 100 } as any}>
-          <defs>
-            <linearGradient id="eg" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#2c694e" stopOpacity="0.3"/>
-              <stop offset="100%" stopColor="#2c694e" stopOpacity="0.02"/>
-            </linearGradient>
-          </defs>
-          <polygon points={area} fill="url(#eg)"/>
-          <polyline points={pts} fill="none" stroke="#2c694e" strokeWidth="2"/>
-          <text x={pad} y={pad + 10} fontSize="10" fill="#747871">{Math.round(maxEle)} m</text>
-          <text x={pad} y={h - 2} fontSize="10" fill="#747871">{Math.round(minEle)} m</text>
-        </svg>
+      <View style={{ backgroundColor: '#fff', borderRadius: 4, borderWidth: 1, borderColor: '#e1e3e4', overflow: 'hidden' }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+          <svg viewBox={`0 0 ${svgW} ${h}`} style={{ width: svgW, height: 100 } as any}>
+            <defs>
+              <linearGradient id="eg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#2c694e" stopOpacity="0.3"/>
+                <stop offset="100%" stopColor="#2c694e" stopOpacity="0.02"/>
+              </linearGradient>
+            </defs>
+            <polygon points={area} fill="url(#eg)"/>
+            <polyline points={pts} fill="none" stroke="#2c694e" strokeWidth="2"/>
+            <text x={pad + 2} y={pad + 12} fontSize="10" fill="#747871">{Math.round(maxEle)} m</text>
+            <text x={pad + 2} y={h - 4} fontSize="10" fill="#747871">{Math.round(minEle)} m</text>
+          </svg>
+        </ScrollView>
       </View>
     </View>
   );
@@ -126,6 +128,8 @@ export default function TourDetailScreen() {
   const [weather, setWeather] = useState<any>(null);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, time: string} | null>(null);
   const leafletMapRef = useRef<any>(null);
+  const mapSectionRef = useRef<any>(null);
+  const scrollViewRef = useRef<any>(null);
   const { timeLeft, isOverdue, progress } = useCountdown(tour?.eta ?? null);
 
   useEffect(() => {
@@ -144,10 +148,18 @@ export default function TourDetailScreen() {
   useEffect(() => {
     if (!selectedLocation || Platform.OS !== 'web') return;
     if (!leafletMapRef.current) return;
+    // Scroll to map
+    if (scrollViewRef.current && mapSectionRef.current) {
+      mapSectionRef.current.measureLayout(
+        scrollViewRef.current,
+        (_x: number, y: number) => { scrollViewRef.current.scrollTo({ y: y - 20, animated: true }); },
+        () => {}
+      );
+    }
     import('leaflet').then((L) => {
       leafletMapRef.current.setView([selectedLocation.lat, selectedLocation.lng], 15, { animate: true });
       L.default.circleMarker([selectedLocation.lat, selectedLocation.lng] as [number, number], {
-        radius: 12, fillColor: '#f59e0b', color: '#fff', weight: 3, fillOpacity: 0.9
+        radius: 14, fillColor: '#f59e0b', color: '#fff', weight: 3, fillOpacity: 0.9
       }).bindPopup(selectedLocation.time).addTo(leafletMapRef.current).openPopup();
     });
   }, [selectedLocation]);
@@ -212,6 +224,18 @@ export default function TourDetailScreen() {
     } catch (err: any) { showAlert('Fehler', err.message); }
   }
 
+    function handleLocationSelect(loc: {lat: number, lng: number, time: string}) {
+      setSelectedLocation(loc);
+      if (Platform.OS === 'web') {
+        setTimeout(() => {
+          const mapEl = document.getElementById('tour-map');
+          if (mapEl) {
+            mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+      }
+    }
+
   if (loading) return (
     <View style={styles.loading}>
       <Mountain size={36} color="#2c694e" />
@@ -229,7 +253,7 @@ export default function TourDetailScreen() {
   const weatherInfo = weather ? (WMO_CODES[weather.code] ?? { text: 'Unbekannt' }) : null;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView ref={scrollViewRef} style={styles.container} contentContainerStyle={styles.content}>
 
       {/* ═══ HERO ═══ */}
       <View style={[styles.hero, { backgroundColor: heroColor }]}>
@@ -248,12 +272,8 @@ export default function TourDetailScreen() {
         {/* Top Bar */}
         <View style={styles.heroTopBar}>
           <TouchableOpacity style={styles.backBtn} onPress={() => {
-  if (Platform.OS === 'web') {
-    window.history.back();
-  } else {
-    router.back();
-  }
-}}>
+            if (Platform.OS === 'web') { window.history.back(); } else { router.back(); }
+          }}>
             <ArrowLeft size={18} color="rgba(255,255,255,0.8)" strokeWidth={2} />
             <Text style={styles.backText}>Zurück</Text>
           </TouchableOpacity>
@@ -263,31 +283,31 @@ export default function TourDetailScreen() {
           </View>
         </View>
 
-        {/* Widgets Row */}
+        {/* Widgets Row — Countdown + Wetter */}
         <View style={styles.heroWidgets}>
           {isActive && (
             <View style={styles.countdownWidget}>
               <View style={styles.progressBg}>
                 <View style={[styles.progressFill, { width: `${progress * 100}%` as any, backgroundColor: isOverdue ? '#f87171' : '#4ade80' }]} />
               </View>
-              <View style={styles.cwHeader}>
-                <Timer size={12} color="#434841" strokeWidth={2} />
-                <Text style={styles.cwLabel}>{isOverdue ? 'ÜBERFÄLLIG SEIT' : 'NEXT CHECK-IN'}</Text>
+              <View style={styles.cwRow}>
+                <Timer size={11} color="#434841" strokeWidth={2} />
+                <Text style={styles.cwLabel}>{isOverdue ? 'ÜBERFÄLLIG' : 'NEXT CHECK-IN'}</Text>
               </View>
               <Text style={[styles.cwTime, isOverdue && { color: '#ba1a1a' }]}>{timeLeft}</Text>
               {isOverdue && (
-                <View style={styles.cwWarning}>
-                  <AlertTriangle size={11} color="#ba1a1a" />
-                  <Text style={styles.cwWarningText}>Alarm ausgelöst</Text>
+                <View style={styles.cwAlert}>
+                  <AlertTriangle size={10} color="#ba1a1a" />
+                  <Text style={styles.cwAlertText}>Alarm ausgelöst</Text>
                 </View>
               )}
             </View>
           )}
           {weather && weatherInfo && (
             <View style={styles.weatherWidget}>
-              <View style={styles.wwTopRow}>
-                <Text style={styles.wwLabel}>FORECAST</Text>
-                {isActive && (
+              <View style={styles.wwRow}>
+                <Text style={styles.wwLabel}>PROGNOSE</Text>
+                {isActive && minutesSinceUpdate !== null && minutesSinceUpdate < 30 && (
                   <View style={styles.livePill}>
                     <View style={styles.liveDot} />
                     <Text style={styles.liveText}>LIVE</Text>
@@ -296,82 +316,88 @@ export default function TourDetailScreen() {
               </View>
               <Text style={styles.wwTemp}>{weather.temp}°C</Text>
               <Text style={styles.wwDesc}>{weatherInfo.text}</Text>
-              <Text style={styles.wwWind}>
-                {weather.warnings?.length > 0 ? weather.warnings[0] : `${weather.wind} km/h Wind`}
-              </Text>
+              <Text style={styles.wwWind}>{weather.wind} km/h Wind</Text>
+              {weather.warnings?.length > 0 && (
+                <View style={styles.cwAlert}>
+                  <AlertTriangle size={10} color="#f87171" />
+                  <Text style={[styles.cwAlertText, { color: '#f87171' }]}>Warnung aktiv</Text>
+                </View>
+              )}
             </View>
           )}
         </View>
 
-        {/* Titel */}
+        {/* Titel gross, Aktivität klein */}
         <Text style={styles.heroTitle}>{tour.routeName ?? activityLabel}</Text>
-        <Text style={styles.heroSubActivity}>{tour.routeName ? activityLabel : ''}</Text>   
+        {tour.routeName && <Text style={styles.heroSubtitle}>{activityLabel.toUpperCase()}</Text>}
 
-        {/* Stats Grid */}
-        {(tour.distanceKm || tour.elevationUp || tour.difficulty) && (
-  <View style={styles.statsOverlapWrapper}>
-    <View style={styles.heroStatsGrid}>
-      {tour.distanceKm && (
-        <View style={styles.heroStatCell}>
-          <Text style={styles.heroStatKey}>DISTANZ</Text>
-          <Text style={styles.heroStatVal}>{tour.distanceKm} <Text style={styles.heroStatUnit}>km</Text></Text>
-        </View>
-      )}
-      {tour.elevationUp && (
-        <View style={styles.heroStatCell}>
-          <Text style={styles.heroStatKey}>HÖHENMETER</Text>
-          <Text style={styles.heroStatVal}>+{tour.elevationUp} <Text style={styles.heroStatUnit}>m</Text></Text>
-        </View>
-      )}
-      {tour.difficulty && (
-        <View style={styles.heroStatCell}>
-          <Text style={styles.heroStatKey}>SCHWIERIGKEIT</Text>
-          <Text style={styles.heroStatVal}>{tour.difficulty} <Text style={styles.heroStatUnit}>SAC</Text></Text>
-        </View>
-      )}
-      {tour.persons > 1 && (
-        <View style={styles.heroStatCell}>
-          <Text style={styles.heroStatKey}>PERSONEN</Text>
-          <Text style={styles.heroStatVal}>{tour.persons}</Text>
-        </View>
-      )}
-    </View>
+        {/* Stats Grid — als Block, nicht Vollbreite */}
+<View style={styles.statsOverlap}>
+  <View style={styles.statsGrid}>
+    {tour.distanceKm && (
+      <View style={styles.statCell}>
+        <Text style={styles.statCellKey}>DISTANZ</Text>
+        <Text style={styles.statCellVal}>{tour.distanceKm} <Text style={styles.statCellUnit}>km</Text></Text>
+      </View>
+    )}
+    {tour.elevationUp && (
+      <View style={styles.statCell}>
+        <Text style={styles.statCellKey}>HÖHENMETER</Text>
+        <Text style={styles.statCellVal}>+{tour.elevationUp} <Text style={styles.statCellUnit}>m</Text></Text>
+      </View>
+    )}
+    {tour.difficulty && (
+      <View style={styles.statCell}>
+        <Text style={styles.statCellKey}>SCHWIERIGKEIT</Text>
+        <Text style={styles.statCellVal}>{tour.difficulty} <Text style={styles.statCellUnit}>SAC</Text></Text>
+      </View>
+    )}
+    {tour.locations?.length > 0 && tour.locations[tour.locations.length - 1]?.ele ? (
+      <View style={styles.statCell}>
+        <Text style={styles.statCellKey}>AKTUELLE HÖHE</Text>
+        <Text style={styles.statCellVal}>{Math.round(tour.locations[tour.locations.length - 1].ele)} <Text style={styles.statCellUnit}>m</Text></Text>
+      </View>
+    ) : tour.startedAt ? (
+      <View style={styles.statCell}>
+        <Text style={styles.statCellKey}>GESTARTET</Text>
+        <Text style={styles.statCellVal}>{new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })} <Text style={styles.statCellUnit}>Uhr</Text></Text>
+      </View>
+    ) : null}
   </View>
-)}
+</View>
 
       </View>
       {/* ═══ END HERO ═══ */}
-      <View style={{ height: 48 }} />
+
+      {/* Spacer for overlapping stats */}
+      <View style={{ height: 50 }} />
+
       {/* Safety Controls */}
       {(isActive || qrUrl) && (
         <View style={styles.safetyCard}>
-  <Text style={styles.safetyCardLabel}>SAFETY CONTROLS</Text>
-  {isActive && (
-    <TouchableOpacity style={[styles.checkoutBtn, isOverdue && styles.checkoutBtnRed]} onPress={handleCheckout}>
-      <CheckCircle size={18} color="#fff" strokeWidth={2.5} />
-      <Text style={styles.checkoutText}>Ich bin sicher zurück</Text>
-    </TouchableOpacity>
-  )}
-  {qrUrl && (
-    <TouchableOpacity style={styles.portalBtn} onPress={() => Platform.OS === 'web' ? window.open(qrUrl!, '_blank') : Linking.openURL(qrUrl!)}>
-      <Link size={15} color="#dc2626" strokeWidth={2} />
-      <Text style={styles.portalBtnText}>Erstretter-Portal öffnen</Text>
-    </TouchableOpacity>
-  )}
-  {isActive && (
-    <Text style={styles.safetyNote}>
-      "Sicher zurück" informiert deine Notfallkontakte und stoppt den Alarm-Timer sofort.
-    </Text>
-  )}
-</View>
+          <Text style={styles.safetyLabel}>SAFETY CONTROLS</Text>
+          {isActive && (
+            <TouchableOpacity style={[styles.checkoutBtn, isOverdue && styles.checkoutBtnRed]} onPress={handleCheckout}>
+              <CheckCircle size={18} color="#fff" strokeWidth={2.5} />
+              <Text style={styles.checkoutText}>Ich bin sicher zurück</Text>
+            </TouchableOpacity>
+          )}
+          {qrUrl && (
+            <TouchableOpacity style={styles.portalBtn} onPress={() => Platform.OS === 'web' ? window.open(qrUrl!, '_blank') : Linking.openURL(qrUrl!)}>
+              <Link size={14} color="#dc2626" strokeWidth={2} />
+              <Text style={styles.portalBtnText}>Erstretter-Portal öffnen</Text>
+            </TouchableOpacity>
+          )}
+          {isActive && <Text style={styles.safetyNote}>"Sicher zurück" informiert deine Notfallkontakte und stoppt den Alarm-Timer.</Text>}
+        </View>
       )}
 
       {/* Wetter Warnungen */}
       {weather?.warnings?.length > 0 && (
         <View style={styles.section}>
           <View style={styles.warningCard}>
-            <View style={styles.warningHeader}>
-              <AlertTriangle size={15} color="#92400e" strokeWidth={2} />
+            <View style={styles.warningRow}>
+              <AlertTriangle size={14} color="#92400e" strokeWidth={2} />
               <Text style={styles.warningTitle}>Wetterwarnungen (nächste 6h)</Text>
             </View>
             {weather.warnings.map((w: string, i: number) => (
@@ -383,10 +409,10 @@ export default function TourDetailScreen() {
 
       {/* Karte */}
       {(tour.startLat || tour.lastLat) && Platform.OS === 'web' && (
-        <View style={styles.section}>
+        <View style={styles.section} ref={mapSectionRef}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Route & Standort</Text>
-            <Text style={[styles.syncText, minutesSinceUpdate !== null && minutesSinceUpdate > 30 ? { color: '#ba1a1a' } : {}]}>
+            <Text style={[styles.metaText, minutesSinceUpdate !== null && minutesSinceUpdate > 30 ? { color: '#ba1a1a' } : {}]}>
               {locationCount > 0 ? `${locationCount} GPS-Punkte` : 'Startpunkt'}
               {minutesSinceUpdate !== null ? ` · vor ${minutesSinceUpdate} Min.` : ''}
             </Text>
@@ -410,10 +436,10 @@ export default function TourDetailScreen() {
                 <Text style={styles.weatherTemp}>{weather.temp}°C</Text>
                 <Text style={styles.weatherDesc}>{weatherInfo.text}</Text>
               </View>
-              <View style={styles.weatherDetails}>
-                <View style={styles.weatherDetailRow}><Wind size={13} color="#747871" /><Text style={styles.weatherDetailText}>{weather.wind} km/h Wind</Text></View>
-                <View style={styles.weatherDetailRow}><Thermometer size={13} color="#747871" /><Text style={styles.weatherDetailText}>{weather.feelsLike}°C gefühlt</Text></View>
-                <View style={styles.weatherDetailRow}><Activity size={13} color="#747871" /><Text style={styles.weatherDetailText}>{weather.humidity}% Luftfeuchte</Text></View>
+              <View style={styles.weatherCols}>
+                <View style={styles.weatherCol}><Wind size={12} color="#747871" /><Text style={styles.weatherColText}>{weather.wind} km/h</Text></View>
+                <View style={styles.weatherCol}><Thermometer size={12} color="#747871" /><Text style={styles.weatherColText}>{weather.feelsLike}°C gefühlt</Text></View>
+                <View style={styles.weatherCol}><Activity size={12} color="#747871" /><Text style={styles.weatherColText}>{weather.humidity}%</Text></View>
               </View>
             </View>
           </View>
@@ -433,69 +459,44 @@ export default function TourDetailScreen() {
         </View>
         <View style={styles.timeline}>
           {tour.startedAt && (
-            <TouchableOpacity style={styles.tlEntry} onPress={() => tour.startLat && setSelectedLocation({ lat: tour.startLat, lng: tour.startLng, time: new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
-              <View style={styles.tlLeft}>
-                <View style={[styles.tlDot, { backgroundColor: '#2c694e' }]} />
-                <View style={styles.tlLine} />
-              </View>
+            <TouchableOpacity style={styles.tlEntry} onPress={() => tour.startLat && handleLocationSelect({ lat: tour.startLat, lng: tour.startLng, time: new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
+              <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: '#2c694e' }]} /><View style={styles.tlLine} /></View>
               <View style={styles.tlCard}>
-                <View style={styles.tlCardTop}>
-                  <Text style={styles.tlCardTitle}>START</Text>
-                  <Text style={styles.tlCardTime}>{new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
-                </View>
-                {tour.parkingLocation && <Text style={styles.tlCardDesc}>{tour.parkingLocation}</Text>}
-                {tour.startLat && <Text style={styles.tlCardLink}>Auf Karte zeigen →</Text>}
+                <View style={styles.tlTop}><Text style={styles.tlTitle}>START</Text><Text style={styles.tlTime}>{new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
+                {tour.parkingLocation && <Text style={styles.tlDesc}>{tour.parkingLocation}</Text>}
+                {tour.startLat && <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>}
               </View>
             </TouchableOpacity>
           )}
 
           {tour.locations?.filter((_: any, i: number) => i % 10 === 0 && i > 0).map((loc: any, idx: number) => (
-            <TouchableOpacity key={loc.id} style={styles.tlEntry} onPress={() => setSelectedLocation({ lat: loc.lat, lng: loc.lng, time: new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
-              <View style={styles.tlLeft}>
-                <View style={[styles.tlDot, { backgroundColor: '#c3c8bf', width: 8, height: 8 }]} />
-                <View style={styles.tlLine} />
-              </View>
+            <TouchableOpacity key={loc.id} style={styles.tlEntry} onPress={() => handleLocationSelect({ lat: loc.lat, lng: loc.lng, time: new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
+              <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: '#c3c8bf', width: 8, height: 8 }]} /><View style={styles.tlLine} /></View>
               <View style={[styles.tlCard, { backgroundColor: 'transparent', borderColor: 'transparent' }]}>
-                <View style={styles.tlCardTop}>
-                  <Text style={[styles.tlCardTitle, { color: '#747871' }]}>TRACKING-PUNKT {idx + 1}</Text>
-                  <Text style={styles.tlCardTime}>{new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
-                </View>
-                <Text style={styles.tlCardLink}>Auf Karte zeigen →</Text>
+                <View style={styles.tlTop}><Text style={[styles.tlTitle, { color: '#747871' }]}>TRACKING-PUNKT {idx + 1}</Text><Text style={styles.tlTime}>{new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
+                <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>
               </View>
             </TouchableOpacity>
           ))}
 
           {tour.locationUpdatedAt && (
-            <TouchableOpacity style={styles.tlEntry} onPress={() => tour.lastLat && setSelectedLocation({ lat: tour.lastLat, lng: tour.lastLng, time: new Date(tour.locationUpdatedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
-              <View style={styles.tlLeft}>
-                <View style={[styles.tlDot, { backgroundColor: '#f59e0b' }]} />
-                <View style={styles.tlLine} />
-              </View>
+            <TouchableOpacity style={styles.tlEntry} onPress={() => tour.lastLat && handleLocationSelect({ lat: tour.lastLat, lng: tour.lastLng, time: new Date(tour.locationUpdatedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
+              <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: '#f59e0b' }]} /><View style={styles.tlLine} /></View>
               <View style={styles.tlCard}>
-                <View style={styles.tlCardTop}>
-                  <Text style={styles.tlCardTitle}>LETZTER STANDORT</Text>
-                  <Text style={styles.tlCardTime}>{new Date(tour.locationUpdatedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
-                </View>
-                <Text style={styles.tlCardDesc}>
-                  {minutesSinceUpdate !== null ? `vor ${minutesSinceUpdate} Minuten` : ''}
-                  {minutesSinceUpdate !== null && minutesSinceUpdate > 30 ? ' — Möglicherweise kein Signal' : ' — Aktuell'}
-                </Text>
-                {tour.lastLat && <Text style={styles.tlCardLink}>Auf Karte zeigen →</Text>}
+                <View style={styles.tlTop}><Text style={styles.tlTitle}>LETZTER STANDORT</Text><Text style={styles.tlTime}>{new Date(tour.locationUpdatedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
+                <Text style={styles.tlDesc}>{minutesSinceUpdate !== null ? `vor ${minutesSinceUpdate} Minuten` : ''}{minutesSinceUpdate !== null && minutesSinceUpdate > 30 ? ' — Möglicherweise kein Signal' : ' — Aktuell'}</Text>
+                {tour.lastLat && <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>}
               </View>
             </TouchableOpacity>
           )}
 
           {tour.eta && (
             <View style={styles.tlEntry}>
-              <View style={styles.tlLeft}>
-                <View style={[styles.tlDot, { backgroundColor: isOverdue ? '#dc2626' : '#2c694e' }]} />
-              </View>
+              <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: isOverdue ? '#dc2626' : '#2c694e' }]} /></View>
               <View style={styles.tlCard}>
-                <View style={styles.tlCardTop}>
-                  <Text style={[styles.tlCardTitle, isOverdue && { color: '#dc2626' }]}>GEPLANTE RÜCKKEHR</Text>
-                  <Text style={[styles.tlCardTime, isOverdue && { color: '#dc2626', fontWeight: '800' }]}>
-                    {new Date(tour.eta).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
-                  </Text>
+                <View style={styles.tlTop}>
+                  <Text style={[styles.tlTitle, isOverdue && { color: '#dc2626' }]}>GEPLANTE RÜCKKEHR</Text>
+                  <Text style={[styles.tlTime, isOverdue && { color: '#dc2626', fontWeight: '800' }]}>{new Date(tour.eta).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</Text>
                 </View>
               </View>
             </View>
@@ -503,14 +504,9 @@ export default function TourDetailScreen() {
 
           {tour.checkedOutAt && (
             <View style={styles.tlEntry}>
-              <View style={styles.tlLeft}>
-                <View style={[styles.tlDot, { backgroundColor: '#2c694e' }]} />
-              </View>
+              <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: '#2c694e' }]} /></View>
               <View style={styles.tlCard}>
-                <View style={styles.tlCardTop}>
-                  <Text style={styles.tlCardTitle}>AUSGECHECKT ✓</Text>
-                  <Text style={styles.tlCardTime}>{new Date(tour.checkedOutAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
-                </View>
+                <View style={styles.tlTop}><Text style={styles.tlTitle}>AUSGECHECKT ✓</Text><Text style={styles.tlTime}>{new Date(tour.checkedOutAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
               </View>
             </View>
           )}
@@ -523,7 +519,7 @@ export default function TourDetailScreen() {
         <View style={styles.card}>
           <View style={styles.detailRow}><Text style={styles.detailKey}>Aktivität</Text><Text style={styles.detailVal}>{activityLabel}</Text></View>
           {tour.persons && <View style={styles.detailRow}><Text style={styles.detailKey}>Personen</Text><Text style={styles.detailVal}>{tour.persons}</Text></View>}
-          {tour.parkingLocation && <View style={styles.detailRow}><Text style={styles.detailKey}>Parkplatz / Start</Text><Text style={styles.detailVal}>{tour.parkingLocation}</Text></View>}
+          {tour.parkingLocation && <View style={styles.detailRow}><Text style={styles.detailKey}>Parkplatz</Text><Text style={styles.detailVal}>{tour.parkingLocation}</Text></View>}
           {tour.vehicle && <View style={styles.detailRow}><Text style={styles.detailKey}>Fahrzeug</Text><Text style={styles.detailVal}>{tour.vehicle.plate} · {tour.vehicle.make} {tour.vehicle.model}</Text></View>}
           {tour.startedAt && <View style={styles.detailRow}><Text style={styles.detailKey}>Gestartet</Text><Text style={styles.detailVal}>{new Date(tour.startedAt).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</Text></View>}
           {tour.eta && <View style={styles.detailRow}><Text style={styles.detailKey}>Geplante Rückkehr</Text><Text style={[styles.detailVal, isOverdue && { color: '#dc2626' }]}>{new Date(tour.eta).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</Text></View>}
@@ -547,8 +543,8 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 120 },
 
   // Hero
-  hero: { paddingTop: 32, paddingBottom: 0, paddingHorizontal: 20, overflow: 'hidden', position: 'relative' as any },
-  heroTopBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  hero: { paddingTop: 28, paddingBottom: 0, paddingHorizontal: 20, overflow: 'hidden', position: 'relative' as any },
+  heroTopBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   backText: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '600' },
   statusPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 },
@@ -560,35 +556,42 @@ const styles = StyleSheet.create({
   dotRed: { backgroundColor: '#f87171' },
   dotGray: { backgroundColor: '#94a3b8' },
   statusPillText: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.8)', letterSpacing: 0.8 },
-  heroWidgets: { flexDirection: 'row', gap: 8, marginBottom: 16, alignItems: 'flex-start' },
-  countdownWidget: { flex: 1.4, backgroundColor: 'rgba(255,255,255,0.93)', borderRadius: 8, padding: 14, overflow: 'hidden' as any },
-  progressBg: { position: 'absolute' as any, top: 0, left: 0, right: 0, height: 3, backgroundColor: 'rgba(0,0,0,0.1)' },
+
+  // Widgets
+  heroWidgets: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  countdownWidget: { flex: 1.5, backgroundColor: 'rgba(255,255,255,0.93)', borderRadius: 6, padding: 12, overflow: 'hidden' as any },
+  progressBg: { position: 'absolute' as any, top: 0, left: 0, right: 0, height: 3, backgroundColor: 'rgba(0,0,0,0.08)' },
   progressFill: { height: 3 },
-  cwHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3, marginTop: 5 },
-  cwLabel: { fontSize: 9, fontWeight: '700', color: '#434841', letterSpacing: 1 },
-  cwTime: { fontSize: 20, fontWeight: '900', color: '#061907', letterSpacing: -0.5 },
-  cwWarning: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5, paddingTop: 5, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.08)' },
-  cwWarningText: { fontSize: 10, fontWeight: '700', color: '#ba1a1a' },
-  weatherWidget: { flex: 1, backgroundColor: 'rgba(255,255,255,0.93)', borderRadius: 8, padding: 14 },
-  wwTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  wwLabel: { fontSize: 9, fontWeight: '700', color: '#434841', letterSpacing: 1 },
-  livePill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(44,105,78,0.12)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 100 },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2c694e' },
-  liveText: { fontSize: 9, fontWeight: '800', color: '#2c694e', letterSpacing: 0.5 },
-  wwTemp: { fontSize: 22, fontWeight: '900', color: '#061907', letterSpacing: -0.5 },
-  wwDesc: { fontSize: 11, color: '#747871', marginTop: 1 },
-  wwWind: { fontSize: 10, color: '#747871', marginTop: 2 },
-  heroActivity: { fontSize: 32, fontWeight: '900', color: '#fff', letterSpacing: -0.5, marginBottom: 4 },
-  heroRoute: { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 14 },
-  heroStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 6, overflow: 'hidden' as any, marginTop: 12 },
-  heroStatCell: { width: '50%', padding: 12, borderRightWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  heroStatKey: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 1, marginBottom: 4 },
-  heroStatVal: { fontSize: 18, fontWeight: '800', color: '#fff' },
-  heroStatUnit: { fontSize: 11, fontWeight: '400', color: 'rgba(255,255,255,0.5)' },
+  cwRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2, marginTop: 4 },
+  cwLabel: { fontSize: 9, fontWeight: '700', color: '#434841', letterSpacing: 0.8 },
+  cwTime: { fontSize: 22, fontWeight: '900', color: '#061907', letterSpacing: -0.5, marginBottom: 2 },
+  cwAlert: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)' },
+  cwAlertText: { fontSize: 10, fontWeight: '700', color: '#ba1a1a' },
+  weatherWidget: { flex: 1, backgroundColor: 'rgba(255,255,255,0.93)', borderRadius: 6, padding: 12 },
+  wwRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  wwLabel: { fontSize: 9, fontWeight: '700', color: '#434841', letterSpacing: 0.8 },
+  livePill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(44,105,78,0.15)', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 100 },
+  liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#2c694e' },
+  liveText: { fontSize: 8, fontWeight: '800', color: '#2c694e', letterSpacing: 0.5 },
+  wwTemp: { fontSize: 22, fontWeight: '900', color: '#061907', letterSpacing: -0.5, marginBottom: 1 },
+  wwDesc: { fontSize: 10, color: '#747871' },
+  wwWind: { fontSize: 10, color: '#747871', marginTop: 1 },
+
+  // Titel
+  heroTitle: { fontSize: 34, fontWeight: '900', color: '#fff', letterSpacing: -0.8, marginBottom: 4 },
+  heroSubtitle: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, marginBottom: 16 },
+
+  // Stats Grid überlappend
+  statsOverlap: { marginHorizontal: 0, marginTop: 20, paddingHorizontal: 20 },
+statsGrid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#fff', borderWidth: 1, borderColor: '#e1e3e4', borderRadius: 4, overflow: 'hidden' },
+  statCell: { width: '50%', padding: 14, borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#e1e3e4' },
+  statCellKey: { fontSize: 9, fontWeight: '700', color: '#747871', letterSpacing: 1, marginBottom: 4 },
+  statCellVal: { fontSize: 20, fontWeight: '800', color: '#061907' },
+  statCellUnit: { fontSize: 11, fontWeight: '400', color: '#747871' },
 
   // Safety
   safetyCard: { marginHorizontal: 20, marginTop: 16, backgroundColor: '#edeeef', borderRadius: 6, padding: 16, borderWidth: 1, borderColor: '#e1e3e4' },
-  safetyCardLabel: { fontSize: 10, fontWeight: '700', color: '#747871', letterSpacing: 1, marginBottom: 12 },
+  safetyLabel: { fontSize: 10, fontWeight: '700', color: '#747871', letterSpacing: 1, marginBottom: 12 },
   checkoutBtn: { backgroundColor: '#061907', borderRadius: 4, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 8 },
   checkoutBtnRed: { backgroundColor: '#dc2626' },
   checkoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
@@ -600,53 +603,43 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: 20, paddingTop: 24 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#061907', letterSpacing: -0.3, marginBottom: 10 },
+  metaText: { fontSize: 11, fontWeight: '600', color: '#2c694e' },
   syncBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   syncText: { fontSize: 11, fontWeight: '700', color: '#2c694e' },
 
   // Warning
-  warningCard: { backgroundColor: '#fff8e1', borderRadius: 4, padding: 16, borderLeftWidth: 3, borderLeftColor: '#f59e0b' },
-  warningHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  warningCard: { backgroundColor: '#fff8e1', borderRadius: 4, padding: 14, borderLeftWidth: 3, borderLeftColor: '#f59e0b' },
+  warningRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   warningTitle: { fontSize: 13, fontWeight: '700', color: '#92400e', flex: 1 },
-  warningItem: { fontSize: 13, color: '#92400e', marginBottom: 5, lineHeight: 18 },
+  warningItem: { fontSize: 12, color: '#92400e', marginBottom: 4, lineHeight: 17 },
 
   // Map
   mapContainer: { backgroundColor: '#e1e3e4', borderRadius: 4, overflow: 'hidden', borderWidth: 1, borderColor: '#e1e3e4' },
 
   // Card
   card: { backgroundColor: '#fff', borderRadius: 4, padding: 16, borderWidth: 1, borderColor: '#e1e3e4' },
-  weatherRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  weatherTemp: { fontSize: 36, fontWeight: '900', color: '#061907', letterSpacing: -1 },
+  weatherRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  weatherTemp: { fontSize: 34, fontWeight: '900', color: '#061907', letterSpacing: -1 },
   weatherDesc: { fontSize: 13, color: '#747871', marginTop: 2 },
-  weatherDetails: { gap: 8, alignItems: 'flex-end' },
-  weatherDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  weatherDetailText: { fontSize: 12, color: '#747871' },
+  weatherCols: { gap: 6, alignItems: 'flex-end' },
+  weatherCol: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  weatherColText: { fontSize: 12, color: '#747871' },
 
   // Timeline
   timeline: { gap: 0 },
-  tlEntry: { flexDirection: 'row', minHeight: 60 },
-  tlLeft: { width: 28, alignItems: 'center', paddingTop: 2 },
+  tlEntry: { flexDirection: 'row', minHeight: 56 },
+  tlLeft: { width: 26, alignItems: 'center', paddingTop: 2 },
   tlDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#f8f9fa', zIndex: 1 },
   tlLine: { flex: 1, width: 2, backgroundColor: '#e1e3e4', marginTop: 2 },
   tlCard: { flex: 1, backgroundColor: '#fff', borderRadius: 4, padding: 12, borderWidth: 1, borderColor: '#e1e3e4', marginLeft: 8, marginBottom: 8 },
-  tlCardTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
-  tlCardTitle: { fontSize: 11, fontWeight: '700', color: '#061907', letterSpacing: 0.5 },
-  tlCardTime: { fontSize: 11, color: '#747871', fontWeight: '500' },
-  tlCardDesc: { fontSize: 12, color: '#747871', lineHeight: 16 },
-  tlCardLink: { fontSize: 12, color: '#2c694e', fontWeight: '700', marginTop: 3 },
+  tlTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
+  tlTitle: { fontSize: 11, fontWeight: '700', color: '#061907', letterSpacing: 0.5 },
+  tlTime: { fontSize: 11, color: '#747871' },
+  tlDesc: { fontSize: 12, color: '#747871', lineHeight: 16 },
+  tlLink: { fontSize: 12, color: '#2c694e', fontWeight: '700', marginTop: 4 },
 
   // Details
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f5' },
   detailKey: { fontSize: 13, color: '#747871' },
   detailVal: { fontSize: 13, fontWeight: '600', color: '#191c1d', flex: 1, textAlign: 'right' },
-
-
-  heroTitle: { fontSize: 36, fontWeight: '900', color: '#fff', letterSpacing: -1, marginBottom: 4 },
-heroSubActivity: { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 20, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' as any },
-heroRoute: { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 14 },
-statsOverlapWrapper: { marginTop: 20, marginHorizontal: -20, marginBottom: -40 },
-heroStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#e1e3e4' },
-heroStatCell: { width: '50%', padding: 14, borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#e1e3e4' },
-heroStatKey: { fontSize: 9, fontWeight: '700', color: '#747871', letterSpacing: 1, marginBottom: 4 },
-heroStatVal: { fontSize: 20, fontWeight: '800', color: '#061907' },
-heroStatUnit: { fontSize: 11, fontWeight: '400', color: '#747871' },
 });
