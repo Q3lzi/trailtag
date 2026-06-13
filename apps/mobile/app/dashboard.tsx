@@ -158,60 +158,29 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-{/* Tour Info + Wetter */}
-<View style={styles.row}>
-  {/* Tour Card */}
-  <TouchableOpacity style={[styles.card, { flex: 2 }]} onPress={() => router.push(`/tour-detail?id=${activeTour.id}`)} activeOpacity={0.7}>
-    <View style={styles.tourCardHeader}>
-      <View style={styles.activityIconBox}>
-        <Mountain size={20} color="#2D6A4F" strokeWidth={2} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.cardLabel}>AKTIVE TOUR</Text>
-        <Text style={styles.tourName}>{ACTIVITY_LABELS[activeTour.activity] ?? activeTour.activity}</Text>
-        {activeTour.routeName && <Text style={styles.tourRoute}>{activeTour.routeName}</Text>}
-      </View>
-    </View>
+{/* Tour + Wetter */}
+<View style={styles.infoGrid}>
+  <TouchableOpacity style={styles.infoCard} onPress={() => router.push(`/tour-detail?id=${activeTour.id}`)} activeOpacity={0.7}>
+    <Text style={styles.cardLabel}>AKTIVE TOUR</Text>
+    <Text style={styles.tourName}>{ACTIVITY_LABELS[activeTour.activity] ?? activeTour.activity}</Text>
+    {activeTour.routeName && <Text style={styles.tourRoute}>{activeTour.routeName}</Text>}
     <View style={styles.divider} />
-    {activeTour.distanceKm && (
-      <View style={styles.miniStat}>
-        <Navigation size={12} color="#aaa" />
-        <Text style={styles.miniStatText}>{activeTour.distanceKm} km</Text>
-      </View>
-    )}
-    {activeTour.elevationUp && (
-      <View style={styles.miniStat}>
-        <Activity size={12} color="#aaa" />
-        <Text style={styles.miniStatText}>{activeTour.elevationUp} hm</Text>
-      </View>
-    )}
-    {activeTour.difficulty && (
-      <View style={styles.miniStat}>
-        <Mountain size={12} color="#aaa" />
-        <Text style={styles.miniStatText}>{activeTour.difficulty} SAC</Text>
-      </View>
-    )}
-    <View style={styles.miniStat}>
-      <Clock size={12} color="#aaa" />
-      <Text style={styles.miniStatText}>Start {new Date(activeTour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
+    <View style={styles.statsList}>
+      {activeTour.distanceKm && <View style={styles.statLine}><Text style={styles.statLineKey}>Distanz</Text><Text style={styles.statLineVal}>{activeTour.distanceKm} km</Text></View>}
+      {activeTour.elevationUp && <View style={styles.statLine}><Text style={styles.statLineKey}>Höhenmeter</Text><Text style={styles.statLineVal}>{activeTour.elevationUp} hm</Text></View>}
+      {activeTour.difficulty && <View style={styles.statLine}><Text style={styles.statLineKey}>Schwierigkeit</Text><Text style={styles.statLineVal}>{activeTour.difficulty} SAC</Text></View>}
+      <View style={styles.statLine}><Text style={styles.statLineKey}>Gestartet</Text><Text style={styles.statLineVal}>{new Date(activeTour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
     </View>
-    <View style={[styles.miniStat, { marginTop: 8 }]}>
-      <Text style={styles.detailLink}>Details →</Text>
-    </View>
+    <Text style={styles.detailLink}>Details ansehen →</Text>
   </TouchableOpacity>
 
-  {/* Wetter Card */}
   {weather && weatherInfo && (
-    <View style={[styles.card, { flex: 1.2 }]}>
-      <Text style={styles.cardLabel}>WETTER</Text>
-      <Text style={styles.weatherIcon}>{weatherInfo.icon}</Text>
-      <Text style={styles.weatherTemp}>{weather.temp}°C</Text>
-      <Text style={styles.weatherDesc}>{weatherInfo.text}</Text>
+    <View style={styles.infoCard}>
+      <Text style={styles.cardLabel}>WETTER AM STANDORT</Text>
+      <Text style={styles.weatherTempLarge}>{weather.temp}°</Text>
+      <Text style={styles.weatherCondition}>{weatherInfo.text}</Text>
       <View style={styles.divider} />
-      <View style={styles.miniStat}>
-        <Wind size={11} color="#aaa" />
-        <Text style={styles.miniStatText}>{weather.wind} km/h</Text>
-      </View>
+      <View style={styles.statLine}><Text style={styles.statLineKey}>Wind</Text><Text style={styles.statLineVal}>{weather.wind} km/h</Text></View>
     </View>
   )}
 </View>
@@ -376,4 +345,14 @@ activityIconBox: { width: 36, height: 36, borderRadius: 6, backgroundColor: '#f0
 weatherIcon: { fontSize: 28, marginBottom: 4 },
 weatherTemp: { fontSize: 26, fontWeight: '900', color: '#061907', letterSpacing: -1 },
 weatherDesc: { fontSize: 11, color: '#888', marginTop: 2, marginBottom: 4 },
+
+infoGrid: { marginHorizontal: 16, marginTop: 12, flexDirection: 'row', gap: 10 },
+infoCard: { flex: 1, backgroundColor: '#fff', borderRadius: 4, padding: 16, borderWidth: 1, borderColor: '#e1e3e4' },
+statsList: { gap: 6, marginBottom: 12 },
+statLine: { flexDirection: 'row', justifyContent: 'space-between' },
+statLineKey: { fontSize: 12, color: '#747871' },
+statLineVal: { fontSize: 12, fontWeight: '700', color: '#191c1d' },
+weatherTempLarge: { fontSize: 42, fontWeight: '900', color: '#061907', letterSpacing: -2, marginTop: 4, marginBottom: 2 },
+weatherCondition: { fontSize: 12, color: '#747871', marginBottom: 4 },
+detailLink: { fontSize: 12, color: '#2c694e', fontWeight: '700' },
 });
