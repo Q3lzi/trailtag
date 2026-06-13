@@ -3,50 +3,94 @@ import { prisma } from '../lib/prisma'
 
 const router = express.Router()
 
+// Debug endpoint — remove after testing
+router.get('/debug/:token', async (req: Request, res: Response) => {
+  const token = req.params['token'] as string
+  const vehicle = await prisma.vehicle.findUnique({
+    where: { qrToken: token },
+    select: { id: true, plate: true, userId: true, qrToken: true }
+  })
+  if (!vehicle) return res.json({ error: 'Vehicle not found', token })
+
+  const alarm = await prisma.tour.findFirst({
+    where: { userId: vehicle.userId, status: 'ALARM' },
+    orderBy: { startedAt: 'desc' },
+    select: { id: true, status: true, startedAt: true, eta: true, vehicleId: true, userId: true }
+  })
+  const active = await prisma.tour.findFirst({
+    where: { userId: vehicle.userId, status: 'ACTIVE' },
+    orderBy: { startedAt: 'desc' },
+    select: { id: true, status: true, startedAt: true, eta: true, vehicleId: true, userId: true }
+  })
+  const allRecent = await prisma.tour.findMany({
+    where: { userId: vehicle.userId },
+    orderBy: { createdAt: 'desc' },
+    take: 5,
+    select: { id: true, status: true, startedAt: true, eta: true, vehicleId: true }
+  })
+
+  return res.json({ vehicle, alarm, active, allRecent })
+})
+
 router.get('/:token', async (req: Request, res: Response) => {
   const token = req.params['token'] as string
 
+  // Step 1: find vehicle by QR token
   const vehicle = await prisma.vehicle.findUnique({
     where: { qrToken: token },
-    include: {
-      tours: {
-        // Get most recent started or planned tour — filter after
-        where: { startedAt: { not: null } },
-        orderBy: { startedAt: 'desc' },
-        take: 1,
-        include: {
-          locations: { orderBy: { timestamp: 'asc' } },
-          user: { include: { emergencyContacts: { orderBy: { isPrimary: 'desc' } } } }
-        }
-      }
-    }
+    select: { id: true, plate: true, make: true, model: true, color: true, qrToken: true, userId: true }
   })
-
-  // Also check if there's an ALARM tour (might have no startedAt in edge cases)
-  if (vehicle) {
-    const alarmTour = await prisma.tour.findFirst({
-      where: { vehicleId: vehicle.id, status: 'ALARM' },
-      orderBy: { startedAt: 'desc' },
-      include: {
-        locations: { orderBy: { timestamp: 'asc' } },
-        user: { include: { emergencyContacts: { orderBy: { isPrimary: 'desc' } } } }
-      }
-    })
-    if (alarmTour && (!vehicle.tours[0] || alarmTour.startedAt! >= (vehicle.tours[0].startedAt ?? new Date(0)))) {
-      (vehicle as any).tours = [alarmTour]
-    }
-  }
 
   if (!vehicle) return res.status(404).send(renderNotFound())
 
-  const activeTour = vehicle.tours[0]
+  // Step 2: find the most urgent tour — ALARM first, then ACTIVE, then most recent ACTIVE
+  // Search by vehicleId OR by userId (in case vehicleId wasn't set on the tour)
+  const tourInclude = {
+    locations: { orderBy: { timestamp: 'asc' as const } },
+    user: { include: { emergencyContacts: { orderBy: { isPrimary: 'desc' as const } } } }
+  }
 
-  // Nur als "veraltet" behandeln wenn: keine ALARM-Tour, und ETA vor mehr als 48h war
+  // Priority 1: ALARM tour linked to this vehicle
+  let activeTour: any = await prisma.tour.findFirst({
+    where: { vehicleId: vehicle.id, status: 'ALARM' },
+    orderBy: { startedAt: 'desc' },
+    include: tourInclude
+  })
+
+  // Priority 2: ALARM tour by same user (vehicle might not be linked on tour)
+  if (!activeTour) {
+    activeTour = await prisma.tour.findFirst({
+      where: { userId: vehicle.userId, status: 'ALARM' },
+      orderBy: { startedAt: 'desc' },
+      include: tourInclude
+    })
+  }
+
+  // Priority 3: ACTIVE tour linked to this vehicle
+  if (!activeTour) {
+    activeTour = await prisma.tour.findFirst({
+      where: { vehicleId: vehicle.id, status: 'ACTIVE' },
+      orderBy: { startedAt: 'desc' },
+      include: tourInclude
+    })
+  }
+
+  // Priority 4: ACTIVE tour by same user
+  if (!activeTour) {
+    activeTour = await prisma.tour.findFirst({
+      where: { userId: vehicle.userId, status: 'ACTIVE' },
+      orderBy: { startedAt: 'desc' },
+      include: tourInclude
+    })
+  }
+
+  // Step 3: check if active tour is stale (ACTIVE but ETA > 48h ago — probably forgotten)
   const isStale = activeTour &&
-    activeTour.status !== 'ALARM' &&
+    activeTour.status === 'ACTIVE' &&
     activeTour.eta &&
     new Date(activeTour.eta).getTime() < Date.now() - 48 * 60 * 60 * 1000
 
+  // Route based on what we found
   if (!activeTour || isStale) return res.send(renderGreen(vehicle))
   if (activeTour.status === 'ACTIVE') return res.send(renderActive(vehicle, activeTour))
   return res.send(renderAlarm(vehicle, activeTour))
@@ -421,7 +465,6 @@ function renderActive(vehicle: any, tour: any) {
       <p>Name, Kontakte und medizinische Informationen werden nur bei einem Alarm-Status angezeigt.</p>
     </div>
 
-    ${trackingLogSection(tour)}
     ${elevationSection(tour)}
 
     <footer>
@@ -557,7 +600,6 @@ function renderAlarm(vehicle: any, tour: any) {
       <div class="notes-body">${tour.notes.replace(/\n/g, '<br>')}</div>
     </div>` : ''}
 
-    ${trackingLogSection(tour)}
     ${elevationSection(tour)}
 
     <footer>

@@ -93,16 +93,18 @@ export default function ToursScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      {/* Header — same as dashboard */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View style={styles.brand}>
-            <Mountain size={20} color="#4ade80" strokeWidth={2}/>
-            <Text style={styles.brandTxt}>Trailtag</Text>
-          </View>
+      {/* Top Nav — exact same as dashboard */}
+      <View style={styles.topNav}>
+        <View style={styles.topNavLeft}>
+          <Mountain size={22} color="#061907" strokeWidth={2.5}/>
+          <Text style={styles.logoText}>Trailtag</Text>
         </View>
-        <Text style={styles.title}>Archiv</Text>
-        <Text style={styles.subtitle}>{tours.length} Touren erfasst</Text>
+      </View>
+
+      {/* Archive title + stats */}
+      <View style={styles.archiveHead}>
+        <Text style={styles.archiveTitle}>Archiv</Text>
+        <Text style={styles.archiveSub}>{tours.length} Touren erfasst</Text>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statNum}>{totalKm}</Text>
@@ -271,18 +273,19 @@ const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:'#f8f9fa'},
   content:{paddingBottom:110},
 
-  // Header matching dashboard
-  header:{backgroundColor:'#061907',paddingTop:52,paddingBottom:24,paddingHorizontal:20},
-  headerTop:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:20},
-  brand:{flexDirection:'row',alignItems:'center',gap:8},
-  brandTxt:{fontSize:17,fontWeight:'800',color:'#fff',letterSpacing:-0.3},
-  title:{fontSize:26,fontWeight:'900',color:'#fff',letterSpacing:-0.5,marginBottom:3},
-  subtitle:{fontSize:13,color:'rgba(255,255,255,0.4)',marginBottom:18},
-  statsRow:{flexDirection:'row',alignItems:'center',backgroundColor:'rgba(255,255,255,0.07)',borderRadius:8,padding:14},
+  // Header — matches dashboard white nav
+
+  topNav:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',paddingHorizontal:20,paddingTop:18,paddingBottom:14},
+  topNavLeft:{flexDirection:'row',alignItems:'center',gap:8},
+  logoText:{fontSize:18,fontWeight:'800',color:'#061907',letterSpacing:-0.3},
+  titleRow:{paddingHorizontal:20,paddingBottom:12},
+  title:{fontSize:22,fontWeight:'900',color:'#061907',letterSpacing:-0.4},
+  subtitle:{fontSize:12,color:'#747871',marginTop:2},
+  statsRow:{flexDirection:'row',alignItems:'center',backgroundColor:'#f3f4f5',borderRadius:8,marginHorizontal:20,padding:14},
   statItem:{flex:1,alignItems:'center'},
-  statNum:{fontSize:20,fontWeight:'900',color:'#fff',letterSpacing:-0.5},
-  statLbl:{fontSize:10,color:'rgba(255,255,255,0.4)',fontWeight:'600',marginTop:2},
-  statDiv:{width:1,height:26,backgroundColor:'rgba(255,255,255,0.1)'},
+  statNum:{fontSize:18,fontWeight:'900',color:'#061907',letterSpacing:-0.5},
+  statLbl:{fontSize:10,color:'#747871',fontWeight:'600',marginTop:2},
+  statDiv:{width:1,height:24,backgroundColor:'#e1e3e4'},
 
   searchSection:{backgroundColor:'#fff',paddingHorizontal:16,paddingTop:14,paddingBottom:2,borderBottomWidth:1,borderBottomColor:'#f3f4f5'},
   searchBar:{flexDirection:'row',alignItems:'center',gap:10,backgroundColor:'#f3f4f5',borderRadius:8,paddingHorizontal:12,paddingVertical:9,marginBottom:12},

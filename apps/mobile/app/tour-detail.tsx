@@ -557,9 +557,13 @@ export default function TourDetailScreen() {
             return (<>
               {shown.map((loc: any, idx: number) => (
                 <TouchableOpacity key={loc.id} style={styles.tlEntry} onPress={() => handleLocationSelect({ lat: loc.lat, lng: loc.lng, time: new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
-                  <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: '#c3c8bf', width: 8, height: 8 }]} /><View style={styles.tlLine} /></View>
-                  <View style={[styles.tlCard, { backgroundColor: 'transparent', borderColor: 'transparent' }]}>
-                    <View style={styles.tlTop}><Text style={[styles.tlTitle, { color: '#747871' }]}>TRACKING-PUNKT {idx + 1}</Text><Text style={styles.tlTime}>{new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
+                  <View style={styles.tlLeft}><View style={[styles.tlDot, styles.tlDotMid]} /><View style={styles.tlLine} /></View>
+                  <View style={[styles.tlCard, styles.tlCardMid]}>
+                    <View style={styles.tlTop}>
+                      <Text style={[styles.tlTitle, { color: '#747871' }]}>TRACKING-PUNKT {idx + 1}</Text>
+                      <Text style={styles.tlTime}>{new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
+                    </View>
+                    {loc.ele ? <Text style={styles.tlDesc}>{Math.round(loc.ele)} m ü.M.</Text> : null}
                     <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>
                   </View>
                 </TouchableOpacity>
@@ -779,6 +783,8 @@ const styles = StyleSheet.create({
   tlDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#f8f9fa', zIndex: 1 },
   tlLine: { flex: 1, width: 2, backgroundColor: '#e1e3e4', marginTop: 2 },
   tlCard: { flex: 1, backgroundColor: '#fff', borderRadius: 4, padding: 12, borderWidth: 1, borderColor: '#e1e3e4', marginLeft: 8, marginBottom: 8 },
+  tlCardMid: { backgroundColor: '#f8f9fa', borderColor: '#f0f0f0', paddingVertical: 9 },
+  tlDotMid: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#c3c8bf', borderWidth: 0 },
   tlTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
   tlTitle: { fontSize: 11, fontWeight: '700', color: '#061907', letterSpacing: 0.5 },
   tlTime: { fontSize: 11, color: '#747871' },

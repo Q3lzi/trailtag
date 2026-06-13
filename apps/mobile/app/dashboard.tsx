@@ -223,7 +223,7 @@ export default function DashboardScreen() {
             >
               <View style={styles.rescueTop}>
                 <AlertTriangle size={28} color="#93000a" strokeWidth={2} />
-                <View style={styles.rescueBadge}><Text style={styles.rescueBadgeText}>KRITISCH</Text></View>
+                <View style={styles.rescueBadge}><Text style={styles.rescueBadgeText}>QR Code</Text></View>
               </View>
               <Text style={styles.rescueTitle}>Erstretter-Portal</Text>
               <Text style={styles.rescueSub}>
