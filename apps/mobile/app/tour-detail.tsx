@@ -1,15 +1,5 @@
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// react-native-maps loaded dynamically to avoid build issues on web
-let MapView: any = null, Polyline: any = null, Marker: any = null;
-if (Platform.OS !== 'web') {
-  try {
-    const RNMaps = require('react-native-maps');
-    MapView = RNMaps.default;
-    Polyline = RNMaps.Polyline;
-    Marker = RNMaps.Marker;
-  } catch { /* not available */ }
-}
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking, Share } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { apiFetch } from '../lib/api';
@@ -134,14 +124,13 @@ function ElevationChart({ points }: { points: any[] }) {
 
 export default function TourDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const insets = useSafeAreaInsets();
   const [tour, setTour] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState<any>(null);
-  const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, time: string} | null>(null);
-  const [checkedWaypoints, setCheckedWaypoints] = useState<Set<number>>(new Set());
-  const insets = useSafeAreaInsets();
   const [showAllLogs, setShowAllLogs] = useState(false);
   const [extendLoading, setExtendLoading] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, time: string} | null>(null);
   const leafletMapRef = useRef<any>(null);
   const mapSectionRef = useRef<any>(null);
   const scrollViewRef = useRef<any>(null);
@@ -181,9 +170,9 @@ export default function TourDetailScreen() {
 
   useEffect(() => {
     if (!tour || Platform.OS !== 'web') return;
-    const lat = tour.lastLat ?? tour.startLat ?? tour.gpxTrack?.points?.[0]?.lat ?? null;
-    const lng = tour.lastLng ?? tour.startLng ?? tour.gpxTrack?.points?.[0]?.lng ?? null;
-    if (!lat && !lng && !tour.gpxTrack?.points?.length) return;
+    const lat = tour.lastLat ?? tour.startLat;
+    const lng = tour.lastLng ?? tour.startLng;
+    if (!lat || !lng) return;
     const timer = setTimeout(() => {
       const container = document.getElementById('tour-map');
       if (!container) return;
@@ -194,8 +183,6 @@ export default function TourDetailScreen() {
         document.head.appendChild(link);
       }
       import('leaflet').then((L) => {
-        // Guard: container must still be in DOM
-        if (!document.getElementById('tour-map')) return;
         if ((container as any)._leaflet_id) { container.innerHTML = ''; delete (container as any)._leaflet_id; }
         const map = L.default.map(container, { zoomControl: true });
         leafletMapRef.current = map;
@@ -209,29 +196,13 @@ export default function TourDetailScreen() {
           if (gpxPoints && trackPoints && trackPoints.length > 1) {
             L.default.polyline(trackPoints as [number, number][], { color: '#f59e0b', weight: 3, opacity: 0.8, dashArray: '5,5' }).addTo(map);
           }
-          if (lat && lng) L.default.circleMarker([lat, lng] as [number, number], { radius: 10, fillColor: '#dc2626', color: '#fff', weight: 3, fillOpacity: 1 }).bindPopup('Letzter Standort').addTo(map);
-          // GPX Waypoints als orange Pins
-          if (tour.gpxTrack?.waypoints?.length > 0) {
-            tour.gpxTrack.waypoints.forEach((wp: any) => {
-              if (wp.lat && wp.lng) {
-                L.default.circleMarker([wp.lat, wp.lng] as [number, number], {
-                  radius: 8, fillColor: '#f59e0b', color: '#fff', weight: 2, fillOpacity: 1,
-                }).bindPopup(`<b>${wp.name || 'Wegpunkt'}</b>${wp.ele ? '<br>' + Math.round(wp.ele) + ' m' : ''}`).addTo(map);
-              }
-            });
-          }
+          L.default.circleMarker([lat, lng] as [number, number], { radius: 10, fillColor: '#dc2626', color: '#fff', weight: 3, fillOpacity: 1 }).bindPopup('Letzter Standort').addTo(map);
           const allPoints = [...displayPoints, [lat, lng]] as [number, number][];
           map.fitBounds(L.default.latLngBounds(allPoints), { padding: [30, 30] });
         } else {
-          if (lat && lng) {
-            map.setView([lat, lng], 14);
-            L.default.circleMarker([lat, lng] as [number, number], { radius: 10, fillColor: '#dc2626', color: '#fff', weight: 3, fillOpacity: 1 }).bindPopup('Letzter Standort').addTo(map);
-          } else {
-            map.setView([47.3, 8.5], 10);
-          }
+          map.setView([lat, lng], 14);
+          L.default.circleMarker([lat, lng] as [number, number], { radius: 10, fillColor: '#dc2626', color: '#fff', weight: 3, fillOpacity: 1 }).bindPopup('Letzter Standort').addTo(map);
         }
-        // Force resize after mount to fix offsetWidth issue
-        requestAnimationFrame(() => { try { map.invalidateSize(); } catch(_) {} });
       });
     }, 800);
     return () => clearTimeout(timer);
@@ -272,13 +243,10 @@ export default function TourDetailScreen() {
   function sharePortalLink() {
     if (!qrUrl) return;
     const routeName = tour.routeName ?? '';
-    const etaStr = tour.eta ? new Date(tour.eta).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : '—';
-    const msg = `🏔️ Ich bin auf Tour${routeName ? ': ' + routeName : ''}.\nGeplante Rückkehr: ${etaStr} Uhr\n\nLive Safety-Status:\n${qrUrl}`;
-    if (Platform.OS === 'web') {
-      window.open(`sms:?body=${encodeURIComponent(msg)}`, '_blank');
-    } else {
-      Share.share({ message: msg, url: qrUrl });
-    }
+    const eta = tour.eta ? new Date(tour.eta).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) : '--:--';
+    const msg = '\u{1F3D4}\uFE0F Tour' + (routeName ? ': ' + routeName : '') + '\nR\u00FCckkehr: ' + eta + '\n\nSafety-Status:\n' + qrUrl;
+    if (Platform.OS === 'web') { (window as any).open('sms:?body=' + encodeURIComponent(msg), '_blank'); }
+    else { Share.share({ message: msg }); }
   }
 
   if (loading) return (
@@ -290,7 +258,6 @@ export default function TourDetailScreen() {
   if (!tour) return <View style={styles.loading}><Text style={styles.loadingText}>Tour nicht gefunden</Text></View>;
 
   const isActive = tour.status === 'ACTIVE' || tour.status === 'ALARM';
-  const isPlanned = tour.status === 'PLANNED';
   const activityLabel = ACTIVITY_LABELS[tour.activity] ?? tour.activity;
   const heroColor = isOverdue ? '#7f1d1d' : (ACTIVITY_COLORS[tour.activity] ?? '#1a2e1a');
   const qrUrl = tour.vehicle ? `https://trailtag-production.up.railway.app/r/${tour.vehicle.qrToken}` : null;
@@ -336,7 +303,7 @@ export default function TourDetailScreen() {
           </TouchableOpacity>
           <View style={[styles.statusPill, isOverdue ? styles.statusPillRed : isActive ? styles.statusPillGreen : styles.statusPillGray]}>
             <View style={[styles.statusDot, isOverdue ? styles.dotRed : isActive ? styles.dotGreen : styles.dotGray]} />
-            <Text style={styles.statusPillText}>{isOverdue ? 'ALARM' : isActive ? 'AKTIV' : isPlanned ? 'GEPLANT' : 'ABGESCHLOSSEN'}</Text>
+            <Text style={styles.statusPillText}>{isOverdue ? 'ALARM' : isActive ? 'AKTIV' : 'ABGESCHLOSSEN'}</Text>
           </View>
         </View>
 
@@ -427,23 +394,9 @@ export default function TourDetailScreen() {
       </View>
 
       {/* Safety Controls */}
-      {(isActive || isPlanned || qrUrl) && (
+      {(isActive || qrUrl) && (
         <View style={styles.safetyCard}>
           <Text style={styles.safetyLabel}>SAFETY CONTROLS</Text>
-          {isPlanned && (
-            <TouchableOpacity style={styles.checkoutBtn} onPress={async () => {
-              try {
-                const token = await getToken();
-                await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta: tour.eta }) }, token ?? undefined);
-                setTour((t: any) => ({ ...t, status: 'ACTIVE', startedAt: new Date().toISOString() }));
-              } catch (err: any) {
-                showAlert('Tour starten', err.message ?? 'Fehler beim Starten');
-              }
-            }}>
-              <CheckCircle size={18} color="#fff" strokeWidth={2.5} />
-              <Text style={styles.checkoutText}>Tour jetzt starten</Text>
-            </TouchableOpacity>
-          )}
           {isActive && (
             <TouchableOpacity style={[styles.checkoutBtn, isOverdue && styles.checkoutBtnRed]} onPress={handleCheckout}>
               <CheckCircle size={18} color="#fff" strokeWidth={2.5} />
@@ -451,40 +404,28 @@ export default function TourDetailScreen() {
             </TouchableOpacity>
           )}
           {qrUrl && (
-            <View style={{ gap: 8 }}>
+            <View style={{gap:8}}>
               <TouchableOpacity style={styles.portalBtn} onPress={() => Platform.OS === 'web' ? window.open(qrUrl!, '_blank') : Linking.openURL(qrUrl!)}>
                 <Link size={14} color="#dc2626" strokeWidth={2} />
                 <Text style={styles.portalBtnText}>Erstretter-Portal öffnen</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.portalBtn, { borderColor: '#aeeecb', backgroundColor: '#f0faf4' }]} onPress={sharePortalLink}>
+              <TouchableOpacity style={[styles.portalBtn,{borderColor:'#aeeecb',backgroundColor:'#f0faf4'}]} onPress={sharePortalLink}>
                 <MessageCircle size={14} color="#2c694e" strokeWidth={2} />
-                <Text style={[styles.portalBtnText, { color: '#2c694e' }]}>Safety-Link per iMessage teilen</Text>
+                <Text style={[styles.portalBtnText,{color:'#2c694e'}]}>Safety-Link per iMessage teilen</Text>
               </TouchableOpacity>
             </View>
           )}
-          {isActive && (
-            <>
-              <View style={{flexDirection:'row',gap:8,marginTop:8}}>
-                {[30,60,120].map(mins => (
-                  <TouchableOpacity key={mins} style={styles.extendBtn} disabled={extendLoading}
-                    onPress={async () => {
-                      setExtendLoading(true);
-                      try {
-                        const token = await getToken();
-                        const res = await apiFetch(`/tours/${tour.id}/extend`, { method: 'POST', body: JSON.stringify({ minutes: mins }) }, token ?? undefined);
-                        setTour((t: any) => ({ ...t, eta: res.tour.eta, status: 'ACTIVE', alarmStage: 0 }));
-                      } catch (err: any) { showAlert('Fehler', err.message); }
-                      finally { setExtendLoading(false); }
-                    }}>
-                    <Text style={styles.extendBtnTxt}>+{mins >= 60 ? `${mins/60}h` : `${mins}min`}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={styles.safetyNote}>Tour verlängern verschiebt den Safety-Timer und setzt den Alarm zurück.</Text>
-              <Text style={[styles.safetyNote,{marginTop:4}]}>"Sicher zurück" informiert deine Notfallkontakte und stoppt den Alarm-Timer.</Text>
-            </>
-          )}
-          {isPlanned && <Text style={styles.safetyNote}>Tour starten aktiviert den Safety-Timer und beginnt die GPS-Aufzeichnung.</Text>}
+          {isActive && (<>
+            <View style={{flexDirection:'row',gap:8,marginTop:8}}>
+              {[30,60,120].map(m=>(
+                <TouchableOpacity key={m} style={styles.extendBtn} disabled={extendLoading}
+                  onPress={async()=>{setExtendLoading(true);try{const t=await getToken();const r=await apiFetch('/tours/'+tour.id+'/extend',{method:'POST',body:JSON.stringify({minutes:m})},t??undefined);setTour((x:any)=>({...x,eta:r.tour.eta,status:'ACTIVE'}));}catch(e:any){showAlert('Fehler',e.message);}finally{setExtendLoading(false);}}}>
+                  <Text style={styles.extendBtnTxt}>+{m>=60?m/60+'h':m+'min'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.safetyNote}>„Sicher zurück“ informiert deine Notfallkontakte und stoppt den Alarm-Timer.</Text>
+          </>)}
         </View>
       )}
 
@@ -503,7 +444,7 @@ export default function TourDetailScreen() {
         </View>
       )}
 
-      {/* Karte — Leaflet auf Web, MapView auf iOS/Android */}
+      {/* Karte */}
       {(tour.startLat || tour.lastLat || tour.gpxTrack?.points?.length > 0) && (
         <View style={styles.section} ref={mapSectionRef}>
           <View style={styles.sectionHeader}>
@@ -519,33 +460,21 @@ export default function TourDetailScreen() {
             ) : (() => {
               const lat = tour.lastLat ?? tour.startLat ?? tour.gpxTrack?.points?.[0]?.lat;
               const lng = tour.lastLng ?? tour.startLng ?? tour.gpxTrack?.points?.[0]?.lng;
-              if (!lat || !lng) return null;
-              const gpxCoords = tour.gpxTrack?.points?.map((p: any) => ({ latitude: p.lat, longitude: p.lng })) ?? [];
-              const trackCoords = tour.locations?.map((l: any) => ({ latitude: l.lat, longitude: l.lng })) ?? [];
-              const wpCoords = tour.gpxTrack?.waypoints?.filter((w: any) => w.lat && w.lng) ?? [];
-              return (
-                <MapView
-                  style={{ width: '100%', height: 340 }}
-                  initialRegion={{ latitude: lat, longitude: lng, latitudeDelta: 0.05, longitudeDelta: 0.05 }}
-                  mapType="terrain"
-                >
-                  {gpxCoords.length > 1 && (
-                    <Polyline coordinates={gpxCoords} strokeColor="#2c694e" strokeWidth={3} />
-                  )}
-                  {trackCoords.length > 1 && (
-                    <Polyline coordinates={trackCoords} strokeColor="#f59e0b" strokeWidth={2} lineDashPattern={[5, 5]} />
-                  )}
-                  {tour.startLat && (
-                    <Marker coordinate={{ latitude: tour.startLat, longitude: tour.startLng }} pinColor="#2c694e" title="Start" />
-                  )}
-                  {(tour.lastLat || tour.startLat) && (
-                    <Marker coordinate={{ latitude: lat, longitude: lng }} pinColor="#dc2626" title="Letzter Standort" />
-                  )}
-                  {wpCoords.map((wp: any, i: number) => (
-                    <Marker key={i} coordinate={{ latitude: wp.lat, longitude: wp.lng }} pinColor="#f59e0b" title={wp.name ?? `Wegpunkt ${i+1}`} />
-                  ))}
-                </MapView>
-              );
+              if (!lat || !lng) return <View style={{height:300,backgroundColor:'#f3f4f5',alignItems:'center',justifyContent:'center'}}><Text style={{color:'#747871',fontSize:13}}>Kein Standort</Text></View>;
+              try {
+                const M = require('react-native-maps');
+                const NM = M.default; const NP = M.Polyline; const NK = M.Marker;
+                const gc = tour.gpxTrack?.points?.map((p:any)=>({latitude:p.lat,longitude:p.lng}))??[];
+                const tc = tour.locations?.map((l:any)=>({latitude:l.lat,longitude:l.lng}))??[];
+                const wc = tour.gpxTrack?.waypoints?.filter((w:any)=>w.lat&&w.lng)??[];
+                return (<NM style={{width:'100%',height:300}} initialRegion={{latitude:lat,longitude:lng,latitudeDelta:0.05,longitudeDelta:0.05}} mapType="terrain">
+                  {gc.length>1&&<NP coordinates={gc} strokeColor="#2c694e" strokeWidth={3}/>}
+                  {tc.length>1&&<NP coordinates={tc} strokeColor="#f59e0b" strokeWidth={2} lineDashPattern={[5,5]}/>}
+                  {tour.startLat&&<NK coordinate={{latitude:tour.startLat,longitude:tour.startLng}} pinColor="#2c694e" title="Start"/>}
+                  <NK coordinate={{latitude:lat,longitude:lng}} pinColor="#dc2626" title="Letzter Standort"/>
+                  {wc.map((w:any,i:number)=><NK key={i} coordinate={{latitude:w.lat,longitude:w.lng}} pinColor="#f59e0b" title={w.name??'Wegpunkt'}/>)}
+                </NM>);
+              } catch { return <View style={{height:300,backgroundColor:'#f3f4f5',alignItems:'center',justifyContent:'center'}}><Text style={{color:'#747871',fontSize:13}}>Karte nicht verfügbar</Text></View>; }
             })()}
           </View>
           {tour.gpxTrack?.points?.length > 0 && (
@@ -613,30 +542,15 @@ export default function TourDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {(() => {
-            const locs = tour.locations?.filter((_: any, i: number) => i % Math.max(1, Math.floor(tour.locations.length / 20)) === 0 && i > 0) ?? [];
-            const shown = showAllLogs ? locs : locs.slice(0, 3);
-            return (<>
-              {shown.map((loc: any, idx: number) => (
-                <TouchableOpacity key={loc.id} style={styles.tlEntry} onPress={() => handleLocationSelect({ lat: loc.lat, lng: loc.lng, time: new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
-                  <View style={styles.tlLeft}><View style={[styles.tlDot, styles.tlDotMid]} /><View style={styles.tlLine} /></View>
-                  <View style={[styles.tlCard, styles.tlCardMid]}>
-                    <View style={styles.tlTop}>
-                      <Text style={[styles.tlTitle, { color: '#747871' }]}>TRACKING-PUNKT {idx + 1}</Text>
-                      <Text style={styles.tlTime}>{new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
-                    </View>
-                    {loc.ele ? <Text style={styles.tlDesc}>{Math.round(loc.ele)} m ü.M.</Text> : null}
-                    <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-              {locs.length > 3 && (
-                <TouchableOpacity style={styles.showAllBtn} onPress={() => setShowAllLogs(v => !v)}>
-                  <Text style={styles.showAllTxt}>{showAllLogs ? `▲ Weniger anzeigen` : `▼ Alle ${locs.length} Logs anzeigen`}</Text>
-                </TouchableOpacity>
-              )}
-            </>);
-          })()}
+          {tour.locations?.filter((_: any, i: number) => i % 10 === 0 && i > 0).map((loc: any, idx: number) => (
+            <TouchableOpacity key={loc.id} style={styles.tlEntry} onPress={() => handleLocationSelect({ lat: loc.lat, lng: loc.lng, time: new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
+              <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: '#c3c8bf', width: 8, height: 8 }]} /><View style={styles.tlLine} /></View>
+              <View style={[styles.tlCard, { backgroundColor: 'transparent', borderColor: 'transparent' }]}>
+                <View style={styles.tlTop}><Text style={[styles.tlTitle, { color: '#747871' }]}>TRACKING-PUNKT {idx + 1}</Text><Text style={styles.tlTime}>{new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
+                <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
 
           {tour.locationUpdatedAt && (
             <TouchableOpacity style={styles.tlEntry} onPress={() => tour.lastLat && handleLocationSelect({ lat: tour.lastLat, lng: tour.lastLng, time: new Date(tour.locationUpdatedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
@@ -677,67 +591,18 @@ export default function TourDetailScreen() {
         <Text style={styles.sectionTitle}>Tour-Details</Text>
         <View style={styles.card}>
           <View style={styles.detailRow}><Text style={styles.detailKey}>Aktivität</Text><Text style={styles.detailVal}>{activityLabel}</Text></View>
-          {tour.persons && <View style={styles.detailRow}><Text style={styles.detailKey}>Personen</Text><Text style={styles.detailVal}>{tour.persons === 0 ? 'Solo' : `${tour.persons}`}</Text></View>}
+          {tour.persons && <View style={styles.detailRow}><Text style={styles.detailKey}>Personen</Text><Text style={styles.detailVal}>{tour.persons}</Text></View>}
           {tour.parkingLocation && <View style={styles.detailRow}><Text style={styles.detailKey}>Parkplatz</Text><Text style={styles.detailVal}>{tour.parkingLocation}</Text></View>}
           {tour.vehicle && <View style={styles.detailRow}><Text style={styles.detailKey}>Fahrzeug</Text><Text style={styles.detailVal}>{tour.vehicle.plate} · {tour.vehicle.make} {tour.vehicle.model}</Text></View>}
           {tour.startedAt && <View style={styles.detailRow}><Text style={styles.detailKey}>Gestartet</Text><Text style={styles.detailVal}>{new Date(tour.startedAt).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</Text></View>}
           {tour.eta && <View style={styles.detailRow}><Text style={styles.detailKey}>Geplante Rückkehr</Text><Text style={[styles.detailVal, isOverdue && { color: '#dc2626' }]}>{new Date(tour.eta).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</Text></View>}
-        </View>
-
-        {/* GPX Wegpunkte — abhakbar */}
-        {tour.gpxTrack?.waypoints?.length > 0 ? (
-          <View style={[styles.card, { marginTop: 12 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <Text style={styles.sectionLabel}>WEGPUNKTE ({checkedWaypoints.size}/{tour.gpxTrack.waypoints.length})</Text>
-              {checkedWaypoints.size > 0 ? (
-                <TouchableOpacity onPress={() => setCheckedWaypoints(new Set())}>
-                  <Text style={{ fontSize: 11, color: '#747871', fontWeight: '600' }}>Zurücksetzen</Text>
-                </TouchableOpacity>
-              ) : null}
+          {tour.notes && (
+            <View style={[styles.detailRow, { flexDirection: 'column', gap: 4 }]}>
+              <Text style={styles.detailKey}>Notizen für Rettungskräfte</Text>
+              <Text style={[styles.detailVal, { textAlign: 'left' }]}>{tour.notes}</Text>
             </View>
-            {tour.gpxTrack.waypoints.map((wp: any, i: number) => {
-              const done = checkedWaypoints.has(i);
-              return (
-                <TouchableOpacity key={i} style={[styles.detailRow, { alignItems: 'center' }]}
-                  onPress={() => setCheckedWaypoints(prev => {
-                    const next = new Set(prev);
-                    done ? next.delete(i) : next.add(i);
-                    return next;
-                  })}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                    <View style={{
-                      width: 22, height: 22, borderRadius: 11,
-                      backgroundColor: done ? '#2c694e' : 'transparent',
-                      borderWidth: 2, borderColor: done ? '#2c694e' : '#f59e0b',
-                      alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {done ? <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>✓</Text> : null}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.detailKey, { color: done ? '#2c694e' : '#434841', textDecorationLine: done ? 'line-through' : 'none' }]}>
-                        {wp.name || `Wegpunkt ${i + 1}`}
-                      </Text>
-                      {wp.ele ? <Text style={styles.detailSub}>{Math.round(wp.ele)} m ü.M.</Text> : null}
-                    </View>
-                  </View>
-                  <Text style={{ fontSize: 11, color: done ? '#2c694e' : '#c3c8bf', fontWeight: '700' }}>
-                    {done ? 'Absolviert' : ''}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ) : null}
-
-        {/* Notizen */}
-        {tour.notes ? (
-          <View style={[styles.card, { marginTop: 12 }]}>
-            <Text style={styles.sectionLabel}>NOTIZEN FÜR RETTUNGSKRÄFTE</Text>
-            {tour.notes.split('\n').filter((l: string) => l.trim() && !l.startsWith('Wegpunkte:')).map((line: string, i: number) => (
-              <Text key={i} style={[styles.detailVal, { textAlign: 'left', marginBottom: 6, color: '#434841' }]}>{line}</Text>
-            ))}
-          </View>
-        ) : null}
+          )}
+        </View>
       </View>
 
     </ScrollView>
@@ -751,7 +616,7 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 120 },
 
   // Hero
-  hero: { paddingTop: 28, paddingBottom: 30,  // overridden inline with insets paddingHorizontal: 20, overflow: 'hidden', position: 'relative' as any },
+  hero: { paddingTop: 28, paddingBottom: 30, paddingHorizontal: 20, overflow: 'hidden', position: 'relative' as any },
   heroTopBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   backText: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '600' },
@@ -802,10 +667,12 @@ const styles = StyleSheet.create({
   safetyLabel: { fontSize: 10, fontWeight: '700', color: '#747871', letterSpacing: 1, marginBottom: 12 },
   checkoutBtn: { backgroundColor: '#061907', borderRadius: 4, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 8 },
   checkoutBtnRed: { backgroundColor: '#dc2626' },
-  extendBtn: { flex:1, borderRadius:6, borderWidth:1.5, borderColor:'#e1e3e4', paddingVertical:10, alignItems:'center', backgroundColor:'#f8f9fa' },
-  extendBtnTxt: { fontSize:13, fontWeight:'700', color:'#434841' },
-  showAllBtn: { marginTop:6, paddingVertical:10, alignItems:'center', borderRadius:6, backgroundColor:'#f3f4f5', marginLeft:24 },
-  showAllTxt: { fontSize:12, fontWeight:'700', color:'#2c694e' },
+  extendBtn: { flex:1,borderRadius:6,borderWidth:1.5,borderColor:'#e1e3e4',paddingVertical:10,alignItems:'center',backgroundColor:'#f8f9fa' },
+  extendBtnTxt: { fontSize:13,fontWeight:'700',color:'#434841' },
+  showAllBtn: { marginTop:6,paddingVertical:10,alignItems:'center',borderRadius:6,backgroundColor:'#f3f4f5',marginLeft:24 },
+  showAllTxt: { fontSize:12,fontWeight:'700',color:'#2c694e' },
+  detailSub: { fontSize:11,color:'#747871',marginTop:1 },
+  sectionLabel: { fontSize:10,fontWeight:'700',color:'#747871',letterSpacing:1,marginBottom:10 },
   checkoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   portalBtn: { backgroundColor: '#fff', borderRadius: 4, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#fca5a5', marginBottom: 8 },
   portalBtnText: { color: '#dc2626', fontWeight: '700', fontSize: 13 },
@@ -815,7 +682,6 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: 20, paddingTop: 24 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#061907', letterSpacing: -0.3, marginBottom: 10 },
-  sectionLabel: { fontSize: 10, fontWeight: '700', color: '#747871', letterSpacing: 1, marginBottom: 10 },
   metaText: { fontSize: 11, fontWeight: '600', color: '#2c694e' },
   syncBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   syncText: { fontSize: 11, fontWeight: '700', color: '#2c694e' },
@@ -845,8 +711,6 @@ const styles = StyleSheet.create({
   tlDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#f8f9fa', zIndex: 1 },
   tlLine: { flex: 1, width: 2, backgroundColor: '#e1e3e4', marginTop: 2 },
   tlCard: { flex: 1, backgroundColor: '#fff', borderRadius: 4, padding: 12, borderWidth: 1, borderColor: '#e1e3e4', marginLeft: 8, marginBottom: 8 },
-  tlCardMid: { backgroundColor: '#f8f9fa', borderColor: '#f0f0f0', paddingVertical: 9 },
-  tlDotMid: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#c3c8bf', borderWidth: 0 },
   tlTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
   tlTitle: { fontSize: 11, fontWeight: '700', color: '#061907', letterSpacing: 0.5 },
   tlTime: { fontSize: 11, color: '#747871' },
@@ -857,6 +721,5 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f5' },
   detailKey: { fontSize: 13, color: '#747871' },
   detailVal: { fontSize: 13, fontWeight: '600', color: '#191c1d', flex: 1, textAlign: 'right' },
-  detailSub: { fontSize: 11, color: '#747871', marginTop: 1 },
 
 });
