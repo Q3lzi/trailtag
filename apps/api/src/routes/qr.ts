@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma'
 const router = express.Router()
 
 router.get('/:token', async (req: Request, res: Response) => {
+  const token = req.params['token'] as string
 
 const vehicle = await prisma.vehicle.findUnique({
   where: { qrToken: token },
