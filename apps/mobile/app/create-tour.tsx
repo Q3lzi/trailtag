@@ -427,6 +427,17 @@ async function handleStart(planOnly = false) {
     <Text style={styles.startBtnText}>{loading ? 'Startet...' : '🚀 Jetzt starten'}</Text>
   </TouchableOpacity>
 </View>
+
+<View style={{ marginHorizontal: 24, marginBottom: 24, backgroundColor: '#fff8e1', borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: '#f59e0b' }}>
+  <Text style={{ fontSize: 13, fontWeight: '700', color: '#92400e', marginBottom: 6 }}>
+    📍 Standort-Tracking aktivieren
+  </Text>
+  <Text style={{ fontSize: 12, color: '#92400e', lineHeight: 18 }}>
+    Damit dein Standort im Hintergrund getrackt wird:{'\n'}
+    Einstellungen → Datenschutz → Ortungsdienste → Trailtag → <Text style={{ fontWeight: '700' }}>„Immer erlauben"</Text>
+  </Text>
+</View>
+
     </ScrollView>
   );
 }

@@ -3,21 +3,20 @@ import { getToken } from './storage';
 import { apiFetch } from './api';
 
 const LOCATION_TASK = 'trailtag-location-task';
-const SIGNIFICANT_TASK = 'trailtag-significant-task';
 
 // Web Tracking
 let webTrackingInterval: any = null;
 let webActiveTourId: string | null = null;
 
-// iOS Top-Level Task Registrierung
+// iOS/Android Top-Level Task
 if (Platform.OS !== 'web') {
   const TaskManager = require('expo-task-manager');
   const SecureStore = require('expo-secure-store');
 
-  // Standard Background Task
   if (!TaskManager.isTaskDefined(LOCATION_TASK)) {
     TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: any) => {
-      if (error || !data) return;
+      if (error) { console.log('Location task error:', error); return; }
+      if (!data) return;
       const { locations } = data;
       if (!locations?.length) return;
       const { latitude, longitude, altitude } = locations[0].coords;
@@ -30,32 +29,9 @@ if (Platform.OS !== 'web') {
           method: 'POST',
           body: JSON.stringify({ lat: latitude, lng: longitude, ele: altitude }),
         }, token);
-        console.log('📍 Background location sent:', latitude, longitude);
+        console.log('📍 Location sent:', latitude, longitude);
       } catch (err) {
         console.log('Location send error:', err);
-      }
-    });
-  }
-
-  // Significant Location Changes Task (zuverlässiger auf iOS)
-  if (!TaskManager.isTaskDefined(SIGNIFICANT_TASK)) {
-    TaskManager.defineTask(SIGNIFICANT_TASK, async ({ data, error }: any) => {
-      if (error || !data) return;
-      const { locations } = data;
-      if (!locations?.length) return;
-      const { latitude, longitude, altitude } = locations[0].coords;
-      try {
-        const token = await getToken();
-        if (!token) return;
-        const tourId = await SecureStore.getItemAsync('trailtag-active-tour-id');
-        if (!tourId) return;
-        await apiFetch(`/tours/${tourId}/location`, {
-          method: 'POST',
-          body: JSON.stringify({ lat: latitude, lng: longitude, ele: altitude }),
-        }, token);
-        console.log('📍 Significant location sent:', latitude, longitude);
-      } catch (err) {
-        console.log('Significant location send error:', err);
       }
     });
   }
@@ -93,7 +69,6 @@ export async function startLocationTracking(tourId: string) {
         { enableHighAccuracy: true }
       );
     }, 3 * 60 * 1000);
-    console.log('🌐 Web location tracking started');
     return;
   }
 
@@ -104,79 +79,59 @@ export async function startLocationTracking(tourId: string) {
 
     await SecureStore.setItemAsync('trailtag-active-tour-id', tourId);
 
-    // Background Permission anfordern
-    const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+    // Permissions
     const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
+    if (fgStatus !== 'granted') { console.log('Foreground permission denied'); return; }
 
-    if (fgStatus !== 'granted') {
-      console.log('Foreground location permission denied');
-      return;
-    }
+    const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
 
     // Bestehende Tasks stoppen
     const isRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK).catch(() => false);
     if (isRunning) await Location.stopLocationUpdatesAsync(LOCATION_TASK).catch(() => {});
 
-    const isSignificantRunning = await Location.hasStartedLocationUpdatesAsync(SIGNIFICANT_TASK).catch(() => false);
-    if (isSignificantRunning) await Location.stopLocationUpdatesAsync(SIGNIFICANT_TASK).catch(() => {});
-
-    // Standard Background Task starten
-    await Location.startLocationUpdatesAsync(LOCATION_TASK, {
-      accuracy: Location.Accuracy.Balanced,
-      timeInterval: 3 * 60 * 1000,
-      distanceInterval: 100,
-      showsBackgroundLocationIndicator: true,
-      pausesUpdatesAutomatically: false,
-      activityType: Location.ActivityType.OtherNavigation,
-      foregroundService: {
-        notificationTitle: '🏔️ Trailtag aktiv',
-        notificationBody: 'Standort-Tracking aktiv — bleib sicher!',
-        notificationColor: '#1a2e1a',
-      },
-    });
-
-    // Zusätzlich: Significant Location Changes (sehr zuverlässig auf iOS)
     if (bgStatus === 'granted') {
-      await Location.startLocationUpdatesAsync(SIGNIFICANT_TASK, {
-        accuracy: Location.Accuracy.Lowest,
-        distanceInterval: 500, // Alle 500m
+      // Sofort einmal senden
+      const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await sendLocation(current.coords.latitude, current.coords.longitude, current.coords.altitude, tourId);
+
+      // Background Task mit optimalen iOS Einstellungen
+      await Location.startLocationUpdatesAsync(LOCATION_TASK, {
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: 5 * 60 * 1000,        // alle 5 Minuten
+        distanceInterval: 50,                 // oder alle 50m
         showsBackgroundLocationIndicator: true,
         pausesUpdatesAutomatically: false,
+        activityType: Location.ActivityType.Fitness, // Fitness ist zuverlässiger als OtherNavigation
+        deferredUpdatesInterval: 5 * 60 * 1000,
+        deferredUpdatesDistance: 50,
+        foregroundService: {
+          notificationTitle: '🏔️ Trailtag aktiv',
+          notificationBody: 'Safety-Timer läuft — Standort wird getrackt',
+          notificationColor: '#1a2e1a',
+        },
       });
-      console.log('📱 Significant location tracking started');
+      console.log('📱 Background tracking started');
+    } else {
+      console.log('⚠️ Background permission not granted — only foreground tracking');
     }
-
-    console.log('📱 iOS location tracking started for tour:', tourId);
   } catch (err) {
     console.log('Start tracking error:', err);
   }
 }
 
 export async function stopLocationTracking() {
-  // Web
   if (Platform.OS === 'web') {
-    if (webTrackingInterval) {
-      clearInterval(webTrackingInterval);
-      webTrackingInterval = null;
-    }
+    if (webTrackingInterval) { clearInterval(webTrackingInterval); webTrackingInterval = null; }
     webActiveTourId = null;
     return;
   }
-
-  // iOS/Android
   try {
     const SecureStore = require('expo-secure-store');
     const Location = require('expo-location');
-
     await SecureStore.deleteItemAsync('trailtag-active-tour-id').catch(() => {});
-
     const isRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK).catch(() => false);
     if (isRunning) await Location.stopLocationUpdatesAsync(LOCATION_TASK);
-
-    const isSignificantRunning = await Location.hasStartedLocationUpdatesAsync(SIGNIFICANT_TASK).catch(() => false);
-    if (isSignificantRunning) await Location.stopLocationUpdatesAsync(SIGNIFICANT_TASK);
-
-    console.log('📱 iOS location tracking stopped');
+    console.log('📱 Tracking stopped');
   } catch (err) {
     console.log('Stop tracking error:', err);
   }
