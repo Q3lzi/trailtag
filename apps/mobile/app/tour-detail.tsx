@@ -6,7 +6,7 @@ import { getToken } from '../lib/storage';
 import { showAlert, showConfirm } from '../lib/alert';
 import { cancelAllNotifications } from '../lib/notifications';
 import { stopLocationTracking } from '../lib/tracking';
-import { ArrowLeft, Wind, Thermometer, RefreshCw, CheckCircle, AlertTriangle, Link, Navigation, Activity, Mountain, Users } from 'lucide-react-native';
+import { ArrowLeft, Timer, Wind, Thermometer, RefreshCw, CheckCircle, AlertTriangle, Link, Navigation, Activity, Mountain, Users } from 'lucide-react-native';
 
 const ACTIVITY_COLORS: Record<string, string> = {
   WANDERN: '#1a3d2b', BERGTOUR: '#0f2027', KLETTERN: '#1a1a2e',
@@ -248,94 +248,83 @@ const timer = setTimeout(() => {
     </View>
   </View>
 
-  {/* Widgets Row — wie im Mockup oben */}
-  <View style={styles.heroWidgets}>
-    {/* Countdown Widget */}
-    {isActive && (
-      <View style={styles.countdownWidget}>
-        <View style={styles.progressBg}>
-          <View style={[styles.progressFill, { width: `${progress * 100}%` as any, backgroundColor: isOverdue ? '#f87171' : '#4ade80' }]} />
+{/* Widgets Row */}
+<View style={styles.heroWidgets}>
+  {/* Countdown Widget */}
+  {isActive && (
+    <View style={styles.countdownWidget}>
+      <View style={styles.progressBg}>
+        <View style={[styles.progressFill, { width: `${progress * 100}%` as any, backgroundColor: isOverdue ? '#f87171' : '#4ade80' }]} />
+      </View>
+      <View style={styles.cwHeader}>
+        <Timer size={12} color="#434841" strokeWidth={2} />
+        <Text style={styles.cwLabel}>{isOverdue ? 'ÜBERFÄLLIG SEIT' : 'NEXT CHECK-IN'}</Text>
+      </View>
+      <Text style={[styles.cwTime, isOverdue && { color: '#ba1a1a' }]}>{timeLeft}</Text>
+      {isOverdue && (
+        <View style={styles.cwWarning}>
+          <AlertTriangle size={11} color="#ba1a1a" />
+          <Text style={styles.cwWarningText}>Alarm ausgelöst</Text>
         </View>
-        <View style={styles.cwHeader}>
-          <Timer size={12} color="#434841" strokeWidth={2} />
-          <Text style={styles.cwLabel}>{isOverdue ? 'ÜBERFÄLLIG SEIT' : 'NEXT CHECK-IN'}</Text>
-        </View>
-        <Text style={[styles.cwTime, isOverdue && { color: '#ba1a1a' }]}>{timeLeft}</Text>
-        {isOverdue && (
-          <View style={styles.cwWarning}>
-            <AlertTriangle size={11} color="#ba1a1a" />
-            <Text style={styles.cwWarningText}>Alarm ausgelöst</Text>
+      )}
+    </View>
+  )}
+
+  {/* Wetter Widget mit Live Badge */}
+  {weather && weatherInfo && (
+    <View style={styles.weatherWidget}>
+      <View style={styles.wwTopRow}>
+        <Text style={styles.wwLabel}>FORECAST</Text>
+        {isActive && (
+          <View style={styles.livePill}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>LIVE</Text>
           </View>
         )}
       </View>
-    )}
+      <Text style={styles.wwTemp}>{weather.temp}°C</Text>
+      <Text style={styles.wwDesc}>{weatherInfo.text}</Text>
+      {weather.warnings?.length > 0
+        ? <Text style={styles.wwWind}>{weather.warnings[0]}</Text>
+        : <Text style={styles.wwWind}>{weather.wind} km/h Wind</Text>
+      }
+    </View>
+  )}
+</View>
 
-    {/* Wetter Widget */}
-    {weather && weatherInfo && (
-      <View style={styles.weatherWidget}>
-        <Text style={styles.wwLabel}>WETTER</Text>
-        <Text style={styles.wwTemp}>{weather.temp}°C</Text>
-        <Text style={styles.wwDesc}>{weatherInfo.text}</Text>
-        {weather.wind > 0 && <Text style={styles.wwWind}>{weather.wind} km/h</Text>}
-        {weather.warnings?.length > 0 && (
-          <View style={styles.cwWarning}>
-            <AlertTriangle size={10} color="#f87171" />
-            <Text style={styles.cwWarningText}>Warnung</Text>
-          </View>
-        )}
-      </View>
-    )}
+{/* Titel */}
+<Text style={styles.heroActivity}>{activityLabel}</Text>
+{tour.routeName && <Text style={styles.heroRoute}>{tour.routeName}</Text>}
 
-    {/* Live Badge */}
-    {isActive && (
-      <View style={styles.liveBadge}>
-        <View style={styles.liveDot} />
-        <Text style={styles.liveText}>LIVE</Text>
-        {minutesSinceUpdate !== null && (
-          <Text style={styles.liveSubText}>{minutesSinceUpdate}m</Text>
-        )}
-      </View>
-    )}
-  </View>
-
-  {/* Tour Titel + Aktivität */}
-  <Text style={styles.heroActivity}>{activityLabel}</Text>
-  {tour.routeName && <Text style={styles.heroRoute}>{tour.routeName}</Text>}
-
-  {/* Stats Row — einmalig hier im Hero */}
-  <View style={styles.heroStats}>
+{/* Stats 2x2 Grid wie Mockup */}
+{(tour.distanceKm || tour.elevationUp || tour.difficulty || tour.persons > 1) && (
+  <View style={styles.heroStatsGrid}>
     {tour.distanceKm && (
-      <View style={styles.heroStat}>
-        <Text style={styles.heroStatVal}>{tour.distanceKm}</Text>
-        <Text style={styles.heroStatKey}>km</Text>
+      <View style={styles.heroStatCell}>
+        <Text style={styles.heroStatKey}>DISTANZ</Text>
+        <Text style={styles.heroStatVal}>{tour.distanceKm} <Text style={styles.heroStatUnit}>km</Text></Text>
       </View>
     )}
     {tour.elevationUp && (
-      <View style={styles.heroStat}>
-        <Text style={styles.heroStatVal}>{tour.elevationUp}</Text>
-        <Text style={styles.heroStatKey}>hm ↑</Text>
+      <View style={styles.heroStatCell}>
+        <Text style={styles.heroStatKey}>HÖHENMETER</Text>
+        <Text style={styles.heroStatVal}>+{tour.elevationUp} <Text style={styles.heroStatUnit}>m</Text></Text>
       </View>
     )}
     {tour.difficulty && (
-      <View style={styles.heroStat}>
-        <Text style={styles.heroStatVal}>{tour.difficulty}</Text>
-        <Text style={styles.heroStatKey}>SAC</Text>
-      </View>
-    )}
-    {tour.persons > 1 && (
-      <View style={styles.heroStat}>
-        <Text style={styles.heroStatVal}>{tour.persons}</Text>
-        <Text style={styles.heroStatKey}>Personen</Text>
+      <View style={styles.heroStatCell}>
+        <Text style={styles.heroStatKey}>SCHWIERIGKEIT</Text>
+        <View style={styles.diffPill}><Text style={styles.diffPillText}>{tour.difficulty}</Text><Text style={styles.heroStatUnit}> Anspruchsvoll</Text></View>
       </View>
     )}
     {tour.startedAt && (
-      <View style={styles.heroStat}>
-        <Text style={styles.heroStatVal}>{new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text>
-        <Text style={styles.heroStatKey}>Start</Text>
+      <View style={styles.heroStatCell}>
+        <Text style={styles.heroStatKey}>GESTARTET</Text>
+        <Text style={styles.heroStatVal}>{new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })} <Text style={styles.heroStatUnit}>Uhr</Text></Text>
       </View>
     )}
   </View>
-</View>
+)}
 
 {/* Safety Controls — prominent */}
 {(isActive || qrUrl) && (
@@ -620,4 +609,25 @@ checkoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
 portalBtn: { backgroundColor: '#fff', borderRadius: 4, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#fca5a5', marginBottom: 8 },
 portalBtnText: { color: '#dc2626', fontWeight: '700', fontSize: 13 },
 safetyNote: { fontSize: 11, color: '#747871', textAlign: 'center', lineHeight: 15 },
+
+heroWidgets: { flexDirection: 'row', gap: 8, marginBottom: 16, alignItems: 'flex-start' },
+countdownWidget: { flex: 1.4, backgroundColor: 'rgba(255,255,255,0.93)', borderRadius: 8, padding: 14, overflow: 'hidden' as any },
+weatherWidget: { flex: 1, backgroundColor: 'rgba(255,255,255,0.93)', borderRadius: 8, padding: 14 },
+wwTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+wwLabel: { fontSize: 9, fontWeight: '700', color: '#434841', letterSpacing: 1 },
+livePill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(44,105,78,0.12)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 100 },
+liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2c694e' },
+liveText: { fontSize: 9, fontWeight: '800', color: '#2c694e', letterSpacing: 0.5 },
+wwTemp: { fontSize: 22, fontWeight: '900', color: '#061907', letterSpacing: -0.5 },
+wwDesc: { fontSize: 11, color: '#747871', marginTop: 1 },
+wwWind: { fontSize: 10, color: '#747871', marginTop: 2 },
+heroActivity: { fontSize: 32, fontWeight: '900', color: '#fff', letterSpacing: -0.5, marginBottom: 4 },
+heroRoute: { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 16 },
+heroStatsGrid: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden' as any, marginTop: 8 },
+heroStatCell: { flex: 1, padding: 14, borderRightWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.1)', minWidth: '48%' as any },
+heroStatKey: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 1, marginBottom: 4 },
+heroStatVal: { fontSize: 20, fontWeight: '800', color: '#fff' },
+heroStatUnit: { fontSize: 12, fontWeight: '400', color: 'rgba(255,255,255,0.5)' },
+diffPill: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+diffPillText: { fontSize: 20, fontWeight: '800', color: '#fff' },
 });
