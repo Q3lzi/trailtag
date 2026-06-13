@@ -1,5 +1,5 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, Platform, Share } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { apiFetch } from '../lib/api';
@@ -8,7 +8,6 @@ import { getToken, removeToken } from '../lib/storage';
 import { cancelAllNotifications } from '../lib/notifications';
 import { stopLocationTracking } from '../lib/tracking';
 import { Home, Mountain, BookOpen, User, MapPin, Clock, Car, AlertTriangle, CheckCircle, Activity, Navigation, Thermometer, Wind, Link, Share2, MessageCircle } from 'lucide-react-native';
-import { Share } from 'react-native';
 const WMO_CODES: Record<number, { text: string; icon: string }> = {
   0: { text: 'Klar', icon: '☀️' }, 1: { text: 'Überwiegend klar', icon: '🌤️' },
   2: { text: 'Teilweise bewölkt', icon: '⛅' }, 3: { text: 'Bewölkt', icon: '☁️' },

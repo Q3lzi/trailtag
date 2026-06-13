@@ -53,6 +53,12 @@
           "icon": "./assets/icon.png",
           "color": "#1a2e1a"
         }
+      ],
+      [
+        "react-native-maps",
+        {
+          "googleMapsApiKey": ""
+        }
       ]
     ],
     "extra": {

@@ -1,6 +1,5 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MessageCircle } from 'lucide-react-native';
-import MapView, { Polyline, Marker, Circle } from 'react-native-maps';
+import MapView, { Polyline, Marker } from 'react-native-maps';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking, Share } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -9,7 +8,7 @@ import { getToken } from '../lib/storage';
 import { showAlert, showConfirm } from '../lib/alert';
 import { cancelAllNotifications } from '../lib/notifications';
 import { stopLocationTracking } from '../lib/tracking';
-import { ArrowLeft, Timer, Wind, Thermometer, RefreshCw, CheckCircle, AlertTriangle, Link, Navigation, Activity, Mountain, Users } from 'lucide-react-native';
+import { ArrowLeft, Timer, Wind, Thermometer, RefreshCw, CheckCircle, AlertTriangle, Link, Navigation, Activity, Mountain, Users, MessageCircle } from 'lucide-react-native';
 
 const ACTIVITY_COLORS: Record<string, string> = {
   WANDERN: '#1a3d2b', BERGTOUR: '#0f2027', KLETTERN: '#1a1a2e',
