@@ -6,7 +6,6 @@ import { getToken } from '../lib/storage';
 import { showAlert, showConfirm } from '../lib/alert';
 import { cancelAllNotifications } from '../lib/notifications';
 import { stopLocationTracking } from '../lib/tracking';
-import { Platform } from 'react-native';
 
 const ACTIVITY_LABELS: Record<string, { label: string; emoji: string }> = {
   WANDERN:      { label: 'Wandern',      emoji: '🥾' },
@@ -203,7 +202,7 @@ useEffect(() => {
         radius: 10, fillColor: '#e63946', color: '#fff', weight: 3, fillOpacity: 1
       }).bindPopup('📍 Letzter Standort').addTo(map).openPopup();
     });
-  }, 300);
+  }, 500);
 
   return () => clearTimeout(timer);
 }, [tour?.locations?.length, tour?.lastLat, tour?.lastLng, tour?.gpxTrack]);
