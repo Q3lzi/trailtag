@@ -7,8 +7,8 @@ import { showAlert, showConfirm } from '../lib/alert';
 import { getToken, removeToken } from '../lib/storage';
 import { cancelAllNotifications } from '../lib/notifications';
 import { stopLocationTracking } from '../lib/tracking';
-import * as LiveActivities from 'expo-live-activities';
-import { Home, Mountain, BookOpen, User, MapPin, Clock, Car, AlertTriangle, CheckCircle, Activity, Navigation, Thermometer, Wind, Link } from 'lucide-react-native';
+import { Home, Mountain, BookOpen, User, MapPin, Clock, Car, AlertTriangle, CheckCircle, Activity, Navigation, Thermometer, Wind, Link, Share2, MessageCircle } from 'lucide-react-native';
+import { Share } from 'react-native';
 const WMO_CODES: Record<number, { text: string; icon: string }> = {
   0: { text: 'Klar', icon: '☀️' }, 1: { text: 'Überwiegend klar', icon: '🌤️' },
   2: { text: 'Teilweise bewölkt', icon: '⛅' }, 3: { text: 'Bewölkt', icon: '☁️' },
@@ -76,25 +76,7 @@ export default function DashboardScreen() {
       ]);
       const active = tours.find((t: any) => t.status === 'ACTIVE' || t.status === 'ALARM');
       setActiveTour(active ?? null);
-      // Live Activity starten/aktualisieren
-      if (active && Platform.OS === 'ios') {
-        try {
-          const etaDate = active.eta ? new Date(active.eta) : null;
-          const isOverdueNow = etaDate ? etaDate.getTime() < Date.now() : false;
-          const liveActivityData = {
-            routeName: active.routeName ?? ACTIVITY_LABELS[active.activity] ?? 'Tour',
-            status: isOverdueNow ? 'ALARM' : 'AKTIV',
-            eta: active.eta ?? '',
-            lastUpdate: active.locationUpdatedAt ?? new Date().toISOString(),
-          };
-          const activities = await LiveActivities.getActivitiesAsync();
-          if (activities.length > 0) {
-            await LiveActivities.updateActivityAsync(activities[0].id, liveActivityData);
-          } else {
-            await LiveActivities.startActivityAsync('TrailtagActivity', liveActivityData);
-          }
-        } catch { /* Live Activity not available */ }
-      }
+
       if (vehicles.length > 0) setVehicle(vehicles[0]);
       setUser(profile);
       if (active?.lastLat) fetchWeather(active.lastLat, active.lastLng).then(setWeather);
@@ -116,6 +98,31 @@ export default function DashboardScreen() {
   }
 
   async function handleLogout() { await removeToken(); router.replace('/'); }
+
+  async function sharePortalLink() {
+    if (!qrUrl || !activeTour) return;
+    const routeName = activeTour.routeName ?? ACTIVITY_LABELS[activeTour.activity] ?? 'Tour';
+    const etaStr = activeTour.eta
+      ? new Date(activeTour.eta).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+      : '—';
+    const message = `🏔️ Ich bin auf Tour: ${routeName}\nGeplante Rückkehr: ${etaStr} Uhr\n\nMein Safety-Status (Live-Standort für Ersthelfer):\n${qrUrl}`;
+    if (Platform.OS === 'web') {
+      window.open(`sms:?body=${encodeURIComponent(message)}`, '_blank');
+    } else {
+      await Share.share({ message, url: qrUrl });
+    }
+  }
+
+  async function shareViaIMessage(contact: { name: string; phone: string }) {
+    if (!qrUrl || !activeTour) return;
+    const routeName = activeTour.routeName ?? ACTIVITY_LABELS[activeTour.activity] ?? 'Tour';
+    const etaStr = activeTour.eta
+      ? new Date(activeTour.eta).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+      : '—';
+    const message = `Hallo ${contact.name.split(' ')[0]} 👋\n\nIch bin auf einer Tour: ${routeName}\nGeplante Rückkehr: ${etaStr} Uhr\n\nHier kannst du meinen Live-Standort sehen (kein App-Download nötig):\n${qrUrl}\n\nBitte melde dich wenn du bis ${etaStr} nichts von mir hörst. 🙏`;
+    const smsUrl = `sms:${contact.phone}${Platform.OS === 'ios' ? '&' : '?'}body=${encodeURIComponent(message)}`;
+    Linking.openURL(smsUrl);
+  }
 
   const qrUrl = vehicle ? `https://trailtag-production.up.railway.app/r/${vehicle.qrToken}` : null;
   const minutesSinceUpdate = activeTour?.locationUpdatedAt
@@ -272,11 +279,34 @@ export default function DashboardScreen() {
               <Text style={styles.rescueSub}>
                 Ersthelfer können den QR-Code am Fahrzeug scannen um Notfalldaten, Standort und Medizininfos abzurufen — ohne App.
               </Text>
-              <View style={styles.rescueBtn}>
-                <Link size={14} color="#ba1a1a" />
-                <Text style={styles.rescueBtnText}>Portal öffnen</Text>
+              <View style={styles.rescueBtnRow}>
+                <TouchableOpacity style={styles.rescueBtn}
+                  onPress={() => Platform.OS === 'web' ? window.open(qrUrl!, '_blank') : Linking.openURL(qrUrl!)}>
+                  <Link size={14} color="#ba1a1a" />
+                  <Text style={styles.rescueBtnText}>Portal öffnen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.rescueBtn, styles.rescueBtnShare]} onPress={sharePortalLink}>
+                  <MessageCircle size={14} color="#ba1a1a" />
+                  <Text style={styles.rescueBtnText}>Teilen</Text>
+                </TouchableOpacity>
               </View>
             </TouchableOpacity>
+          )}
+
+          {/* iMessage Kontakte bei aktiver Tour */}
+          {activeTour && user?.emergencyContacts?.length > 0 && (
+            <View style={styles.imsgCard}>
+              <Text style={styles.imsgTitle}>📲 Kontakte informieren</Text>
+              <Text style={styles.imsgSub}>Portal-Link per iMessage teilen</Text>
+              <View style={styles.imsgBtns}>
+                {user.emergencyContacts.slice(0, 3).map((c: any) => (
+                  <TouchableOpacity key={c.id} style={styles.imsgBtn} onPress={() => shareViaIMessage(c)}>
+                    <MessageCircle size={14} color="#2c694e" strokeWidth={2} />
+                    <Text style={styles.imsgBtnTxt} numberOfLines={1}>{c.name.split(' ')[0]}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           )}
         </>
       ) : (
@@ -397,6 +427,14 @@ const styles = StyleSheet.create({
   extendBtn: { flex: 1, borderRadius: 6, borderWidth: 1.5, borderColor: '#e1e3e4', paddingVertical: 10, alignItems: 'center', backgroundColor: '#f8f9fa' },
   extendBtnTxt: { fontSize: 13, fontWeight: '700', color: '#434841' },
   extendHint: { fontSize: 11, color: '#aaa', marginTop: 6, textAlign: 'center' },
+  rescueBtnRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  rescueBtnShare: { backgroundColor: '#fff0f0' },
+  imsgCard: { marginHorizontal: 16, marginTop: 10, backgroundColor: '#f0faf4', borderRadius: 8, padding: 16, borderWidth: 1, borderColor: '#aeeecb' },
+  imsgTitle: { fontSize: 14, fontWeight: '800', color: '#061907', marginBottom: 2 },
+  imsgSub: { fontSize: 12, color: '#747871', marginBottom: 12 },
+  imsgBtns: { flexDirection: 'row', gap: 8 },
+  imsgBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#fff', borderRadius: 6, paddingVertical: 10, borderWidth: 1, borderColor: '#aeeecb' },
+  imsgBtnTxt: { fontSize: 13, fontWeight: '700', color: '#2c694e' },
 
 
   tourCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },

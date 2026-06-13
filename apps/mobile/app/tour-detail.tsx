@@ -1,6 +1,7 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MessageCircle } from 'lucide-react-native';
 import MapView, { Polyline, Marker, Circle } from 'react-native-maps';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking, Share } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { apiFetch } from '../lib/api';
@@ -261,6 +262,18 @@ export default function TourDetailScreen() {
       }
     }
 
+  function sharePortalLink() {
+    if (!qrUrl) return;
+    const routeName = tour.routeName ?? '';
+    const etaStr = tour.eta ? new Date(tour.eta).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : '—';
+    const msg = `🏔️ Ich bin auf Tour${routeName ? ': ' + routeName : ''}.\nGeplante Rückkehr: ${etaStr} Uhr\n\nLive Safety-Status:\n${qrUrl}`;
+    if (Platform.OS === 'web') {
+      window.open(`sms:?body=${encodeURIComponent(msg)}`, '_blank');
+    } else {
+      Share.share({ message: msg, url: qrUrl });
+    }
+  }
+
   if (loading) return (
     <View style={styles.loading}>
       <Mountain size={36} color="#2c694e" />
@@ -431,10 +444,16 @@ export default function TourDetailScreen() {
             </TouchableOpacity>
           )}
           {qrUrl && (
-            <TouchableOpacity style={styles.portalBtn} onPress={() => Platform.OS === 'web' ? window.open(qrUrl!, '_blank') : Linking.openURL(qrUrl!)}>
-              <Link size={14} color="#dc2626" strokeWidth={2} />
-              <Text style={styles.portalBtnText}>Erstretter-Portal öffnen</Text>
-            </TouchableOpacity>
+            <View style={{ gap: 8 }}>
+              <TouchableOpacity style={styles.portalBtn} onPress={() => Platform.OS === 'web' ? window.open(qrUrl!, '_blank') : Linking.openURL(qrUrl!)}>
+                <Link size={14} color="#dc2626" strokeWidth={2} />
+                <Text style={styles.portalBtnText}>Erstretter-Portal öffnen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.portalBtn, { borderColor: '#aeeecb', backgroundColor: '#f0faf4' }]} onPress={sharePortalLink}>
+                <MessageCircle size={14} color="#2c694e" strokeWidth={2} />
+                <Text style={[styles.portalBtnText, { color: '#2c694e' }]}>Safety-Link per iMessage teilen</Text>
+              </TouchableOpacity>
+            </View>
           )}
           {isActive && (
             <>

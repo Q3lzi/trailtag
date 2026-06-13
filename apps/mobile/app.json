@@ -17,12 +17,7 @@
           "location",
           "fetch"
         ],
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSSupportsLiveActivities": true,
-        "NSSupportsLiveActivitiesFrequentUpdates": true
-      },
-      "entitlements": {
-        "com.apple.developer.live-activity": true
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -58,8 +53,7 @@
           "icon": "./assets/icon.png",
           "color": "#1a2e1a"
         }
-      ],
-      "expo-live-activities"
+      ]
     ],
     "extra": {
       "router": {},
