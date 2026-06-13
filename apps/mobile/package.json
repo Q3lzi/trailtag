@@ -10,6 +10,7 @@
     "expo-dev-client": "~56.0.18",
     "expo-document-picker": "^56.0.4",
     "expo-linking": "~56.0.13",
+    "expo-live-activities": "^0.0.0",
     "expo-location": "~56.0.15",
     "expo-notifications": "^56.0.16",
     "expo-router": "^56.2.8",
