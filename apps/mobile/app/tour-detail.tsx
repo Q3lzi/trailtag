@@ -127,6 +127,7 @@ export default function TourDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState<any>(null);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, time: string} | null>(null);
+  const [checkedWaypoints, setCheckedWaypoints] = useState<Set<number>>(new Set());
   const leafletMapRef = useRef<any>(null);
   const mapSectionRef = useRef<any>(null);
   const scrollViewRef = useRef<any>(null);
@@ -179,6 +180,8 @@ export default function TourDetailScreen() {
         document.head.appendChild(link);
       }
       import('leaflet').then((L) => {
+        // Guard: container must still be in DOM
+        if (!document.getElementById('tour-map')) return;
         if ((container as any)._leaflet_id) { container.innerHTML = ''; delete (container as any)._leaflet_id; }
         const map = L.default.map(container, { zoomControl: true });
         leafletMapRef.current = map;
@@ -193,12 +196,24 @@ export default function TourDetailScreen() {
             L.default.polyline(trackPoints as [number, number][], { color: '#f59e0b', weight: 3, opacity: 0.8, dashArray: '5,5' }).addTo(map);
           }
           L.default.circleMarker([lat, lng] as [number, number], { radius: 10, fillColor: '#dc2626', color: '#fff', weight: 3, fillOpacity: 1 }).bindPopup('Letzter Standort').addTo(map);
+          // GPX Waypoints als orange Pins
+          if (tour.gpxTrack?.waypoints?.length > 0) {
+            tour.gpxTrack.waypoints.forEach((wp: any) => {
+              if (wp.lat && wp.lng) {
+                L.default.circleMarker([wp.lat, wp.lng] as [number, number], {
+                  radius: 8, fillColor: '#f59e0b', color: '#fff', weight: 2, fillOpacity: 1,
+                }).bindPopup(`<b>${wp.name || 'Wegpunkt'}</b>${wp.ele ? '<br>' + Math.round(wp.ele) + ' m' : ''}`).addTo(map);
+              }
+            });
+          }
           const allPoints = [...displayPoints, [lat, lng]] as [number, number][];
           map.fitBounds(L.default.latLngBounds(allPoints), { padding: [30, 30] });
         } else {
           map.setView([lat, lng], 14);
           L.default.circleMarker([lat, lng] as [number, number], { radius: 10, fillColor: '#dc2626', color: '#fff', weight: 3, fillOpacity: 1 }).bindPopup('Letzter Standort').addTo(map);
         }
+        // Force resize after mount to fix offsetWidth issue
+        requestAnimationFrame(() => { try { map.invalidateSize(); } catch(_) {} });
       });
     }, 800);
     return () => clearTimeout(timer);
@@ -542,18 +557,67 @@ export default function TourDetailScreen() {
         <Text style={styles.sectionTitle}>Tour-Details</Text>
         <View style={styles.card}>
           <View style={styles.detailRow}><Text style={styles.detailKey}>Aktivität</Text><Text style={styles.detailVal}>{activityLabel}</Text></View>
-          {tour.persons && <View style={styles.detailRow}><Text style={styles.detailKey}>Personen</Text><Text style={styles.detailVal}>{tour.persons}</Text></View>}
+          {tour.persons && <View style={styles.detailRow}><Text style={styles.detailKey}>Personen</Text><Text style={styles.detailVal}>{tour.persons === 0 ? 'Solo' : `${tour.persons}`}</Text></View>}
           {tour.parkingLocation && <View style={styles.detailRow}><Text style={styles.detailKey}>Parkplatz</Text><Text style={styles.detailVal}>{tour.parkingLocation}</Text></View>}
           {tour.vehicle && <View style={styles.detailRow}><Text style={styles.detailKey}>Fahrzeug</Text><Text style={styles.detailVal}>{tour.vehicle.plate} · {tour.vehicle.make} {tour.vehicle.model}</Text></View>}
           {tour.startedAt && <View style={styles.detailRow}><Text style={styles.detailKey}>Gestartet</Text><Text style={styles.detailVal}>{new Date(tour.startedAt).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</Text></View>}
           {tour.eta && <View style={styles.detailRow}><Text style={styles.detailKey}>Geplante Rückkehr</Text><Text style={[styles.detailVal, isOverdue && { color: '#dc2626' }]}>{new Date(tour.eta).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</Text></View>}
-          {tour.notes && (
-            <View style={[styles.detailRow, { flexDirection: 'column', gap: 4 }]}>
-              <Text style={styles.detailKey}>Notizen für Rettungskräfte</Text>
-              <Text style={[styles.detailVal, { textAlign: 'left' }]}>{tour.notes}</Text>
-            </View>
-          )}
         </View>
+
+        {/* GPX Wegpunkte — abhakbar */}
+        {tour.gpxTrack?.waypoints?.length > 0 ? (
+          <View style={[styles.card, { marginTop: 12 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <Text style={styles.sectionLabel}>WEGPUNKTE ({checkedWaypoints.size}/{tour.gpxTrack.waypoints.length})</Text>
+              {checkedWaypoints.size > 0 ? (
+                <TouchableOpacity onPress={() => setCheckedWaypoints(new Set())}>
+                  <Text style={{ fontSize: 11, color: '#747871', fontWeight: '600' }}>Zurücksetzen</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            {tour.gpxTrack.waypoints.map((wp: any, i: number) => {
+              const done = checkedWaypoints.has(i);
+              return (
+                <TouchableOpacity key={i} style={[styles.detailRow, { alignItems: 'center' }]}
+                  onPress={() => setCheckedWaypoints(prev => {
+                    const next = new Set(prev);
+                    done ? next.delete(i) : next.add(i);
+                    return next;
+                  })}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                    <View style={{
+                      width: 22, height: 22, borderRadius: 11,
+                      backgroundColor: done ? '#2c694e' : 'transparent',
+                      borderWidth: 2, borderColor: done ? '#2c694e' : '#f59e0b',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {done ? <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>✓</Text> : null}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.detailKey, { color: done ? '#2c694e' : '#434841', textDecorationLine: done ? 'line-through' : 'none' }]}>
+                        {wp.name || `Wegpunkt ${i + 1}`}
+                      </Text>
+                      {wp.ele ? <Text style={styles.detailSub}>{Math.round(wp.ele)} m ü.M.</Text> : null}
+                    </View>
+                  </View>
+                  <Text style={{ fontSize: 11, color: done ? '#2c694e' : '#c3c8bf', fontWeight: '700' }}>
+                    {done ? 'Absolviert' : ''}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {/* Notizen */}
+        {tour.notes ? (
+          <View style={[styles.card, { marginTop: 12 }]}>
+            <Text style={styles.sectionLabel}>NOTIZEN FÜR RETTUNGSKRÄFTE</Text>
+            {tour.notes.split('\n').filter((l: string) => l.trim() && !l.startsWith('Wegpunkte:')).map((line: string, i: number) => (
+              <Text key={i} style={[styles.detailVal, { textAlign: 'left', marginBottom: 6, color: '#434841' }]}>{line}</Text>
+            ))}
+          </View>
+        ) : null}
       </View>
 
     </ScrollView>
@@ -627,6 +691,7 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: 20, paddingTop: 24 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#061907', letterSpacing: -0.3, marginBottom: 10 },
+  sectionLabel: { fontSize: 10, fontWeight: '700', color: '#747871', letterSpacing: 1, marginBottom: 10 },
   metaText: { fontSize: 11, fontWeight: '600', color: '#2c694e' },
   syncBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   syncText: { fontSize: 11, fontWeight: '700', color: '#2c694e' },
@@ -666,5 +731,6 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f5' },
   detailKey: { fontSize: 13, color: '#747871' },
   detailVal: { fontSize: 13, fontWeight: '600', color: '#191c1d', flex: 1, textAlign: 'right' },
+  detailSub: { fontSize: 11, color: '#747871', marginTop: 1 },
 
 });
