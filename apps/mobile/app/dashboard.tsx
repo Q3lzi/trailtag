@@ -7,7 +7,6 @@ import { getToken, removeToken } from '../lib/storage';
 import { cancelAllNotifications } from '../lib/notifications';
 import { stopLocationTracking } from '../lib/tracking';
 import { Home, Mountain, BookOpen, User, MapPin, Clock, Car, AlertTriangle, CheckCircle, Activity, Navigation, Thermometer, Wind, Link } from 'lucide-react-native';
-
 const WMO_CODES: Record<number, { text: string; icon: string }> = {
   0: { text: 'Klar', icon: '☀️' }, 1: { text: 'Überwiegend klar', icon: '🌤️' },
   2: { text: 'Teilweise bewölkt', icon: '⛅' }, 3: { text: 'Bewölkt', icon: '☁️' },
@@ -113,9 +112,9 @@ export default function DashboardScreen() {
           <Mountain size={22} color="#061907" strokeWidth={2.5} />
           <Text style={styles.logoText}>Trailtag</Text>
         </View>
-        <TouchableOpacity style={styles.accountBtn} onPress={handleLogout}>
-          <User size={18} color="#434841" strokeWidth={1.8} />
-        </TouchableOpacity>
+<TouchableOpacity style={styles.accountBtn} onPress={() => router.push('/profile')}>
+  <User size={18} color="#434841" strokeWidth={1.8} />
+</TouchableOpacity>
       </View>
 
       {activeTour ? (
@@ -186,21 +185,34 @@ export default function DashboardScreen() {
 </View>
 
           {/* Standort Info */}
-          {activeTour.parkingLocation && (
-            <View style={styles.card}>
-              <Text style={styles.cardLabel}>FAHRZEUG & PARKPLATZ</Text>
-              <View style={styles.miniStat}>
-                <Car size={14} color="#2D6A4F" />
-                <Text style={[styles.miniStatText, { color: '#111', fontWeight: '600' }]}>
-                  {vehicle ? `${vehicle.plate} · ${vehicle.make} ${vehicle.model}` : 'Kein Fahrzeug'}
-                </Text>
-              </View>
-              <View style={styles.miniStat}>
-                <MapPin size={14} color="#2D6A4F" />
-                <Text style={[styles.miniStatText, { color: '#111' }]}>{activeTour.parkingLocation}</Text>
-              </View>
-            </View>
-          )}
+         {activeTour.parkingLocation && (
+  <View style={[styles.card, { marginTop: 12, marginHorizontal: 16 }]}>
+    <Text style={styles.cardLabel}>FAHRZEUG & PARKPLATZ</Text>
+    <View style={styles.miniStat}>
+
+
+      <Car size={14} color="#2D6A4F" />
+      <Text style={[styles.miniStatText, { color: '#111', fontWeight: '600' }]}>
+        {vehicle ? `${vehicle.plate} · ${vehicle.make} ${vehicle.model}` : 'Kein Fahrzeug'}
+      </Text>
+    </View>
+    <TouchableOpacity
+      onPress={() => {
+        const query = encodeURIComponent(activeTour.parkingLocation);
+        const url = `https://maps.google.com/?q=${query}`;
+        if (Platform.OS === 'web') { window.open(url, '_blank'); }
+        else { Linking.openURL(url); }
+      }}
+    >
+      <View style={styles.miniStat}>
+        <MapPin size={14} color="#2c694e" />
+        <Text style={[styles.miniStatText, { color: '#2c694e', fontWeight: '600', textDecorationLine: 'underline' }]}>
+          {activeTour.parkingLocation}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  </View>
+)}
 
           {/* Rescue Portal */}
           {qrUrl && (
@@ -277,9 +289,9 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8f9fa' },
   container: { flex: 1, backgroundColor: '#f8f9fa' },
-  content: { paddingBottom: 100 },
+  content: { paddingBottom: 50 },
 
-  topNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#edeeef' },
+  topNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#edeeef' },
   topNavLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logoText: { fontSize: 20, fontWeight: '800', color: '#061907', letterSpacing: -0.5 },
   accountBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#f3f4f5', alignItems: 'center', justifyContent: 'center' },

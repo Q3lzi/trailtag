@@ -269,6 +269,17 @@ export default function TourDetailScreen() {
           </svg>
         )}
 
+{Platform.OS === 'web' && (
+  <div style={{
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 160,
+    background: `linear-gradient(to bottom, transparent 0%, transparent 30%, rgba(248,249,250,0.2) 55%, rgba(248,249,250,0.6) 75%, rgba(248,249,250,0.9) 90%, #f8f9fa 100%)`,
+  } as any} />
+)}
+
         {/* Top Bar */}
         <View style={styles.heroTopBar}>
           <TouchableOpacity style={styles.backBtn} onPress={() => {
@@ -327,50 +338,47 @@ export default function TourDetailScreen() {
           )}
         </View>
 
-        {/* Titel gross, Aktivität klein */}
+       {/* Titel gross, Aktivität klein */}
         <Text style={styles.heroTitle}>{tour.routeName ?? activityLabel}</Text>
         {tour.routeName && <Text style={styles.heroSubtitle}>{activityLabel.toUpperCase()}</Text>}
-
-        {/* Stats Grid — als Block, nicht Vollbreite */}
-<View style={styles.statsOverlap}>
-  <View style={styles.statsGrid}>
-    {tour.distanceKm && (
-      <View style={styles.statCell}>
-        <Text style={styles.statCellKey}>DISTANZ</Text>
-        <Text style={styles.statCellVal}>{tour.distanceKm} <Text style={styles.statCellUnit}>km</Text></Text>
-      </View>
-    )}
-    {tour.elevationUp && (
-      <View style={styles.statCell}>
-        <Text style={styles.statCellKey}>HÖHENMETER</Text>
-        <Text style={styles.statCellVal}>+{tour.elevationUp} <Text style={styles.statCellUnit}>m</Text></Text>
-      </View>
-    )}
-    {tour.difficulty && (
-      <View style={styles.statCell}>
-        <Text style={styles.statCellKey}>SCHWIERIGKEIT</Text>
-        <Text style={styles.statCellVal}>{tour.difficulty} <Text style={styles.statCellUnit}>SAC</Text></Text>
-      </View>
-    )}
-    {tour.locations?.length > 0 && tour.locations[tour.locations.length - 1]?.ele ? (
-      <View style={styles.statCell}>
-        <Text style={styles.statCellKey}>AKTUELLE HÖHE</Text>
-        <Text style={styles.statCellVal}>{Math.round(tour.locations[tour.locations.length - 1].ele)} <Text style={styles.statCellUnit}>m</Text></Text>
-      </View>
-    ) : tour.startedAt ? (
-      <View style={styles.statCell}>
-        <Text style={styles.statCellKey}>GESTARTET</Text>
-        <Text style={styles.statCellVal}>{new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })} <Text style={styles.statCellUnit}>Uhr</Text></Text>
-      </View>
-    ) : null}
-  </View>
-</View>
 
       </View>
       {/* ═══ END HERO ═══ */}
 
-      {/* Spacer for overlapping stats */}
-      <View style={{ height: 50 }} />
+      {/* Stats Block — überlappt Hero */}
+      <View style={{ paddingHorizontal: 20, marginTop: -20 }}>
+        <View style={styles.statsGrid}>
+          {tour.distanceKm && (
+            <View style={styles.statCell}>
+              <Text style={styles.statCellKey}>DISTANZ</Text>
+              <Text style={styles.statCellVal}>{tour.distanceKm} <Text style={styles.statCellUnit}>km</Text></Text>
+            </View>
+          )}
+          {tour.elevationUp && (
+            <View style={styles.statCell}>
+              <Text style={styles.statCellKey}>HÖHENMETER</Text>
+              <Text style={styles.statCellVal}>+{tour.elevationUp} <Text style={styles.statCellUnit}>m</Text></Text>
+            </View>
+          )}
+          {tour.difficulty && (
+            <View style={styles.statCell}>
+              <Text style={styles.statCellKey}>SCHWIERIGKEIT</Text>
+              <Text style={styles.statCellVal}>{tour.difficulty} <Text style={styles.statCellUnit}>SAC</Text></Text>
+            </View>
+          )}
+          {tour.locations?.length > 0 && tour.locations[tour.locations.length - 1]?.ele ? (
+            <View style={styles.statCell}>
+              <Text style={styles.statCellKey}>AKTUELLE HÖHE</Text>
+              <Text style={styles.statCellVal}>{Math.round(tour.locations[tour.locations.length - 1].ele)} <Text style={styles.statCellUnit}>m</Text></Text>
+            </View>
+          ) : tour.startedAt ? (
+            <View style={styles.statCell}>
+              <Text style={styles.statCellKey}>GESTARTET</Text>
+              <Text style={styles.statCellVal}>{new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })} <Text style={styles.statCellUnit}>Uhr</Text></Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
 
       {/* Safety Controls */}
       {(isActive || qrUrl) && (
@@ -451,11 +459,27 @@ export default function TourDetailScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Live Tracking Log</Text>
           {isActive && (
-            <View style={styles.syncBadge}>
-              <RefreshCw size={11} color="#2c694e" strokeWidth={2} />
-              <Text style={styles.syncText}>SYNCING</Text>
-            </View>
-          )}
+  <TouchableOpacity
+    style={styles.syncBadge}
+    onPress={async () => {
+      if (Platform.OS === 'web' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          try {
+            const token = await getToken();
+            await apiFetch(`/tours/${tour.id}/location`, {
+              method: 'POST',
+              body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, ele: pos.coords.altitude }),
+            }, token ?? undefined);
+            loadTour();
+          } catch { }
+        }, undefined, { enableHighAccuracy: true });
+      }
+    }}
+  >
+    <RefreshCw size={11} color="#2c694e" strokeWidth={2} />
+    <Text style={styles.syncText}>SYNC</Text>
+  </TouchableOpacity>
+)}
         </View>
         <View style={styles.timeline}>
           {tour.startedAt && (
@@ -543,7 +567,7 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 120 },
 
   // Hero
-  hero: { paddingTop: 28, paddingBottom: 0, paddingHorizontal: 20, overflow: 'hidden', position: 'relative' as any },
+  hero: { paddingTop: 28, paddingBottom: 30, paddingHorizontal: 20, overflow: 'hidden', position: 'relative' as any },
   heroTopBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   backText: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '600' },
@@ -583,7 +607,7 @@ const styles = StyleSheet.create({
 
   // Stats Grid überlappend
   statsOverlap: { marginHorizontal: 0, marginTop: 20, paddingHorizontal: 20 },
-statsGrid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#fff', borderWidth: 1, borderColor: '#e1e3e4', borderRadius: 4, overflow: 'hidden' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#fff', borderWidth: 1, borderColor: '#e1e3e4', borderRadius: 4, overflow: 'hidden' },
   statCell: { width: '50%', padding: 14, borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#e1e3e4' },
   statCellKey: { fontSize: 9, fontWeight: '700', color: '#747871', letterSpacing: 1, marginBottom: 4 },
   statCellVal: { fontSize: 20, fontWeight: '800', color: '#061907' },
@@ -642,4 +666,5 @@ statsGrid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#fff', bo
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f5' },
   detailKey: { fontSize: 13, color: '#747871' },
   detailVal: { fontSize: 13, fontWeight: '600', color: '#191c1d', flex: 1, textAlign: 'right' },
+
 });
