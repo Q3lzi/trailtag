@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
@@ -6,6 +7,7 @@ import { showAlert, showConfirm } from '../lib/alert';
 import { getToken, removeToken } from '../lib/storage';
 import { cancelAllNotifications } from '../lib/notifications';
 import { stopLocationTracking } from '../lib/tracking';
+import * as LiveActivities from 'expo-live-activities';
 import { Home, Mountain, BookOpen, User, MapPin, Clock, Car, AlertTriangle, CheckCircle, Activity, Navigation, Thermometer, Wind, Link } from 'lucide-react-native';
 const WMO_CODES: Record<number, { text: string; icon: string }> = {
   0: { text: 'Klar', icon: '☀️' }, 1: { text: 'Überwiegend klar', icon: '🌤️' },
@@ -60,6 +62,7 @@ export default function DashboardScreen() {
   const [weather, setWeather] = useState<any>(null);
   const [extendLoading, setExtendLoading] = useState(false);
   const { timeLeft, isOverdue, progress } = useCountdown(activeTour?.eta ?? null);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => { loadData(); }, []);
 
@@ -73,6 +76,25 @@ export default function DashboardScreen() {
       ]);
       const active = tours.find((t: any) => t.status === 'ACTIVE' || t.status === 'ALARM');
       setActiveTour(active ?? null);
+      // Live Activity starten/aktualisieren
+      if (active && Platform.OS === 'ios') {
+        try {
+          const etaDate = active.eta ? new Date(active.eta) : null;
+          const isOverdueNow = etaDate ? etaDate.getTime() < Date.now() : false;
+          const liveActivityData = {
+            routeName: active.routeName ?? ACTIVITY_LABELS[active.activity] ?? 'Tour',
+            status: isOverdueNow ? 'ALARM' : 'AKTIV',
+            eta: active.eta ?? '',
+            lastUpdate: active.locationUpdatedAt ?? new Date().toISOString(),
+          };
+          const activities = await LiveActivities.getActivitiesAsync();
+          if (activities.length > 0) {
+            await LiveActivities.updateActivityAsync(activities[0].id, liveActivityData);
+          } else {
+            await LiveActivities.startActivityAsync('TrailtagActivity', liveActivityData);
+          }
+        } catch { /* Live Activity not available */ }
+      }
       if (vehicles.length > 0) setVehicle(vehicles[0]);
       setUser(profile);
       if (active?.lastLat) fetchWeather(active.lastLat, active.lastLng).then(setWeather);
@@ -108,7 +130,7 @@ export default function DashboardScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
       {/* Top Nav */}
-      <View style={styles.topNav}>
+      <View style={[styles.topNav, { paddingTop: insets.top + 10 }]}>
         <View style={styles.topNavLeft}>
           <Mountain size={22} color="#061907" strokeWidth={2.5} />
           <Text style={styles.logoText}>Trailtag</Text>

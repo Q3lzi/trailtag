@@ -1,3 +1,5 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MapView, { Polyline, Marker, Circle } from 'react-native-maps';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -127,7 +129,9 @@ export default function TourDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState<any>(null);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, time: string} | null>(null);
+  const insets = useSafeAreaInsets();
   const [checkedWaypoints, setCheckedWaypoints] = useState<Set<number>>(new Set());
+  const insets = useSafeAreaInsets();
   const [showAllLogs, setShowAllLogs] = useState(false);
   const [extendLoading, setExtendLoading] = useState(false);
   const leafletMapRef = useRef<any>(null);
@@ -278,7 +282,7 @@ export default function TourDetailScreen() {
     <ScrollView ref={scrollViewRef} style={styles.container} contentContainerStyle={styles.content}>
 
       {/* ═══ HERO ═══ */}
-      <View style={[styles.hero, { backgroundColor: heroColor }]}>
+      <View style={[styles.hero, { backgroundColor: heroColor, paddingTop: insets.top + 16 }]}>
 
         {/* SVG Bergpanorama */}
         {Platform.OS === 'web' && (
@@ -473,8 +477,8 @@ export default function TourDetailScreen() {
         </View>
       )}
 
-      {/* Karte */}
-      {Platform.OS === 'web' && (tour.startLat || tour.lastLat || tour.gpxTrack?.points?.length > 0) && (
+      {/* Karte — Leaflet auf Web, MapView auf iOS/Android */}
+      {(tour.startLat || tour.lastLat || tour.gpxTrack?.points?.length > 0) && (
         <View style={styles.section} ref={mapSectionRef}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Route & Standort</Text>
@@ -484,7 +488,39 @@ export default function TourDetailScreen() {
             </Text>
           </View>
           <View style={styles.mapContainer}>
-            <div id="tour-map" style={{ width: '100%', height: 340 } as any} />
+            {Platform.OS === 'web' ? (
+              <div id="tour-map" style={{ width: '100%', height: 340 } as any} />
+            ) : (() => {
+              const lat = tour.lastLat ?? tour.startLat ?? tour.gpxTrack?.points?.[0]?.lat;
+              const lng = tour.lastLng ?? tour.startLng ?? tour.gpxTrack?.points?.[0]?.lng;
+              if (!lat || !lng) return null;
+              const gpxCoords = tour.gpxTrack?.points?.map((p: any) => ({ latitude: p.lat, longitude: p.lng })) ?? [];
+              const trackCoords = tour.locations?.map((l: any) => ({ latitude: l.lat, longitude: l.lng })) ?? [];
+              const wpCoords = tour.gpxTrack?.waypoints?.filter((w: any) => w.lat && w.lng) ?? [];
+              return (
+                <MapView
+                  style={{ width: '100%', height: 340 }}
+                  initialRegion={{ latitude: lat, longitude: lng, latitudeDelta: 0.05, longitudeDelta: 0.05 }}
+                  mapType="terrain"
+                >
+                  {gpxCoords.length > 1 && (
+                    <Polyline coordinates={gpxCoords} strokeColor="#2c694e" strokeWidth={3} />
+                  )}
+                  {trackCoords.length > 1 && (
+                    <Polyline coordinates={trackCoords} strokeColor="#f59e0b" strokeWidth={2} lineDashPattern={[5, 5]} />
+                  )}
+                  {tour.startLat && (
+                    <Marker coordinate={{ latitude: tour.startLat, longitude: tour.startLng }} pinColor="#2c694e" title="Start" />
+                  )}
+                  {(tour.lastLat || tour.startLat) && (
+                    <Marker coordinate={{ latitude: lat, longitude: lng }} pinColor="#dc2626" title="Letzter Standort" />
+                  )}
+                  {wpCoords.map((wp: any, i: number) => (
+                    <Marker key={i} coordinate={{ latitude: wp.lat, longitude: wp.lng }} pinColor="#f59e0b" title={wp.name ?? `Wegpunkt ${i+1}`} />
+                  ))}
+                </MapView>
+              );
+            })()}
           </View>
           {tour.gpxTrack?.points?.length > 0 && (
             <ElevationChart points={tour.gpxTrack.points} />
@@ -689,7 +725,7 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 120 },
 
   // Hero
-  hero: { paddingTop: 28, paddingBottom: 30, paddingHorizontal: 20, overflow: 'hidden', position: 'relative' as any },
+  hero: { paddingTop: 28, paddingBottom: 30,  // overridden inline with insets paddingHorizontal: 20, overflow: 'hidden', position: 'relative' as any },
   heroTopBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   backText: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '600' },

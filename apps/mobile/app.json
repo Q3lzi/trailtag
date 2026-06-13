@@ -11,10 +11,18 @@
       "supportsTablet": false,
       "bundleIdentifier": "ch.trailtag.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Trailtag benötigt deinen Standort als Startpunkt der Tour.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Trailtag benötigt deinen Standort für die Sicherheitsfunktion auch im Hintergrund.",
-        "UIBackgroundModes": ["location", "fetch"],
-        "ITSAppUsesNonExemptEncryption": false
+        "NSLocationWhenInUseUsageDescription": "Trailtag ben\u00f6tigt deinen Standort als Startpunkt der Tour.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Trailtag ben\u00f6tigt deinen Standort f\u00fcr die Sicherheitsfunktion auch im Hintergrund.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ],
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true,
+        "NSSupportsLiveActivitiesFrequentUpdates": true
+      },
+      "entitlements": {
+        "com.apple.developer.live-activity": true
       }
     },
     "android": {
@@ -39,8 +47,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Trailtag benötigt deinen Standort als Startpunkt der Tour.",
-          "locationAlwaysAndWhenInUsePermission": "Trailtag benötigt deinen Standort für die Sicherheitsfunktion auch im Hintergrund.",
+          "locationWhenInUsePermission": "Trailtag ben\u00f6tigt deinen Standort als Startpunkt der Tour.",
+          "locationAlwaysAndWhenInUsePermission": "Trailtag ben\u00f6tigt deinen Standort f\u00fcr die Sicherheitsfunktion auch im Hintergrund.",
           "isIosBackgroundLocationEnabled": true
         }
       ],
@@ -50,7 +58,8 @@
           "icon": "./assets/icon.png",
           "color": "#1a2e1a"
         }
-      ]
+      ],
+      "expo-live-activities"
     ],
     "extra": {
       "router": {},

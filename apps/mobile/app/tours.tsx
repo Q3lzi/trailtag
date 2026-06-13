@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Platform } from 'react-native';
 import { useState, useEffect, useMemo } from 'react';
 import { apiFetch } from '../lib/api';
@@ -33,6 +34,7 @@ export default function ToursScreen() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterTab>('all');
   const [page, setPage] = useState(0);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => { loadTours(); }, []);
 
@@ -93,7 +95,7 @@ export default function ToursScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
       {/* ── Top Nav — identical to dashboard ── */}
-      <View style={styles.topNav}>
+      <View style={[styles.topNav, { paddingTop: insets.top + 10 }]}>
         <View style={styles.topNavLeft}>
           <Mountain size={22} color="#061907" strokeWidth={2.5}/>
           <Text style={styles.logoText}>Trailtag</Text>
