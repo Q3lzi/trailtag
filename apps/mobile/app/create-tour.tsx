@@ -184,6 +184,54 @@ function ElevationChart({ points }: { points:any[] }) {
   );
 }
 
+// ─── DateTime Row (top-level to prevent remount on parent re-render) ──────────
+function DtRow({label,dt,setDt,showD,setShowD,showT,setShowT}:any) {
+  return (
+    <View style={{marginBottom:14}}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={styles.dtRow}>
+        {Platform.OS==='web' ? (
+          <>
+            <input type="date" style={styles.webDateIn as any}
+              value={dt.toISOString().split('T')[0]}
+              onChange={e => {
+                const [y,m,d]=e.target.value.split('-').map(Number);
+                const n=new Date(dt); n.setFullYear(y,m-1,d); setDt(n);
+              }}
+            />
+            <input type="time" style={styles.webTimeIn as any}
+              value={`${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`}
+              onChange={e => {
+                const [h,m]=e.target.value.split(':').map(Number);
+                const n=new Date(dt); n.setHours(h,m,0,0); setDt(n);
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <TouchableOpacity style={styles.dtBtn} onPress={()=>setShowD(true)}>
+              <Calendar size={13} color="#747871" strokeWidth={2}/>
+              <Text style={styles.dtBtnText}>{dt.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'2-digit'})}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.dtBtn} onPress={()=>setShowT(true)}>
+              <Clock size={13} color="#747871" strokeWidth={2}/>
+              <Text style={styles.dtBtnText}>{dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})}</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+      {showD&&Platform.OS!=='web'&&(
+        <DateTimePicker value={dt} mode="date" display="inline" minimumDate={new Date()}
+          onChange={(e,d)=>{if(d){const n=new Date(dt);n.setFullYear(d.getFullYear(),d.getMonth(),d.getDate());setDt(n);}if(e.type==='set')setShowD(false);}}/>
+      )}
+      {showT&&Platform.OS!=='web'&&(
+        <DateTimePicker value={dt} mode="time" display="spinner" is24Hour
+          onChange={(e,d)=>{if(d){const n=new Date(dt);n.setHours(d.getHours(),d.getMinutes(),0,0);setDt(n);}if(e.type==='set')setShowT(false);}}/>
+      )}
+    </View>
+  );
+}
+
 export default function CreateTourScreen() {
   const params = useLocalSearchParams<{prefill?:string}>();
   const [step, setStep] = useState(0);
@@ -417,68 +465,6 @@ if (data.startLat) {
       }
     } catch(err:any) { setErrors([err.message]); }
     finally { setLoading(false); }
-  }
-
-  // ─── DateTime Row ─────────────────────────────────────────────
-  function DtRow({label,dt,setDt,showD,setShowD,showT,setShowT}:any) {
-    return (
-      <View style={{marginBottom:14}}>
-        <Text style={styles.fieldLabel}>{label}</Text>
-        <View style={styles.dtRow}>
-          {Platform.OS==='web' ? (
-            <>
-              <input type="date" style={styles.webDateIn as any}
-                min={new Date().toISOString().split('T')[0]}
-                value={dt.toISOString().split('T')[0]}
-                onChange={e => {
-                  const [y,m,d]=e.target.value.split('-').map(Number);
-                  const n=new Date(dt); n.setFullYear(y,m-1,d); setDt(n);
-                }}
-              />
-              <input type="time" style={styles.webTimeIn as any}
-                value={`${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`}
-                onChange={e => {
-                  const [h,m]=e.target.value.split(':').map(Number);
-                  const n=new Date(dt); n.setHours(h,m,0,0); setDt(n);
-                }}
-              />
-            </>
-          ) : (
-            <>
-              <TouchableOpacity style={styles.dtBtn} onPress={()=>setShowD(true)}>
-                <Calendar size={13} color="#747871" strokeWidth={2}/>
-                <Text style={styles.dtBtnText}>{dt.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'2-digit'})}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.dtBtn} onPress={()=>setShowT(true)}>
-                <Clock size={13} color="#747871" strokeWidth={2}/>
-                <Text style={styles.dtBtnText}>{dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})}</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-        {showD&&Platform.OS!=='web'&&(
-          <DateTimePicker value={dt} mode="date" display="inline" minimumDate={new Date()}
-            onChange={(e,d)=>{if(d){const n=new Date(dt);n.setFullYear(d.getFullYear(),d.getMonth(),d.getDate());setDt(n);}if(e.type==='set')setShowD(false);}}/>
-        )}
-        {showT&&Platform.OS!=='web'&&(
-          <DateTimePicker value={dt} mode="time" display="spinner" is24Hour
-            onChange={(e,d)=>{if(d){const n=new Date(dt);n.setHours(d.getHours(),d.getMinutes(),0,0);setDt(n);}if(e.type==='set')setShowT(false);}}/>
-        )}
-      </View>
-    );
-  }
-
-  // ─── Error Banner ─────────────────────────────────────────────
-  function ErrorBanner() {
-    if (errors.length === 0) return null;
-    return (
-      <View style={styles.errorBanner}>
-        <AlertTriangle size={14} color="#ba1a1a" strokeWidth={2}/>
-        <View style={{flex:1}}>
-          {errors.map((e,i) => <Text key={i} style={styles.errorText}>{e}</Text>)}
-        </View>
-      </View>
-    );
   }
 
   // ─── Steps ────────────────────────────────────────────────────
@@ -1083,12 +1069,12 @@ if (data.startLat) {
 
   function renderStep() {
     switch(step) {
-      case 0: return <S0/>;
-      case 1: return <S1/>;
-      case 2: return <S2/>;
-      case 3: return <S3/>;
-      case 4: return <S4/>;
-      case 5: return <S5/>;
+      case 0: return S0();
+      case 1: return S1();
+      case 2: return S2();
+      case 3: return S3();
+      case 4: return S4();
+      case 5: return S5();
       default: return null;
     }
   }
@@ -1114,7 +1100,14 @@ if (data.startLat) {
         ))}
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollC}>
-        <ErrorBanner/>
+        {errors.length > 0 ? (
+          <View style={styles.errorBanner}>
+            <AlertTriangle size={14} color="#ba1a1a" strokeWidth={2}/>
+            <View style={{flex:1}}>
+              {errors.map((e,i) => <Text key={i} style={styles.errorText}>{e}</Text>)}
+            </View>
+          </View>
+        ) : null}
         {renderStep()}
         <View style={{height:20}}/>
       </ScrollView>

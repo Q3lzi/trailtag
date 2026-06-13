@@ -10,7 +10,8 @@ router.get('/:token', async (req: Request, res: Response) => {
     where: { qrToken: token },
     include: {
       tours: {
-        where: { status: { in: ['ACTIVE', 'ALARM'] } },
+        // Get most recent started or planned tour — filter after
+        where: { startedAt: { not: null } },
         orderBy: { startedAt: 'desc' },
         take: 1,
         include: {
@@ -21,11 +22,30 @@ router.get('/:token', async (req: Request, res: Response) => {
     }
   })
 
+  // Also check if there's an ALARM tour (might have no startedAt in edge cases)
+  if (vehicle) {
+    const alarmTour = await prisma.tour.findFirst({
+      where: { vehicleId: vehicle.id, status: 'ALARM' },
+      orderBy: { startedAt: 'desc' },
+      include: {
+        locations: { orderBy: { timestamp: 'asc' } },
+        user: { include: { emergencyContacts: { orderBy: { isPrimary: 'desc' } } } }
+      }
+    })
+    if (alarmTour && (!vehicle.tours[0] || alarmTour.startedAt! >= (vehicle.tours[0].startedAt ?? new Date(0)))) {
+      (vehicle as any).tours = [alarmTour]
+    }
+  }
+
   if (!vehicle) return res.status(404).send(renderNotFound())
 
   const activeTour = vehicle.tours[0]
-  const isStale = activeTour?.startedAt &&
-    new Date(activeTour.startedAt).getTime() < Date.now() - 24 * 60 * 60 * 1000
+
+  // Nur als "veraltet" behandeln wenn: keine ALARM-Tour, und ETA vor mehr als 48h war
+  const isStale = activeTour &&
+    activeTour.status !== 'ALARM' &&
+    activeTour.eta &&
+    new Date(activeTour.eta).getTime() < Date.now() - 48 * 60 * 60 * 1000
 
   if (!activeTour || isStale) return res.send(renderGreen(vehicle))
   if (activeTour.status === 'ACTIVE') return res.send(renderActive(vehicle, activeTour))
@@ -101,6 +121,38 @@ function mapScript(tour: any) {
       ).join('\n      ')}
     </script>
   `
+}
+
+function trackingLogSection(tour: any) {
+  const locs = tour.locations ?? []
+  if (locs.length === 0) return ''
+  const shown = locs.slice(-20)  // last 20 for portal
+  const rows = shown.map((l: any) => {
+    const t = new Date(l.timestamp).toLocaleTimeString('de-CH', { timeZone: 'Europe/Zurich', hour: '2-digit', minute: '2-digit' })
+    const lat = l.lat?.toFixed(4)
+    const lng = l.lng?.toFixed(4)
+    const ele = l.ele ? `${Math.round(l.ele)} m` : ''
+    return `<div class="info-row" style="font-size:13px">
+      <span class="key">${t}</span>
+      <span class="val" style="font-size:12px;color:#434841">${lat}, ${lng}${ele ? ' · ' + ele : ''}</span>
+    </div>`
+  }).join('')
+
+  return `
+  <div class="section">
+    <div class="section-header">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+      GPS-Tracking Log
+      <span style="margin-left:auto;font-size:11px;font-weight:600;color:#434841">${locs.length} Punkte total</span>
+    </div>
+    <div id="log-wrap" style="max-height:200px;overflow:hidden;transition:max-height 0.3s">
+      ${rows}
+    </div>
+    ${locs.length > 5 ? `<button onclick="var w=document.getElementById('log-wrap');var btn=this;if(w.style.maxHeight==='none'){w.style.maxHeight='200px';btn.textContent='▼ Alle ${locs.length} Logs anzeigen';}else{w.style.maxHeight='none';btn.textContent='▲ Weniger anzeigen';}" 
+      style="width:100%;padding:12px;font-size:12px;font-weight:700;color:#2c694e;background:#f0faf4;border:none;cursor:pointer;border-top:1px solid #f3f4f5">
+      ▼ Alle ${locs.length} Logs anzeigen
+    </button>` : ''}
+  </div>`
 }
 
 function elevationSection(tour: any) {
@@ -369,6 +421,7 @@ function renderActive(vehicle: any, tour: any) {
       <p>Name, Kontakte und medizinische Informationen werden nur bei einem Alarm-Status angezeigt.</p>
     </div>
 
+    ${trackingLogSection(tour)}
     ${elevationSection(tour)}
 
     <footer>
@@ -377,12 +430,7 @@ function renderActive(vehicle: any, tour: any) {
     </footer>
   </div>
 
-  <div class="fab-wrap">
-    <button class="fab-btn fab-btn-green" onclick="alert('Diese Person ist aktiv unterwegs und wird erwartet.')">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      Tour läuft planmässig
-    </button>
-  </div>`
+`
 
   return shell(content)
     .replace('__MODE_BADGE__', '<div class="mode-badge badge-ok">● AKTIV</div>')
@@ -499,6 +547,7 @@ function renderAlarm(vehicle: any, tour: any) {
       `).join('')}
     </div>` : ''}
 
+    ${trackingLogSection(tour)}
     ${tour.notes ? `
     <div class="section">
       <div class="section-header">
@@ -508,6 +557,7 @@ function renderAlarm(vehicle: any, tour: any) {
       <div class="notes-body">${tour.notes.replace(/\n/g, '<br>')}</div>
     </div>` : ''}
 
+    ${trackingLogSection(tour)}
     ${elevationSection(tour)}
 
     <footer>

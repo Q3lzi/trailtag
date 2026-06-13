@@ -61,6 +61,17 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
   const id = req.params.id as string
   const { eta } = req.body
 
+  // Safety: block if another ACTIVE tour exists for this user
+  const activeTour = await prisma.tour.findFirst({
+    where: { userId: req.userId as string, status: { in: ['ACTIVE', 'ALARM'] } }
+  })
+  if (activeTour && activeTour.id !== id) {
+    return res.status(409).json({
+      error: 'Du hast bereits eine aktive Tour. Bitte diese zuerst abschliessen.',
+      activeTourId: activeTour.id
+    })
+  }
+
   const tour = await prisma.tour.findFirst({
     where: { id, userId: req.userId as string }
   })
@@ -78,6 +89,28 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
   })
 
   res.json({ message: 'Tour gestartet — Timer läuft', tour: started })
+})
+
+// Tour verlängern — ETA nach hinten verschieben
+router.post('/:id/extend', requireAuth, async (req: Request, res: Response) => {
+  const id = req.params['id'] as string
+  const { minutes } = req.body  // e.g. 30, 60, 120
+
+  const tour = await prisma.tour.findFirst({
+    where: { id, userId: req.userId as string }
+  })
+  if (!tour) return res.status(404).json({ error: 'Tour nicht gefunden' })
+  if (!['ACTIVE','ALARM'].includes(tour.status)) return res.status(400).json({ error: 'Tour nicht aktiv' })
+
+  const currentEta = tour.eta ? new Date(tour.eta) : new Date()
+  const newEta = new Date(currentEta.getTime() + (minutes ?? 60) * 60000)
+
+  const updated = await prisma.tour.update({
+    where: { id },
+    data: { eta: newEta, status: 'ACTIVE', alarmStage: 0 }
+  })
+
+  res.json({ message: `ETA um ${minutes} Minuten verlängert`, tour: updated })
 })
 
 

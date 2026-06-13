@@ -128,6 +128,8 @@ export default function TourDetailScreen() {
   const [weather, setWeather] = useState<any>(null);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, time: string} | null>(null);
   const [checkedWaypoints, setCheckedWaypoints] = useState<Set<number>>(new Set());
+  const [showAllLogs, setShowAllLogs] = useState(false);
+  const [extendLoading, setExtendLoading] = useState(false);
   const leafletMapRef = useRef<any>(null);
   const mapSectionRef = useRef<any>(null);
   const scrollViewRef = useRef<any>(null);
@@ -167,9 +169,9 @@ export default function TourDetailScreen() {
 
   useEffect(() => {
     if (!tour || Platform.OS !== 'web') return;
-    const lat = tour.lastLat ?? tour.startLat;
-    const lng = tour.lastLng ?? tour.startLng;
-    if (!lat || !lng) return;
+    const lat = tour.lastLat ?? tour.startLat ?? tour.gpxTrack?.points?.[0]?.lat ?? null;
+    const lng = tour.lastLng ?? tour.startLng ?? tour.gpxTrack?.points?.[0]?.lng ?? null;
+    if (!lat && !lng && !tour.gpxTrack?.points?.length) return;
     const timer = setTimeout(() => {
       const container = document.getElementById('tour-map');
       if (!container) return;
@@ -195,7 +197,7 @@ export default function TourDetailScreen() {
           if (gpxPoints && trackPoints && trackPoints.length > 1) {
             L.default.polyline(trackPoints as [number, number][], { color: '#f59e0b', weight: 3, opacity: 0.8, dashArray: '5,5' }).addTo(map);
           }
-          L.default.circleMarker([lat, lng] as [number, number], { radius: 10, fillColor: '#dc2626', color: '#fff', weight: 3, fillOpacity: 1 }).bindPopup('Letzter Standort').addTo(map);
+          if (lat && lng) L.default.circleMarker([lat, lng] as [number, number], { radius: 10, fillColor: '#dc2626', color: '#fff', weight: 3, fillOpacity: 1 }).bindPopup('Letzter Standort').addTo(map);
           // GPX Waypoints als orange Pins
           if (tour.gpxTrack?.waypoints?.length > 0) {
             tour.gpxTrack.waypoints.forEach((wp: any) => {
@@ -209,8 +211,12 @@ export default function TourDetailScreen() {
           const allPoints = [...displayPoints, [lat, lng]] as [number, number][];
           map.fitBounds(L.default.latLngBounds(allPoints), { padding: [30, 30] });
         } else {
-          map.setView([lat, lng], 14);
-          L.default.circleMarker([lat, lng] as [number, number], { radius: 10, fillColor: '#dc2626', color: '#fff', weight: 3, fillOpacity: 1 }).bindPopup('Letzter Standort').addTo(map);
+          if (lat && lng) {
+            map.setView([lat, lng], 14);
+            L.default.circleMarker([lat, lng] as [number, number], { radius: 10, fillColor: '#dc2626', color: '#fff', weight: 3, fillOpacity: 1 }).bindPopup('Letzter Standort').addTo(map);
+          } else {
+            map.setView([47.3, 8.5], 10);
+          }
         }
         // Force resize after mount to fix offsetWidth issue
         requestAnimationFrame(() => { try { map.invalidateSize(); } catch(_) {} });
@@ -260,6 +266,7 @@ export default function TourDetailScreen() {
   if (!tour) return <View style={styles.loading}><Text style={styles.loadingText}>Tour nicht gefunden</Text></View>;
 
   const isActive = tour.status === 'ACTIVE' || tour.status === 'ALARM';
+  const isPlanned = tour.status === 'PLANNED';
   const activityLabel = ACTIVITY_LABELS[tour.activity] ?? tour.activity;
   const heroColor = isOverdue ? '#7f1d1d' : (ACTIVITY_COLORS[tour.activity] ?? '#1a2e1a');
   const qrUrl = tour.vehicle ? `https://trailtag-production.up.railway.app/r/${tour.vehicle.qrToken}` : null;
@@ -305,7 +312,7 @@ export default function TourDetailScreen() {
           </TouchableOpacity>
           <View style={[styles.statusPill, isOverdue ? styles.statusPillRed : isActive ? styles.statusPillGreen : styles.statusPillGray]}>
             <View style={[styles.statusDot, isOverdue ? styles.dotRed : isActive ? styles.dotGreen : styles.dotGray]} />
-            <Text style={styles.statusPillText}>{isOverdue ? 'ALARM' : isActive ? 'AKTIV' : 'ABGESCHLOSSEN'}</Text>
+            <Text style={styles.statusPillText}>{isOverdue ? 'ALARM' : isActive ? 'AKTIV' : isPlanned ? 'GEPLANT' : 'ABGESCHLOSSEN'}</Text>
           </View>
         </View>
 
@@ -396,9 +403,23 @@ export default function TourDetailScreen() {
       </View>
 
       {/* Safety Controls */}
-      {(isActive || qrUrl) && (
+      {(isActive || isPlanned || qrUrl) && (
         <View style={styles.safetyCard}>
           <Text style={styles.safetyLabel}>SAFETY CONTROLS</Text>
+          {isPlanned && (
+            <TouchableOpacity style={styles.checkoutBtn} onPress={async () => {
+              try {
+                const token = await getToken();
+                await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta: tour.eta }) }, token ?? undefined);
+                setTour((t: any) => ({ ...t, status: 'ACTIVE', startedAt: new Date().toISOString() }));
+              } catch (err: any) {
+                showAlert('Tour starten', err.message ?? 'Fehler beim Starten');
+              }
+            }}>
+              <CheckCircle size={18} color="#fff" strokeWidth={2.5} />
+              <Text style={styles.checkoutText}>Tour jetzt starten</Text>
+            </TouchableOpacity>
+          )}
           {isActive && (
             <TouchableOpacity style={[styles.checkoutBtn, isOverdue && styles.checkoutBtnRed]} onPress={handleCheckout}>
               <CheckCircle size={18} color="#fff" strokeWidth={2.5} />
@@ -411,7 +432,29 @@ export default function TourDetailScreen() {
               <Text style={styles.portalBtnText}>Erstretter-Portal öffnen</Text>
             </TouchableOpacity>
           )}
-          {isActive && <Text style={styles.safetyNote}>"Sicher zurück" informiert deine Notfallkontakte und stoppt den Alarm-Timer.</Text>}
+          {isActive && (
+            <>
+              <View style={{flexDirection:'row',gap:8,marginTop:8}}>
+                {[30,60,120].map(mins => (
+                  <TouchableOpacity key={mins} style={styles.extendBtn} disabled={extendLoading}
+                    onPress={async () => {
+                      setExtendLoading(true);
+                      try {
+                        const token = await getToken();
+                        const res = await apiFetch(`/tours/${tour.id}/extend`, { method: 'POST', body: JSON.stringify({ minutes: mins }) }, token ?? undefined);
+                        setTour((t: any) => ({ ...t, eta: res.tour.eta, status: 'ACTIVE', alarmStage: 0 }));
+                      } catch (err: any) { showAlert('Fehler', err.message); }
+                      finally { setExtendLoading(false); }
+                    }}>
+                    <Text style={styles.extendBtnTxt}>+{mins >= 60 ? `${mins/60}h` : `${mins}min`}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.safetyNote}>Tour verlängern verschiebt den Safety-Timer und setzt den Alarm zurück.</Text>
+              <Text style={[styles.safetyNote,{marginTop:4}]}>"Sicher zurück" informiert deine Notfallkontakte und stoppt den Alarm-Timer.</Text>
+            </>
+          )}
+          {isPlanned && <Text style={styles.safetyNote}>Tour starten aktiviert den Safety-Timer und beginnt die GPS-Aufzeichnung.</Text>}
         </View>
       )}
 
@@ -431,7 +474,7 @@ export default function TourDetailScreen() {
       )}
 
       {/* Karte */}
-      {(tour.startLat || tour.lastLat) && Platform.OS === 'web' && (
+      {Platform.OS === 'web' && (tour.startLat || tour.lastLat || tour.gpxTrack?.points?.length > 0) && (
         <View style={styles.section} ref={mapSectionRef}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Route & Standort</Text>
@@ -508,15 +551,26 @@ export default function TourDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {tour.locations?.filter((_: any, i: number) => i % 10 === 0 && i > 0).map((loc: any, idx: number) => (
-            <TouchableOpacity key={loc.id} style={styles.tlEntry} onPress={() => handleLocationSelect({ lat: loc.lat, lng: loc.lng, time: new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
-              <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: '#c3c8bf', width: 8, height: 8 }]} /><View style={styles.tlLine} /></View>
-              <View style={[styles.tlCard, { backgroundColor: 'transparent', borderColor: 'transparent' }]}>
-                <View style={styles.tlTop}><Text style={[styles.tlTitle, { color: '#747871' }]}>TRACKING-PUNKT {idx + 1}</Text><Text style={styles.tlTime}>{new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
-                <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {(() => {
+            const locs = tour.locations?.filter((_: any, i: number) => i % Math.max(1, Math.floor(tour.locations.length / 20)) === 0 && i > 0) ?? [];
+            const shown = showAllLogs ? locs : locs.slice(0, 3);
+            return (<>
+              {shown.map((loc: any, idx: number) => (
+                <TouchableOpacity key={loc.id} style={styles.tlEntry} onPress={() => handleLocationSelect({ lat: loc.lat, lng: loc.lng, time: new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
+                  <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: '#c3c8bf', width: 8, height: 8 }]} /><View style={styles.tlLine} /></View>
+                  <View style={[styles.tlCard, { backgroundColor: 'transparent', borderColor: 'transparent' }]}>
+                    <View style={styles.tlTop}><Text style={[styles.tlTitle, { color: '#747871' }]}>TRACKING-PUNKT {idx + 1}</Text><Text style={styles.tlTime}>{new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
+                    <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              {locs.length > 3 && (
+                <TouchableOpacity style={styles.showAllBtn} onPress={() => setShowAllLogs(v => !v)}>
+                  <Text style={styles.showAllTxt}>{showAllLogs ? `▲ Weniger anzeigen` : `▼ Alle ${locs.length} Logs anzeigen`}</Text>
+                </TouchableOpacity>
+              )}
+            </>);
+          })()}
 
           {tour.locationUpdatedAt && (
             <TouchableOpacity style={styles.tlEntry} onPress={() => tour.lastLat && handleLocationSelect({ lat: tour.lastLat, lng: tour.lastLng, time: new Date(tour.locationUpdatedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
@@ -682,6 +736,10 @@ const styles = StyleSheet.create({
   safetyLabel: { fontSize: 10, fontWeight: '700', color: '#747871', letterSpacing: 1, marginBottom: 12 },
   checkoutBtn: { backgroundColor: '#061907', borderRadius: 4, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 8 },
   checkoutBtnRed: { backgroundColor: '#dc2626' },
+  extendBtn: { flex:1, borderRadius:6, borderWidth:1.5, borderColor:'#e1e3e4', paddingVertical:10, alignItems:'center', backgroundColor:'#f8f9fa' },
+  extendBtnTxt: { fontSize:13, fontWeight:'700', color:'#434841' },
+  showAllBtn: { marginTop:6, paddingVertical:10, alignItems:'center', borderRadius:6, backgroundColor:'#f3f4f5', marginLeft:24 },
+  showAllTxt: { fontSize:12, fontWeight:'700', color:'#2c694e' },
   checkoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   portalBtn: { backgroundColor: '#fff', borderRadius: 4, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#fca5a5', marginBottom: 8 },
   portalBtnText: { color: '#dc2626', fontWeight: '700', fontSize: 13 },
