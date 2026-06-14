@@ -766,9 +766,9 @@ export default function TourDetailScreen() {
           )}
           {tour.persons > 1 && <View style={styles.detailRow}><Text style={styles.detailKey}>Personen</Text><Text style={styles.detailVal}>{tour.persons} Personen</Text></View>}
           {tour.notes && (
-            <View style={[styles.detailRow, { flexDirection: 'column', gap: 4 }]}>
+            <View style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f5' }}>
               <Text style={styles.detailKey}>Notizen für Rettungskräfte</Text>
-              <Text style={[styles.detailVal, { textAlign: 'left', color: '#434841' }]}>{tour.notes}</Text>
+              <Text style={{ fontSize: 13, color: '#191c1d', marginTop: 4, lineHeight: 20 }}>{tour.notes}</Text>
             </View>
           )}
         </View>
@@ -779,9 +779,20 @@ export default function TourDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Fahrzeug</Text>
           <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 16 }]}>
-            {/* Kennzeichen links */}
-            <View style={styles.plateBadge}>
-              <Text style={styles.plateBadgeTxt}>{tour.vehicle.plate}</Text>
+            {/* Schweizer Kennzeichen */}
+            <View style={{
+              borderWidth: 2, borderColor: '#222', borderRadius: 3,
+              overflow: 'hidden', flexDirection: 'row', minWidth: 110,
+            }}>
+              {/* Blaue Seite links — CH Flagge */}
+              <View style={{ backgroundColor: '#003087', paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900', letterSpacing: 0 }}>🇨🇭</Text>
+                <Text style={{ color: '#fff', fontSize: 7, fontWeight: '900', letterSpacing: 1, marginTop: 1 }}>CH</Text>
+              </View>
+              {/* Kennzeichen Text */}
+              <View style={{ backgroundColor: '#fffbe6', flex: 1, paddingHorizontal: 8, paddingVertical: 6, justifyContent: 'center' }}>
+                <Text style={{ fontSize: 15, fontWeight: '900', color: '#000', letterSpacing: 2, textAlign: 'center' }}>{tour.vehicle.plate}</Text>
+              </View>
             </View>
             {/* Details rechts */}
             <View style={{ flex: 1 }}>
