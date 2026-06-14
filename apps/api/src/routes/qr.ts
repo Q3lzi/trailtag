@@ -374,7 +374,7 @@ function render(vehicle: any, tour: any, state: 'active'|'alarm') {
   if (isAlarm) {
     body = overdue + callBtns + buildWandererCard(user, true) + buildVehicleCard(vehicle, false) + buildGpsCard(locs, lastLoc) + buildTourCard(tour, false, true) + buildMedCard(user) + buildContactsCard(contacts)
   } else {
-    body = wanderer + buildTourCard(tour, false, false) + buildVehicleCard(vehicle, false)
+    body = buildWandererCard(user, false) + buildTourCard(tour, false, false) + buildVehicleCard(vehicle, false)
   }
 
   return shell(isAlarm, isAlarm?'#ba1a1a':'#2c694e',
