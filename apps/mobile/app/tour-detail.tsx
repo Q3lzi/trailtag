@@ -779,20 +779,13 @@ export default function TourDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Fahrzeug</Text>
           <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 16 }]}>
-            {/* Schweizer Kennzeichen */}
+            {/* Schweizer Kennzeichen — weiss, schwarzer Rand */}
             <View style={{
-              borderWidth: 2, borderColor: '#222', borderRadius: 3,
-              overflow: 'hidden', flexDirection: 'row', minWidth: 110,
+              borderWidth: 2.5, borderColor: '#111', borderRadius: 4,
+              backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 7,
+              minWidth: 100, alignItems: 'center', justifyContent: 'center',
             }}>
-              {/* Blaue Seite links — CH Flagge */}
-              <View style={{ backgroundColor: '#003087', paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900', letterSpacing: 0 }}>🇨🇭</Text>
-                <Text style={{ color: '#fff', fontSize: 7, fontWeight: '900', letterSpacing: 1, marginTop: 1 }}>CH</Text>
-              </View>
-              {/* Kennzeichen Text */}
-              <View style={{ backgroundColor: '#fffbe6', flex: 1, paddingHorizontal: 8, paddingVertical: 6, justifyContent: 'center' }}>
-                <Text style={{ fontSize: 15, fontWeight: '900', color: '#000', letterSpacing: 2, textAlign: 'center' }}>{tour.vehicle.plate}</Text>
-              </View>
+              <Text style={{ fontSize: 15, fontWeight: '900', color: '#111', letterSpacing: 3, fontFamily: 'monospace' }}>{tour.vehicle.plate}</Text>
             </View>
             {/* Details rechts */}
             <View style={{ flex: 1 }}>
@@ -870,9 +863,9 @@ export default function TourDetailScreen() {
                   </View>
                 ) : null}
                 {stop.notes ? (
-                  <View style={[styles.detailRow, { flexDirection: 'column', gap: 4 }]}>
+                  <View style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f5' }}>
                     <Text style={styles.detailKey}>Notizen</Text>
-                    <Text style={[styles.detailVal, { textAlign: 'left' }]}>{stop.notes}</Text>
+                    <Text style={{ fontSize: 13, color: '#191c1d', marginTop: 4, lineHeight: 20 }}>{stop.notes}</Text>
                   </View>
                 ) : null}
 
