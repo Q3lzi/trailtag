@@ -216,7 +216,7 @@ export default function ProfileScreen() {
     <View style={styles.container}>
 
       {/* ── HEADER — identisch mit Dashboard ── */}
-      <View style={[styles.topNav, { paddingTop: insets.top + 8 }]}>
+      <View style={styles.topNav}>
         <View style={styles.topNavLeft}>
           <Mountain size={22} color="#061907" strokeWidth={2.5}/>
           <Text style={styles.logoText}>Trailtag</Text>
@@ -567,10 +567,10 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex:1, backgroundColor:'#f8f9fa' },
 
-  // ── Header — identisch mit Dashboard ──
+  // Header — identisch mit Dashboard
   topNav: {
     flexDirection:'row', justifyContent:'space-between', alignItems:'center',
-    paddingHorizontal:20, paddingBottom:16,
+    paddingHorizontal:20, paddingTop:18, paddingBottom:16,
     backgroundColor:'#fff', borderBottomWidth:1, borderBottomColor:'#edeeef'
   },
   topNavLeft: { flexDirection:'row', alignItems:'center', gap:8 },
