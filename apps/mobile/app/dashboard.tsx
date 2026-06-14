@@ -37,6 +37,11 @@ function useCountdown(eta: string | null) {
   return { timeLeft, isOverdue, progress };
 }
 
+const ACTIVITY_COLORS: Record<string,string> = {
+  WANDERN:'#1a3d2b', BERGTOUR:'#0f2027', KLETTERN:'#1a1a2e', TRAILRUNNING:'#1a2e1a',
+  MOUNTAINBIKE:'#1f2d1f', RADSPORT:'#162616', SKI_SNOWBOARD:'#0d1b2a', SKITOUR:'#0d1b2a',
+  KLETTERSTEIG:'#1a1a2e', KANU_KAJAK:'#0d2137', PARAGLIDING:'#0d1f3c', ANDERE:'#1a2e1a',
+};
 const ACTIVITY_LABELS: Record<string, string> = {
   WANDERN: 'Wandern', BERGTOUR: 'Bergtour', KLETTERN: 'Klettern',
   TRAILRUNNING: 'Trailrunning', MOUNTAINBIKE: 'Mountainbike', RADSPORT: 'Radsport',
@@ -58,9 +63,18 @@ export default function DashboardScreen() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState<any>(null);
+  const [now, setNow] = useState(Date.now());
+  const [plannedTours, setPlannedTours] = useState<any[]>([]);
   const { timeLeft, isOverdue, progress } = useCountdown(activeTour?.eta ?? null);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    // Auto-refresh every 30s for live updates
+    const interval = setInterval(loadData, 30000);
+    // Tick every 30s to update time displays
+    const ticker = setInterval(() => setNow(Date.now()), 30000);
+    return () => { clearInterval(interval); clearInterval(ticker); };
+  }, []);
 
   async function loadData() {
     try {
@@ -72,8 +86,12 @@ export default function DashboardScreen() {
       ]);
       const active = tours.find((t: any) => t.status === 'ACTIVE' || t.status === 'ALARM');
       setActiveTour(active ?? null);
+      // Planned tours for quick start
+      const planned = tours.filter((t: any) => t.status === 'PLANNED').slice(0, 3);
+      setPlannedTours(planned);
       // Auto-restart tracking if active tour exists (handles app restart)
-      if (active && Platform.OS !== 'web') {
+      if (active) {
+        // Start tracking on all platforms (web tracking uses geolocation interval)
         startLocationTracking(active.id).catch(() => {});
       }
       if (vehicles.length > 0) setVehicle(vehicles[0]);
@@ -100,7 +118,7 @@ export default function DashboardScreen() {
 
   const qrUrl = vehicle ? `https://trailtag-production.up.railway.app/r/${vehicle.qrToken}` : null;
   const minutesSinceUpdate = activeTour?.locationUpdatedAt
-    ? Math.floor((Date.now() - new Date(activeTour.locationUpdatedAt).getTime()) / 60000)
+    ? Math.floor((now - new Date(activeTour.locationUpdatedAt).getTime()) / 60000)
     : null;
   const weatherInfo = weather ? (WMO_CODES[weather.code] ?? { text: 'Unbekannt', icon: '🌡️' }) : null;
   const firstName = user?.name?.split(' ')[0] ?? '';
@@ -123,8 +141,12 @@ export default function DashboardScreen() {
 
       {activeTour ? (
         <>
-          {/* Status Banner */}
-          <View style={[styles.statusBanner, isOverdue ? styles.statusBannerRed : styles.statusBannerGreen]}>
+          {/* Status Banner — clickable to tour detail */}
+          <TouchableOpacity
+            style={[styles.statusBanner, isOverdue ? styles.statusBannerRed : styles.statusBannerGreen]}
+            onPress={() => router.push(`/tour-detail?id=${activeTour.id}`)}
+            activeOpacity={0.85}
+          >
             <View style={styles.statusBannerLeft}>
               <View style={[styles.statusIconBox, isOverdue ? styles.statusIconRed : styles.statusIconGreen]}>
                 {isOverdue
@@ -143,7 +165,7 @@ export default function DashboardScreen() {
                 {minutesSinceUpdate !== null ? `vor ${minutesSinceUpdate} Min.` : 'Kein Signal'}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           {/* Countdown Hero */}
           <View style={styles.countdownCard}>
@@ -251,6 +273,70 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Geplante Touren */}
+          {plannedTours.length > 0 && (
+            <View style={styles.plannedSection}>
+              <Text style={styles.sectionTitle}>GEPLANTE TOUREN</Text>
+              {plannedTours.map((pt: any) => {
+                const hasEta = !!pt.eta;
+                const etaDate = pt.eta ? new Date(pt.eta) : null;
+                const isToday = etaDate && etaDate.toDateString() === new Date().toDateString();
+                const etaStr = etaDate
+                  ? (isToday
+                    ? `Heute · ${etaDate.toLocaleTimeString('de-CH', {hour:'2-digit',minute:'2-digit'})} Uhr`
+                    : etaDate.toLocaleDateString('de-CH', {weekday:'short',day:'2-digit',month:'2-digit'}) + ' · ' + etaDate.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) + ' Uhr')
+                  : null;
+                return (
+                  <TouchableOpacity key={pt.id} style={styles.plannedCard}
+                    onPress={() => router.push(`/tour-detail?id=${pt.id}`)}>
+                    {/* Color bar */}
+                    <View style={[styles.plannedBar, { backgroundColor: ACTIVITY_COLORS[pt.activity] ?? '#1a2e1a' }]}>
+                      <Mountain size={12} color="rgba(255,255,255,0.8)" strokeWidth={2}/>
+                      <Text style={styles.plannedActLabel}>{ACTIVITY_LABELS[pt.activity] ?? pt.activity}</Text>
+                      <View style={{flex:1}}/>
+                      {pt.distanceKm ? <Text style={styles.plannedBarStat}>{pt.distanceKm} km</Text> : null}
+                      {pt.difficulty ? <Text style={styles.plannedBarStat}>{pt.difficulty}</Text> : null}
+                    </View>
+                    {/* Body */}
+                    <View style={styles.plannedBody}>
+                      <View style={{flex:1}}>
+                        <Text style={styles.plannedName} numberOfLines={1}>
+                          {pt.routeName || (ACTIVITY_LABELS[pt.activity] ?? pt.activity)}
+                        </Text>
+                        <View style={{flexDirection:'row', alignItems:'center', gap:6, marginTop:3}}>
+                          {etaStr
+                            ? <Text style={styles.plannedEta}>🕐 Rückkehr: {etaStr}</Text>
+                            : <Text style={[styles.plannedEta, {color:'#dc2626'}]}>⚠ Keine Rückkehrzeit gesetzt</Text>
+                          }
+                        </View>
+                        {pt.parkingLocation
+                          ? <Text style={styles.plannedMeta} numberOfLines={1}>📍 {pt.parkingLocation}</Text>
+                          : null}
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.startPlannedBtn, !hasEta && styles.startPlannedBtnDisabled]}
+                        onPress={async (e) => {
+                          e.stopPropagation();
+                          if (!hasEta) {
+                            showAlert('Rückkehrzeit fehlt', 'Bitte zuerst eine Rückkehrzeit in der Tour einstellen bevor du startest.');
+                            return;
+                          }
+                          try {
+                            const token = await getToken();
+                            await apiFetch(`/tours/${pt.id}/start`, { method: 'POST', body: JSON.stringify({ eta: pt.eta }) }, token ?? undefined);
+                            await startLocationTracking(pt.id);
+                            loadData();
+                          } catch (err: any) { showAlert('Fehler', err.message); }
+                        }}>
+                        <Text style={styles.startPlannedBtnTxt}>{hasEta ? '▶ Starten' : '⚠ ETA fehlt'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
           <Text style={styles.sectionTitle}>SCHNELLZUGRIFF</Text>
           <View style={styles.quickGrid}>
             <TouchableOpacity style={styles.quickCard} onPress={() => router.push('/vehicle')}>
@@ -354,6 +440,18 @@ const styles = StyleSheet.create({
   quickCard: { flex: 1, backgroundColor: '#fff', borderRadius: 6, padding: 14, borderWidth: 1, borderColor: '#edeeef', gap: 6 },
   quickTitle: { fontSize: 12, fontWeight: '700', color: '#111' },
   quickSub: { fontSize: 10, color: '#aaa' },
+  plannedSection: { marginHorizontal: 16, marginTop: 8, marginBottom: 4 },
+  plannedCard: { backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#e1e3e4', marginBottom: 10, elevation: 1 },
+  plannedBar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10 },
+  plannedActLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.9)', letterSpacing: 0.3 },
+  plannedBarStat: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.65)', backgroundColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  plannedBody: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
+  plannedName: { fontSize: 15, fontWeight: '800', color: '#061907', letterSpacing: -0.2 },
+  plannedEta: { fontSize: 12, color: '#2c694e', fontWeight: '600' },
+  plannedMeta: { fontSize: 11, color: '#747871', marginTop: 3 },
+  startPlannedBtn: { backgroundColor: '#061907', borderRadius: 6, paddingVertical: 10, paddingHorizontal: 14, minWidth: 80, alignItems: 'center' },
+  startPlannedBtnDisabled: { backgroundColor: '#e1e3e4' },
+  startPlannedBtnTxt: { fontSize: 12, fontWeight: '800', color: '#fff' },
 
 
   tourCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },

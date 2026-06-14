@@ -4,22 +4,25 @@ import { apiFetch } from './api';
 
 const LOCATION_TASK = 'trailtag-location-task';
 
-// Web Tracking
-let webTrackingInterval: any = null;
+// Web: use watchPosition for continuous tracking
+let webWatchId: number | null = null;
 let webActiveTourId: string | null = null;
+let webLastSent = 0;
+const WEB_MIN_INTERVAL = 30 * 1000; // min 30s between sends
+const WEB_MIN_DISTANCE = 10; // min 10m movement
 
-// iOS/Android Top-Level Task
+let lastWebLat: number | null = null;
+let lastWebLng: number | null = null;
+
+// iOS/Android Top-Level Background Task
 if (Platform.OS !== 'web') {
   const TaskManager = require('expo-task-manager');
   const SecureStore = require('expo-secure-store');
 
   if (!TaskManager.isTaskDefined(LOCATION_TASK)) {
     TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: any) => {
-      if (error) { console.log('Location task error:', error); return; }
-      if (!data) return;
-      const { locations } = data;
-      if (!locations?.length) return;
-      const { latitude, longitude, altitude } = locations[0].coords;
+      if (error || !data?.locations?.length) return;
+      const { latitude, longitude, altitude } = data.locations[0].coords;
       try {
         const token = await getToken();
         if (!token) return;
@@ -29,12 +32,20 @@ if (Platform.OS !== 'web') {
           method: 'POST',
           body: JSON.stringify({ lat: latitude, lng: longitude, ele: altitude }),
         }, token);
-        console.log('📍 Location sent:', latitude, longitude);
+        console.log('📍 Background location sent:', latitude, longitude);
       } catch (err) {
         console.log('Location send error:', err);
       }
     });
   }
+}
+
+function calcDistance(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
 async function sendLocation(lat: number, lng: number, ele: number | null, tourId: string) {
@@ -52,67 +63,92 @@ async function sendLocation(lat: number, lng: number, ele: number | null, tourId
 }
 
 export async function startLocationTracking(tourId: string) {
-  // WEB
+  // ── WEB ──
   if (Platform.OS === 'web') {
     if (!navigator.geolocation) return;
+    // Stop existing watch
+    if (webWatchId !== null) navigator.geolocation.clearWatch(webWatchId);
     webActiveTourId = tourId;
+    lastWebLat = null; lastWebLng = null; webLastSent = 0;
+
+    // Send immediately
     navigator.geolocation.getCurrentPosition(
-      (pos) => sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.altitude, tourId),
+      (pos) => {
+        sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.altitude, tourId);
+        lastWebLat = pos.coords.latitude; lastWebLng = pos.coords.longitude;
+        webLastSent = Date.now();
+      },
       (err) => console.log('Web geolocation error:', err),
       { enableHighAccuracy: true }
     );
-    webTrackingInterval = setInterval(() => {
-      if (!webActiveTourId) return;
-      navigator.geolocation.getCurrentPosition(
-        (pos) => sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.altitude, webActiveTourId!),
-        (err) => console.log('Web geolocation error:', err),
-        { enableHighAccuracy: true }
-      );
-    }, 3 * 60 * 1000);
+
+    // Continuous watch — send when moved ≥10m OR ≥30s passed
+    webWatchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (!webActiveTourId) return;
+        const { latitude, longitude, altitude } = pos.coords;
+        const now = Date.now();
+        const timePassed = now - webLastSent > WEB_MIN_INTERVAL;
+        const moved = lastWebLat === null || calcDistance(lastWebLat, lastWebLng!, latitude, longitude) >= WEB_MIN_DISTANCE;
+        if (timePassed || moved) {
+          sendLocation(latitude, longitude, altitude, webActiveTourId);
+          lastWebLat = latitude; lastWebLng = longitude; webLastSent = now;
+        }
+      },
+      (err) => console.log('Web watch error:', err),
+      { enableHighAccuracy: true, maximumAge: 10000 }
+    );
     return;
   }
 
-  // iOS/Android
+  // ── iOS/Android ──
   try {
     const SecureStore = require('expo-secure-store');
     const Location = require('expo-location');
 
     await SecureStore.setItemAsync('trailtag-active-tour-id', tourId);
 
-    // Permissions
     const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
     if (fgStatus !== 'granted') { console.log('Foreground permission denied'); return; }
 
     const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
 
-    // Bestehende Tasks stoppen
+    // Stop existing task
     const isRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK).catch(() => false);
     if (isRunning) await Location.stopLocationUpdatesAsync(LOCATION_TASK).catch(() => {});
 
-    if (bgStatus === 'granted') {
-      // Sofort einmal senden
-      const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      await sendLocation(current.coords.latitude, current.coords.longitude, current.coords.altitude, tourId);
+    // Send current position immediately
+    const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    await sendLocation(current.coords.latitude, current.coords.longitude, current.coords.altitude, tourId);
 
-      // Background Task mit optimalen iOS Einstellungen
+    if (bgStatus === 'granted') {
+      // Continuous background tracking — every 10m or 60s
+      // distanceInterval=10m captures the full path for rescue
+      // timeInterval=60s as fallback when stationary
       await Location.startLocationUpdatesAsync(LOCATION_TASK, {
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: 5 * 60 * 1000,        // alle 5 Minuten
-        distanceInterval: 50,                 // oder alle 50m
+        accuracy: Location.Accuracy.Balanced,       // good accuracy, not max (saves battery)
+        timeInterval: 60 * 1000,                    // at least every 60s
+        distanceInterval: 10,                        // every 10m of movement → full trail
         showsBackgroundLocationIndicator: true,
         pausesUpdatesAutomatically: false,
-        activityType: Location.ActivityType.Fitness, // Fitness ist zuverlässiger als OtherNavigation
-        deferredUpdatesInterval: 5 * 60 * 1000,
-        deferredUpdatesDistance: 50,
+        activityType: Location.ActivityType.Fitness,
         foregroundService: {
           notificationTitle: '🏔️ Trailtag aktiv',
           notificationBody: 'Safety-Timer läuft — Standort wird getrackt',
           notificationColor: '#1a2e1a',
         },
       });
-      console.log('📱 Background tracking started');
+      console.log('📱 Continuous background tracking started (10m / 60s)');
     } else {
-      console.log('⚠️ Background permission not granted — only foreground tracking');
+      // Foreground only — still better than nothing
+      await Location.startLocationUpdatesAsync(LOCATION_TASK, {
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: 60 * 1000,
+        distanceInterval: 10,
+        pausesUpdatesAutomatically: false,
+        activityType: Location.ActivityType.Fitness,
+      });
+      console.log('⚠️ Foreground-only tracking (10m / 60s)');
     }
   } catch (err) {
     console.log('Start tracking error:', err);
@@ -121,8 +157,8 @@ export async function startLocationTracking(tourId: string) {
 
 export async function stopLocationTracking() {
   if (Platform.OS === 'web') {
-    if (webTrackingInterval) { clearInterval(webTrackingInterval); webTrackingInterval = null; }
-    webActiveTourId = null;
+    if (webWatchId !== null) { navigator.geolocation.clearWatch(webWatchId); webWatchId = null; }
+    webActiveTourId = null; lastWebLat = null; lastWebLng = null;
     return;
   }
   try {
