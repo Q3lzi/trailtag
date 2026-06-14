@@ -572,25 +572,25 @@ if (data.startLat) {
                 <Text style={styles.mapLink}>↗ In Google Maps öffnen</Text>
               </TouchableOpacity>
             ) : null}
-            {/* Reservierung nur bei buchbaren Unterkünften */}
-            {!['biwak','zelt','camping'].includes(stop.type) ? (
+            {['biwak','zelt','camping'].includes(stop.type) ? (
+              <View style={{backgroundColor:'#f0faf4',borderRadius:6,padding:10,marginBottom:8}}>
+                <Text style={{fontSize:12,color:'#2c694e'}}>ℹ️ Keine Reservierung nötig</Text>
+              </View>
+            ) : (
               <TouchableOpacity style={styles.checkRow} onPress={()=>updateStop(i,{reserved:!stop.reserved})}>
                 {stop.reserved ? <CheckSquare size={18} color="#2c694e" strokeWidth={2}/> : <Square size={18} color="#c3c8bf" strokeWidth={1.8}/>}
                 <Text style={[styles.checkTxt,stop.reserved&&{color:'#2c694e'}]}>Reservierung bestätigt</Text>
               </TouchableOpacity>
-            ) : (
-              <View style={{backgroundColor:'#f0faf4',borderRadius:6,padding:10,marginBottom:8}}>
-                <Text style={{fontSize:12,color:'#2c694e'}}>ℹ️ {stop.type === 'zelt' ? 'Zelt/Biwak' : 'Camping'} — keine Reservierung nötig</Text>
+            )}
+            {['biwak','zelt','camping'].includes(stop.type) ? null : (
+              <View>
+                <Text style={styles.inputLabel}>Kontaktperson</Text>
+                <TextInput style={styles.input} placeholder="Name Hüttenwart / Kontakt" placeholderTextColor="#bbb"
+                  value={stop.contactName} onChangeText={v=>updateStop(i,{contactName:v})}/>
+                <TextInput style={styles.input} placeholder="Telefonnummer" placeholderTextColor="#bbb"
+                  keyboardType="phone-pad" value={stop.contactPhone} onChangeText={v=>updateStop(i,{contactPhone:v})}/>
               </View>
             )}
-            {/* Kontaktperson nur bei buchbaren Unterkünften */}
-            {!['biwak','zelt','camping'].includes(stop.type) ? (<>
-            <Text style={styles.inputLabel}>Kontaktperson</Text>
-            <TextInput style={styles.input} placeholder="Name Hüttenwart / Kontakt" placeholderTextColor="#bbb"
-              value={stop.contactName} onChangeText={v=>updateStop(i,{contactName:v})}/>
-            <TextInput style={styles.input} placeholder="Telefonnummer" placeholderTextColor="#bbb"
-              keyboardType="phone-pad" value={stop.contactPhone} onChangeText={v=>updateStop(i,{contactPhone:v})}/>
-            </>) : null}
             <Text style={styles.inputLabel}>Notizen</Text>
             <TextInput style={[styles.input,{height:56}]} placeholder="z.B. Matratzenlager, kein Empfang" placeholderTextColor="#bbb"
               multiline value={stop.notes} onChangeText={v=>updateStop(i,{notes:v})}/>
