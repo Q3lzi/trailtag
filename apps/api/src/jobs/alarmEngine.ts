@@ -31,7 +31,7 @@ export function startAlarmEngine() {
     })
     for (const tour of activeTours) {
       if (!tour.eta) continue
-      const diffMin = (now.getTime() - tour.eta.getTime()) / 60000
+      const diffMin = (now.getTime() - new Date(tour.eta!).getTime()) / 60000
 
       // STUFE 1: 30 min VOR ETA — Push Vorwarnung
       if (diffMin > -30 && diffMin < 0) {

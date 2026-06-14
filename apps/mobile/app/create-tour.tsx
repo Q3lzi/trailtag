@@ -363,11 +363,9 @@ export default function CreateTourScreen() {
           const lat = pos.coords.latitude.toFixed(6);
           const lng = pos.coords.longitude.toFixed(6);
           setStartLat(lat); setStartLng(lng);
-          // Also set as parking if not set
-          if (!parkingLat) {
-            setParkingLat(lat); setParkingLng(lng);
-            setParkingMapKey(k => k+1); // force MapPicker remount with new coords
-          }
+          // Always overwrite parking coords with GPS
+          setParkingLat(lat); setParkingLng(lng);
+          setParkingMapKey(k => k+1);
           setLocationStatus('ok');
         },
         () => setLocationStatus('denied')
@@ -381,7 +379,7 @@ export default function CreateTourScreen() {
     const lat = pos.coords.latitude.toFixed(6);
     const lng = pos.coords.longitude.toFixed(6);
     setStartLat(lat); setStartLng(lng);
-    if (!parkingLat) { setParkingLat(lat); setParkingLng(lng); setParkingMapKey(k=>k+1); }
+    setParkingLat(lat); setParkingLng(lng); setParkingMapKey(k=>k+1);
     setLocationStatus('ok');
   }
 
@@ -457,7 +455,7 @@ if (data.startLat) {
         method:'POST',
         body:JSON.stringify({
           activity, routeName:routeName||null, difficulty:diffLabel,
-          persons:persons.length, distanceKm:distanceKm?parseFloat(distanceKm):null,
+          persons:persons.length > 0 ? persons.length : 1, distanceKm:distanceKm?parseFloat(distanceKm):null,
           elevationUp:elevationUp?parseInt(elevationUp):null,
           parkingLocation:parkingLocation||null, notes:allNotes||null,
           overnightStops:overnightStops.length>0?overnightStops:null,
