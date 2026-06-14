@@ -674,6 +674,7 @@ if (data.startLat) {
     ) : null}
   </View>
 ) : null}
+        </View>
 
         <View style={[styles.card,{marginTop:12}]}>
           <Text style={styles.fieldLabel}>STARTDETAILS</Text>
