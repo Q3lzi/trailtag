@@ -21,7 +21,10 @@ router.get('/:token', async (req: Request, res: Response) => {
 
   const inc = {
     locations: { orderBy: { timestamp: 'desc' as const }, take: 500 },
-    user: { include: { emergencyContacts: { orderBy: { isPrimary: 'desc' as const } } } }
+    user: {
+      include: { emergencyContacts: { orderBy: { isPrimary: 'desc' as const } } },
+      // privacy settings loaded with user
+    }
   }
   let tour: any = await prisma.tour.findFirst({
     where: { vehicleId: vehicle.id, status: { in: ['ACTIVE','ALARM'] } },
@@ -214,7 +217,7 @@ function buildTourCard(tour: any, compact: boolean, isAlarm = false) {
         </div>`;}).join('')}
       </div>`:''}
       ${isAlarm&&stops.length>0?`<div style="padding:12px 16px;border-top:1px solid #f3f4f5;">
-        <p style="font-size:11px;font-weight:700;color:#2c694e;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">${Übernachtungen (${stops.length} Nacht${stops.length>1?'e':''})</p>
+        <p style="font-size:11px;font-weight:700;color:#2c694e;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Übernachtungen (${stops.length} Nacht${stops.length>1?'e':''})</p>
         ${stops.map((s: any, i: number)=>`
         <div style="padding:10px 0;${i<stops.length-1?'border-bottom:1px solid #f3f4f5;':''}">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
@@ -371,7 +374,7 @@ function render(vehicle: any, tour: any, state: 'active'|'alarm') {
   if (isAlarm) {
     body = overdue + callBtns + buildWandererCard(user, true) + buildVehicleCard(vehicle, false) + buildGpsCard(locs, lastLoc) + buildTourCard(tour, false, true) + buildMedCard(user) + buildContactsCard(contacts)
   } else {
-    body = buildWandererCard(user, false) + buildTourCard(tour, false) + buildVehicleCard(vehicle, false)
+    body = wanderer + buildTourCard(tour, false, false) + buildVehicleCard(vehicle, false)
   }
 
   return shell(isAlarm, isAlarm?'#ba1a1a':'#2c694e',

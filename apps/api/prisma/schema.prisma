@@ -23,6 +23,12 @@ model User {
   medicalNotes  String?
   qrCode        String   @unique @default(uuid())
   expoPushToken String?
+  privacyShowName     Boolean @default(true)
+  privacyShowPhone    Boolean @default(true)
+  privacyShowMedical  Boolean @default(false)
+  privacyShowContacts Boolean @default(true)
+  privacyShowGps      Boolean @default(false)
+  privacyShowNotes    Boolean @default(false)
   tours              Tour[]
   friendsInitiated   Friend[]       @relation("FriendInitiator")
   friendsReceived    Friend[]       @relation("FriendReceiver")

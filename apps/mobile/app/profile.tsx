@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking, Switch } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -47,6 +47,14 @@ export default function ProfileScreen() {
   const [editingGroup, setEditingGroup] = useState<any>(null);
   const [addingF, setAddingF] = useState(false);
 
+  // Privacy settings (loaded from profile)
+  const [privacyShowName, setPrivacyShowName] = useState(true);
+  const [privacyShowPhone, setPrivacyShowPhone] = useState(true);
+  const [privacyShowMedical, setPrivacyShowMedical] = useState(false);
+  const [privacyShowContacts, setPrivacyShowContacts] = useState(true);
+  const [privacyShowGps, setPrivacyShowGps] = useState(false);
+  const [privacyShowNotes, setPrivacyShowNotes] = useState(false);
+
   useEffect(() => { loadAll(); }, []);
 
   async function loadAll() {
@@ -69,6 +77,12 @@ export default function ProfileScreen() {
       setPending(friendData.pending ?? []);
       setGroups(friendData.groups ?? []);
       setMyQrCode(qrData.qrCode ?? null);
+      if (data.privacyShowName !== undefined) setPrivacyShowName(data.privacyShowName);
+      if (data.privacyShowPhone !== undefined) setPrivacyShowPhone(data.privacyShowPhone);
+      if (data.privacyShowMedical !== undefined) setPrivacyShowMedical(data.privacyShowMedical);
+      if (data.privacyShowContacts !== undefined) setPrivacyShowContacts(data.privacyShowContacts);
+      if (data.privacyShowGps !== undefined) setPrivacyShowGps(data.privacyShowGps);
+      if (data.privacyShowNotes !== undefined) setPrivacyShowNotes(data.privacyShowNotes);
     } catch (err) { console.log('Ladefehler:', err); }
     finally { setLoading(false); }
   }
@@ -79,7 +93,12 @@ export default function ProfileScreen() {
       const token = await getToken();
       await apiFetch('/profile', {
         method: 'PUT',
-        body: JSON.stringify({ name, phone, birthYear: birthYear ? parseInt(birthYear) : null, bloodType, allergies, medications, medicalNotes }),
+        body: JSON.stringify({
+          name, phone, birthYear: birthYear ? parseInt(birthYear) : null,
+          bloodType, allergies, medications, medicalNotes,
+          privacyShowName, privacyShowPhone, privacyShowMedical,
+          privacyShowContacts, privacyShowGps, privacyShowNotes,
+        }),
       }, token ?? undefined);
       showAlert('Gespeichert ✓');
     } catch (err: any) { showAlert('Fehler', err.message); }
@@ -355,6 +374,34 @@ export default function ProfileScreen() {
               )}
             </View>
           )}
+
+        {/* Datenschutz-Einstellungen */}
+          <Text style={[styles.sectionLabel,{marginTop:20}]}>DATENSCHUTZ — QR-PORTAL</Text>
+          <Text style={styles.hint}>Was bei aktiver Tour für Ersthelfer sichtbar ist. Im Alarmfall ist alles sichtbar.</Text>
+          <View style={styles.card}>
+            {([
+              { key:'showName', label:'Name', val:privacyShowName, set:setPrivacyShowName },
+              { key:'showPhone', label:'Telefonnummer', val:privacyShowPhone, set:setPrivacyShowPhone },
+              { key:'showMedical', label:'Medizinische Daten', val:privacyShowMedical, set:setPrivacyShowMedical },
+              { key:'showContacts', label:'Notfallkontakte', val:privacyShowContacts, set:setPrivacyShowContacts },
+              { key:'showGps', label:'GPS-Standort', val:privacyShowGps, set:setPrivacyShowGps },
+              { key:'showNotes', label:'Notizen für Rettungskräfte', val:privacyShowNotes, set:setPrivacyShowNotes },
+            ] as Array<{key:string;label:string;val:boolean;set:(v:boolean)=>void}>).map(({key,label,val,set}) => (
+              <View key={key} style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingVertical:12,borderBottomWidth:1,borderBottomColor:'#f3f4f5'}}>
+                <View style={{flex:1,paddingRight:12}}>
+                  <Text style={{fontSize:14,color:'#191c1d',fontWeight:'600'}}>{label}</Text>
+                  <Text style={{fontSize:11,color:'#c3c8bf',marginTop:1}}>{val ? 'Sichtbar bei aktiver Tour' : 'Versteckt bei aktiver Tour'}</Text>
+                </View>
+                <Switch
+                  value={val}
+                  onValueChange={set}
+                  trackColor={{false:'#e1e3e4',true:'#aeeecb'}}
+                  thumbColor={val?'#2c694e':'#fff'}
+                />
+              </View>
+            ))}
+            <Text style={{fontSize:11,color:'#2c694e',marginTop:10,fontStyle:'italic'}}>Im Alarmfall sind immer alle Daten sichtbar</Text>
+          </View>
 
         </>)}
 
