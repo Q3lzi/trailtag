@@ -11,6 +11,7 @@ import {
 } from 'lucide-react-native';
 
 import { Platform } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 
 // expo-camera is not available on web — use conditional import
 let CameraView: any = null;
@@ -483,16 +484,30 @@ export default function ProfileScreen() {
 
           {/* Mein Code */}
           <Text style={styles.sectionLabel}>MEIN TRAILTAG-CODE</Text>
-          <View style={[styles.card,{flexDirection:'row',alignItems:'center',gap:14}]}>
-            <View style={styles.qrIconBox}>
-              <QrCode size={28} color="#2c694e" strokeWidth={1.8}/>
+          <View style={[styles.card, {alignItems:'center', paddingVertical:20, gap:14}]}>
+            {myQrCode ? (
+              <View style={{padding:12, backgroundColor:'#fff', borderRadius:12, borderWidth:1, borderColor:'#e1e3e4'}}>
+                <QRCode
+                  value={`trailtag://friend/${myQrCode}`}
+                  size={180}
+                  color="#061907"
+                  backgroundColor="#fff"
+                />
+              </View>
+            ) : (
+              <View style={{width:180,height:180,backgroundColor:'#f3f4f5',borderRadius:12,alignItems:'center',justifyContent:'center'}}>
+                <Text style={{color:'#c3c8bf',fontSize:13}}>Lädt...</Text>
+              </View>
+            )}
+            <View style={{alignItems:'center',gap:4}}>
+              <Text style={{fontSize:13,fontWeight:'800',color:'#061907',letterSpacing:2,fontFamily:'monospace'}}>
+                {myQrCode?.slice(0,8).toUpperCase() ?? '—'}
+              </Text>
+              <Text style={styles.hint}>Freunde scannen diesen QR-Code oder geben den Code ein</Text>
             </View>
-            <View style={{flex:1}}>
-              <Text style={styles.myCode}>{myQrCode?.toUpperCase() ?? 'Lädt...'}</Text>
-              <Text style={styles.hint}>Freunde geben diesen Code ein</Text>
-            </View>
-            <TouchableOpacity style={styles.shareBtn} onPress={shareMyQR}>
+            <TouchableOpacity style={[styles.primaryBtn, {paddingHorizontal:24}]} onPress={shareMyQR}>
               <Share2 size={14} color="#fff" strokeWidth={2}/>
+              <Text style={styles.primaryBtnTxt}>Code teilen</Text>
             </TouchableOpacity>
           </View>
 

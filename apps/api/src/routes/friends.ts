@@ -34,16 +34,26 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   }
 })
 
-// GET /friends/qr — eigener QR-Code
+// GET /friends/qr — eigener QR-Code (generiert falls noch nicht vorhanden)
 router.get('/qr', requireAuth, async (req: Request, res: Response) => {
   const userId = req.userId as string
   try {
-    const user = await (prisma.user as any).findUnique({
+    let user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { qrCode: true, name: true }
-    })
+      select: { id: true, name: true, qrCode: true } as any
+    }) as any
+    // Generate qrCode for existing users who don't have one
+    if (user && !user.qrCode) {
+      const { randomUUID } = await import('crypto')
+      user = await (prisma.user as any).update({
+        where: { id: userId },
+        data: { qrCode: randomUUID() },
+        select: { qrCode: true, name: true }
+      })
+    }
     res.json(user ?? { qrCode: userId, name: null })
-  } catch {
+  } catch (err: any) {
+    console.error('friends/qr error:', err.message)
     res.json({ qrCode: userId, name: null })
   }
 })
