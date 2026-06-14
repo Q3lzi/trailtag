@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking, Switch, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Linking, Switch, Modal } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -10,7 +10,18 @@ import {
   QrCode, UserPlus, Check, X, ChevronRight, Star, Share2, Scan
 } from 'lucide-react-native';
 
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Platform } from 'react-native';
+
+// expo-camera is not available on web — use conditional import
+let CameraView: any = null;
+let useCameraPermissions: any = () => [{ granted: false }, async () => ({ granted: false })];
+if (Platform.OS !== 'web') {
+  try {
+    const cam = require('expo-camera');
+    CameraView = cam.CameraView;
+    useCameraPermissions = cam.useCameraPermissions;
+  } catch {}
+}
 
 const BLOOD_TYPES = ['A+','A-','B+','B-','AB+','AB-','0+','0-'];
 const GROUP_COLORS = ['#2c694e','#1d4ed8','#dc2626','#ea580c','#7c3aed','#0891b2'];
