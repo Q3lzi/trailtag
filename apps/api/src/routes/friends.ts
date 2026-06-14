@@ -64,11 +64,20 @@ router.post('/add', requireAuth, async (req: Request, res: Response) => {
   const { qrCode } = req.body
   if (!qrCode) return res.status(400).json({ error: 'qrCode erforderlich' })
   try {
-    const target = await (prisma.user as any).findUnique({
-      where: { qrCode },
+    // Support both full UUID and 8-char prefix (case-insensitive)
+    const qrNorm = qrCode.toLowerCase().trim()
+    let target = await (prisma.user as any).findFirst({
+      where: { qrCode: { equals: qrNorm, mode: 'insensitive' } },
       select: { id: true, name: true, phone: true }
     })
-    if (!target) return res.status(404).json({ error: 'Benutzer nicht gefunden' })
+    // Fallback: search by prefix (first 8 chars)
+    if (!target && qrNorm.length === 8) {
+      target = await (prisma.user as any).findFirst({
+        where: { qrCode: { startsWith: qrNorm, mode: 'insensitive' } },
+        select: { id: true, name: true, phone: true }
+      })
+    }
+    if (!target) return res.status(404).json({ error: 'Benutzer nicht gefunden. Prüfe den Code.' })
     if (target.id === userId) return res.status(400).json({ error: 'Du kannst dich nicht selbst hinzufügen' })
     const existing = await (prisma as any).friend.findFirst({
       where: { OR: [

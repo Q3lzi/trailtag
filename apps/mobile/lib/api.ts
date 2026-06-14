@@ -19,7 +19,7 @@ export async function apiFetch(
   console.log('API Response:', res.status, data);
 
   if (!res.ok) {
-    throw new Error(data.message ?? 'API Fehler');
+    throw new Error(data.error ?? data.message ?? `Fehler ${res.status}`);
   }
 
   return data;
