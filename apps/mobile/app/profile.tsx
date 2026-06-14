@@ -265,13 +265,13 @@ export default function ProfileScreen() {
 
   function shareMyQR() {
     if (!myQrCode) { showAlert('Code nicht verfügbar'); return; }
-    const msg = `Füge mich bei Trailtag als Freund hinzu!\n\nMein Code: ${myQrCode}`;
+    const msg = `Füge mich bei Trailtag als Freund hinzu!\n\nMein Code: ${myQrCode?.slice(0,8).toUpperCase()}`;
     if (Platform.OS === 'web') {
       if (typeof navigator !== 'undefined' && (navigator as any).share) {
         (navigator as any).share({ title: 'Trailtag', text: msg }).catch(() => {});
       } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(myQrCode);
-        showAlert('Code kopiert!', myQrCode);
+        navigator.clipboard.writeText(myQrCode?.slice(0,8).toUpperCase() ?? '');
+        showAlert('Code kopiert!', myQrCode?.slice(0,8).toUpperCase() ?? '');
       }
     } else {
       const { Share } = require('react-native');
@@ -488,7 +488,7 @@ export default function ProfileScreen() {
             {myQrCode ? (
               <View style={{padding:12, backgroundColor:'#fff', borderRadius:12, borderWidth:1, borderColor:'#e1e3e4'}}>
                 <QRCode
-                  value={`trailtag://friend/${myQrCode}`}
+                  value={`trailtag://friend/${myQrCode?.slice(0,8).toUpperCase()}`}
                   size={180}
                   color="#061907"
                   backgroundColor="#fff"
