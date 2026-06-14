@@ -20,14 +20,13 @@ router.get('/:token', async (req: Request, res: Response) => {
     where: { qrToken: token },
     select: { id: true, plate: true, make: true, model: true, color: true, qrToken: true, userId: true }
   })
-  if (!vehicle) return res.status(404).send(renderPage('notfound', null, null))
+  if (!vehicle) return res.status(404).send(renderNotFound())
 
   const tourInclude = {
-    locations: { orderBy: { timestamp: 'asc' as const }, take: 200 },
+    locations: { orderBy: { timestamp: 'desc' as const }, take: 500 },
     user: { include: { emergencyContacts: { orderBy: { isPrimary: 'desc' as const } } } }
   }
 
-  // Find most recent ACTIVE or ALARM tour — prefer vehicleId match
   let tour: any = await prisma.tour.findFirst({
     where: { vehicleId: vehicle.id, status: { in: ['ACTIVE', 'ALARM'] } },
     orderBy: { startedAt: 'desc' },
@@ -41,181 +40,299 @@ router.get('/:token', async (req: Request, res: Response) => {
     })
   }
 
-  // No active tour -> green
   if (!tour) return res.send(renderPage('green', vehicle, null))
-
-  // ALARM status set by alarm engine -> always show alarm
   if (tour.status === 'ALARM') return res.send(renderPage('alarm', vehicle, tour))
 
-  // ACTIVE tour: check ETA
   const etaMs = tour.eta ? new Date(tour.eta).getTime() : null
-  const nowMs = Date.now()
-
-  // No ETA or ETA in future -> active (green)
-  if (!etaMs || etaMs > nowMs) return res.send(renderPage('active', vehicle, tour))
-
-  // ETA passed -> ALARM
-  // (The alarm engine will also set status=ALARM, but portal should show it immediately)
+  if (!etaMs || etaMs > Date.now()) return res.send(renderPage('active', vehicle, tour))
   return res.send(renderPage('alarm', vehicle, tour))
 })
 
-// ── Helpers ─────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(d: any) {
   if (!d) return '—'
   return new Date(d).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
-
 function fmtTime(d: any) {
   if (!d) return '—'
   return new Date(d).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
 }
+function esc(s: any) {
+  if (!s) return ''
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
 
-function renderPage(state: string, vehicle: any, tour: any): string {
-  if (state === 'notfound') return `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:40px;text-align:center"><h2>❌ QR-Code nicht gefunden</h2><p>Dieser QR-Code ist nicht registriert.</p></body></html>`
+// Swiss licence plate HTML
+function plate(text: string) {
+  return `<div style="display:inline-flex;align-items:center;border:2.5px solid #111;border-radius:5px;overflow:hidden;font-family:monospace;">
+    <div style="background:#D52B1E;padding:4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;">
+      <span style="font-size:12px;line-height:1;">🇨🇭</span>
+    </div>
+    <div style="background:#fff;padding:5px 14px;">
+      <span style="font-size:17px;font-weight:900;letter-spacing:3px;color:#111;">${esc(text)}</span>
+    </div>
+  </div>`
+}
 
+function renderNotFound() {
+  return `<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Trailtag</title></head>
+<body style="font-family:sans-serif;padding:40px;text-align:center;background:#f8f9fa">
+<h2 style="color:#ba1a1a">❌ QR-Code nicht gefunden</h2>
+<p style="margin-top:12px;color:#747871">Dieser QR-Code ist nicht registriert.</p>
+</body></html>`
+}
+
+function renderPage(state: 'green' | 'active' | 'alarm', vehicle: any, tour: any) {
   const isAlarm = state === 'alarm'
   const isActive = state === 'active'
+  const isGreen = state === 'green'
 
-  const statusColor = isAlarm ? '#ba1a1a' : isActive ? '#2c694e' : '#2c694e'
-  const statusBg = isAlarm ? '#ffdad6' : isActive ? '#aeeecb' : '#aeeecb'
-  const statusText = isAlarm ? '🚨 ALARM — Überfällig' : isActive ? '✅ Tour aktiv' : '✅ Kein Alarm'
-
-  const user = tour?.user
-  const contacts = user?.emergencyContacts ?? []
-  const locations = tour?.locations ?? []
-  const lastLoc = locations[locations.length - 1]
+  const user = tour?.user ?? null
+  const contacts: any[] = user?.emergencyContacts ?? []
+  const locations: any[] = [...(tour?.locations ?? [])] // already ordered desc (newest first)
+  const lastLoc = locations[0] ?? null
 
   const etaMs = tour?.eta ? new Date(tour.eta).getTime() : null
   const nowMs = Date.now()
-  const minsOverdue = etaMs ? Math.floor((nowMs - etaMs) / 60000) : null
+  const minsOverdue = (isAlarm && etaMs) ? Math.floor((nowMs - etaMs) / 60000) : null
 
-  const locationBlock = (isAlarm && lastLoc) ? `
-    <div class="card">
-      <h3>📍 Letzter bekannter Standort</h3>
-      <p><strong>${lastLoc.lat.toFixed(5)}, ${lastLoc.lng.toFixed(5)}</strong></p>
-      <p style="color:#747871">Aufgezeichnet: ${fmt(lastLoc.timestamp)}</p>
-      <a href="https://maps.google.com/?q=${lastLoc.lat},${lastLoc.lng}" target="_blank" class="btn">In Google Maps öffnen</a>
-    </div>` : ''
+  // ── Status header ──
+  const statusBg   = isAlarm ? '#ba1a1a' : '#2c694e'
+  const statusLabel = isAlarm ? 'ALARM — ÜBERFÄLLIG' : isActive ? 'TOUR AKTIV' : 'KEIN ALARM'
+  const statusSub   = isAlarm
+    ? (minsOverdue !== null ? `Wanderer ${minsOverdue} Minuten überfällig. Letztes GPS-Update: ${fmt(lastLoc?.timestamp)}.` : 'Tour überfällig.')
+    : isActive
+    ? `Aktive Tour · Geplante Rückkehr: ${fmtTime(tour?.eta)}`
+    : 'Kein aktiver Wanderer registriert.'
 
-  const contactsBlock = contacts.length > 0 ? `
-    <div class="card">
-      <h3>📞 Notfallkontakte</h3>
-      ${contacts.map((c: any) => `
-        <div class="contact-row">
-          <div>
-            <strong>${c.name}</strong>${c.isPrimary ? ' ⭐' : ''}
-            ${c.relation ? `<br><span style="color:#747871">${c.relation}</span>` : ''}
+  // ── GPS Location block (ALARM only) ──
+  const locationSection = isAlarm && lastLoc ? `
+  <section style="padding:0 16px 8px">
+    <div style="background:#fff;border-radius:10px;border:1px solid #e1e3e4;overflow:hidden;">
+      <div style="padding:14px 16px;border-bottom:1px solid #e1e3e4;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:15px;font-weight:700;display:flex;align-items:center;gap:6px;">📍 Letzter bekannter Standort</span>
+        <span style="font-size:12px;color:#747871;font-family:monospace;">${lastLoc.lat.toFixed(5)}° N, ${lastLoc.lng.toFixed(5)}° E</span>
+      </div>
+      <div style="padding:14px 16px;background:#f8f9fa">
+        <p style="font-size:13px;color:#434841;margin-bottom:10px;">
+          <strong>Aufgezeichnet:</strong> ${fmt(lastLoc.timestamp)}
+        </p>
+        <a href="https://maps.google.com/?q=${lastLoc.lat},${lastLoc.lng}" target="_blank"
+           style="display:inline-block;background:#061907;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
+          In Google Maps öffnen
+        </a>
+        ${locations.length > 1 ? `
+        <details style="margin-top:12px;">
+          <summary style="font-size:13px;font-weight:700;color:#2c694e;cursor:pointer;">Alle ${locations.length} GPS-Punkte anzeigen</summary>
+          <div style="margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid #e1e3e4;border-radius:6px;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead><tr style="background:#f3f4f5;">
+                <th style="padding:6px 10px;text-align:left;font-weight:700;color:#747871;">ZEIT</th>
+                <th style="padding:6px 10px;text-align:left;font-weight:700;color:#747871;">KOORDINATEN</th>
+                ${locations[0]?.ele != null ? '<th style="padding:6px 10px;text-align:right;font-weight:700;color:#747871;">HÖHE</th>' : ''}
+              </tr></thead>
+              <tbody>
+                ${locations.map((l: any, i: number) => `
+                <tr style="border-top:1px solid #f3f4f5;${i===0?'background:#f0faf4;':''}">
+                  <td style="padding:6px 10px;color:#434841;">${fmtTime(l.timestamp)}</td>
+                  <td style="padding:6px 10px;font-family:monospace;color:#061907;">${l.lat.toFixed(5)}, ${l.lng.toFixed(5)}</td>
+                  ${l.ele != null ? `<td style="padding:6px 10px;text-align:right;color:#747871;">${Math.round(l.ele)} m</td>` : ''}
+                </tr>`).join('')}
+              </tbody>
+            </table>
           </div>
-          <a href="tel:${c.phone}" class="btn-call">${c.phone}</a>
-        </div>`).join('')}
-    </div>` : ''
+        </details>` : ''}
+      </div>
+    </div>
+  </section>` : ''
 
-  const medBlock = (isAlarm && user) ? `
-    <div class="card">
-      <h3>🏥 Medizinische Informationen</h3>
-      ${user.bloodType ? `<p><strong>Blutgruppe:</strong> ${user.bloodType}</p>` : ''}
-      ${user.allergies ? `<p><strong>Allergien:</strong> ${user.allergies}</p>` : ''}
-      ${user.medications ? `<p><strong>Medikamente:</strong> ${user.medications}</p>` : ''}
-      ${user.medicalNotes ? `<p><strong>Hinweise:</strong> ${user.medicalNotes}</p>` : ''}
-      ${!user.bloodType && !user.allergies && !user.medications && !user.medicalNotes ? '<p style="color:#747871">Keine medizinischen Daten hinterlegt</p>' : ''}
-    </div>` : ''
+  // ── Person info (ALARM: full / ACTIVE: minimal) ──
+  const personSection = (isAlarm || isActive) && user ? `
+  <section style="padding:0 16px 8px">
+    <div style="background:#fff;border-radius:10px;border:1px solid #e1e3e4;">
+      <div style="padding:14px 16px;border-bottom:1px solid #e1e3e4;">
+        <span style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;">${isAlarm ? 'VERMISSTE PERSON' : 'WANDERER'}</span>
+      </div>
+      <div style="padding:14px 16px;">
+        ${user.name ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f5;"><span style="color:#747871;font-size:13px;">Name</span><span style="font-size:14px;font-weight:700;">${esc(user.name)}</span></div>` : ''}
+        ${isAlarm && user.birthYear ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f5;"><span style="color:#747871;font-size:13px;">Jahrgang</span><span style="font-size:14px;font-weight:700;">${esc(user.birthYear)}</span></div>` : ''}
+        ${isAlarm && user.phone ? `<div style="display:flex;justify-content:space-between;padding:8px 0;"><span style="color:#747871;font-size:13px;">Telefon</span><a href="tel:${esc(user.phone)}" style="font-size:14px;font-weight:700;color:#2c694e;">${esc(user.phone)}</a></div>` : ''}
+      </div>
+    </div>
+  </section>` : ''
+
+  // ── Medical (ALARM only) ──
+  const medSection = isAlarm && user && (user.bloodType || user.allergies || user.medications || user.medicalNotes) ? `
+  <section style="padding:0 16px 8px">
+    <div style="background:#fff;border-radius:10px;border:1px solid #e1e3e4;border-left:6px solid #ba1a1a;">
+      <div style="padding:14px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #e1e3e4;">
+        <span style="font-size:18px;">🏥</span>
+        <span style="font-size:15px;font-weight:800;color:#ba1a1a;text-transform:uppercase;letter-spacing:0.5px;">Medizinische Daten</span>
+      </div>
+      <div style="padding:14px 16px;">
+        ${user.bloodType ? `
+        <div style="background:#f8f9fa;padding:10px 14px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;">BLUTGRUPPE</span>
+          <span style="font-size:20px;font-weight:900;color:#ba1a1a;">${esc(user.bloodType)}</span>
+        </div>` : ''}
+        ${user.allergies ? `
+        <div style="margin-bottom:10px;">
+          <p style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;margin-bottom:6px;">ALLERGIEN</p>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${user.allergies.split(',').map((a: string) => `<span style="background:#ffdad6;color:#93000a;padding:3px 10px;border-radius:100px;font-size:12px;font-weight:700;">${esc(a.trim())}</span>`).join('')}
+          </div>
+        </div>` : ''}
+        ${user.medications ? `
+        <div style="margin-bottom:${user.medicalNotes ? '10px' : '0'};">
+          <p style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;margin-bottom:4px;">MEDIKAMENTE / ERKRANKUNGEN</p>
+          <p style="font-size:14px;line-height:1.5;color:#191c1d;">${esc(user.medications)}</p>
+        </div>` : ''}
+        ${user.medicalNotes ? `
+        <div>
+          <p style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;margin-bottom:4px;">WEITERE HINWEISE</p>
+          <p style="font-size:14px;line-height:1.5;color:#191c1d;">${esc(user.medicalNotes)}</p>
+        </div>` : ''}
+      </div>
+    </div>
+  </section>` : ''
+
+  // ── Emergency contacts ──
+  const contactsSection = contacts.length > 0 ? `
+  <section style="padding:0 16px 8px">
+    <div style="background:#fff;border-radius:10px;border:1px solid #e1e3e4;">
+      <div style="padding:14px 16px;border-bottom:1px solid #e1e3e4;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">📞</span>
+        <span style="font-size:15px;font-weight:700;">Notfallkontakte</span>
+      </div>
+      <div style="padding:8px 0;">
+        ${contacts.map((c: any) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #f3f4f5;">
+          <div>
+            <p style="font-size:15px;font-weight:700;color:#061907;">${esc(c.name)}${c.isPrimary ? ' <span style="font-size:11px;background:#aeeecb;color:#2c694e;padding:1px 6px;border-radius:100px;font-weight:700;vertical-align:middle;">Primär</span>' : ''}</p>
+            ${c.relation ? `<p style="font-size:13px;color:#747871;">${esc(c.relation)}</p>` : ''}
+          </div>
+          <a href="tel:${esc(c.phone)}" style="width:44px;height:44px;background:${c.isPrimary ? '#aeeecb' : '#f3f4f5'};border-radius:50%;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:20px;">📞</a>
+        </div>`).join('')}
+      </div>
+    </div>
+  </section>` : ''
+
+  // ── Vehicle ──
+  const vehicleSection = `
+  <section style="padding:0 16px 8px">
+    <div style="background:#fff;border-radius:10px;border:1px solid #e1e3e4;">
+      <div style="padding:14px 16px;border-bottom:1px solid #e1e3e4;">
+        <span style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;">FAHRZEUG AM PARKPLATZ</span>
+      </div>
+      <div style="padding:14px 16px;display:flex;align-items:center;gap:14px;">
+        ${plate(vehicle.plate)}
+        <div>
+          ${vehicle.make ? `<p style="font-size:15px;font-weight:700;color:#061907;">${esc(vehicle.make)}${vehicle.model ? ' ' + esc(vehicle.model) : ''}</p>` : ''}
+          ${vehicle.color ? `<p style="font-size:13px;color:#747871;margin-top:2px;">${esc(vehicle.color)}</p>` : ''}
+        </div>
+      </div>
+    </div>
+  </section>`
+
+  // ── Tour info ──
+  const tourSection = tour ? `
+  <section style="padding:0 16px 8px">
+    <div style="background:#fff;border-radius:10px;border:1px solid #e1e3e4;">
+      <div style="padding:14px 16px;border-bottom:1px solid #e1e3e4;">
+        <span style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;">TOUR</span>
+      </div>
+      <div style="padding:4px 0;">
+        <div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f3f4f5;"><span style="color:#747871;font-size:13px;">Gestartet</span><span style="font-size:13px;font-weight:700;">${fmt(tour.startedAt)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f3f4f5;"><span style="color:#747871;font-size:13px;">Geplante Rückkehr</span><span style="font-size:13px;font-weight:700;${isAlarm ? 'color:#ba1a1a;' : ''}">${fmtTime(tour.eta)}</span></div>
+        ${tour.activity ? `<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f3f4f5;"><span style="color:#747871;font-size:13px;">Aktivität</span><span style="font-size:13px;font-weight:700;">${esc(tour.activity)}</span></div>` : ''}
+        ${tour.difficulty ? `<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f3f4f5;"><span style="color:#747871;font-size:13px;">Schwierigkeit</span><span style="font-size:13px;font-weight:700;">${esc(tour.difficulty)}</span></div>` : ''}
+        ${tour.persons > 1 ? `<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f3f4f5;"><span style="color:#747871;font-size:13px;">Personen</span><span style="font-size:13px;font-weight:700;">${tour.persons} Personen</span></div>` : ''}
+        ${tour.notes ? `<div style="padding:10px 16px;"><span style="color:#747871;font-size:13px;display:block;margin-bottom:4px;">Notizen für Rettungskräfte</span><span style="font-size:13px;color:#191c1d;line-height:1.5;">${esc(tour.notes)}</span></div>` : ''}
+      </div>
+    </div>
+  </section>` : ''
+
+  // ── Emergency call buttons (ALARM only) ──
+  const emergencyBtns = isAlarm ? `
+  <section style="padding:0 16px 12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <a href="tel:117" style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;border:2px solid #ba1a1a;color:#ba1a1a;padding:16px;border-radius:12px;text-decoration:none;font-weight:800;font-size:15px;gap:6px;">
+        🚔<span>Polizei 117</span>
+      </a>
+      <a href="tel:1414" style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:#ba1a1a;color:#fff;padding:16px;border-radius:12px;text-decoration:none;font-weight:800;font-size:15px;gap:6px;animation:pulse 2s infinite;">
+        🚁<span>REGA 1414</span>
+      </a>
+    </div>
+  </section>` : ''
+
+  // ── Overdue banner ──
+  const overdueBanner = isAlarm && minsOverdue !== null ? `
+  <div style="background:#fff3cd;border:1px solid #f59e0b;border-radius:8px;padding:12px 16px;margin:8px 16px;font-size:13px;">
+    ⏱ Geplante Rückkehr war vor <strong>${minsOverdue} Minuten</strong> (${fmtTime(tour?.eta)})
+  </div>` : ''
 
   return `<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trailtag Ersthelfer-Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Trailtag – Ersthelfer-Portal</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #191c1d; }
-    .header { background: #061907; color: white; padding: 20px; text-align: center; }
-    .header h1 { font-size: 22px; font-weight: 800; }
-    .header p { font-size: 13px; opacity: 0.7; margin-top: 4px; }
-    .status-banner { background: ${statusBg}; color: ${statusColor}; padding: 16px 20px; text-align: center; font-weight: 800; font-size: 17px; border-bottom: 2px solid ${statusColor}; }
-    .container { max-width: 600px; margin: 0 auto; padding: 16px; }
-    .card { background: white; border-radius: 8px; padding: 16px; margin-bottom: 12px; border: 1px solid #e1e3e4; }
-    .card h3 { font-size: 14px; font-weight: 700; color: #747871; letter-spacing: 0.5px; margin-bottom: 12px; }
-    .card p { font-size: 14px; line-height: 1.5; margin-bottom: 6px; }
-    .vehicle-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f3f4f5; }
-    .vehicle-row:last-child { border-bottom: none; }
-    .label { font-size: 11px; color: #747871; font-weight: 600; }
-    .value { font-size: 14px; font-weight: 700; }
-    .plate { background: #fff9c4; border: 2px solid #f59e0b; border-radius: 4px; padding: 4px 12px; font-size: 16px; font-weight: 900; letter-spacing: 2px; }
-    .contact-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f3f4f5; }
-    .contact-row:last-child { border-bottom: none; }
-    .btn-call { background: #2c694e; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 13px; }
-    .btn { display: inline-block; background: #061907; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 700; margin-top: 8px; }
-    .emergency-btns { display: flex; gap: 10px; margin-top: 4px; }
-    .btn-police { background: #1d4ed8; color: white; flex: 1; text-align: center; padding: 14px; border-radius: 8px; text-decoration: none; font-weight: 800; font-size: 16px; }
-    .btn-rega { background: #ba1a1a; color: white; flex: 1; text-align: center; padding: 14px; border-radius: 8px; text-decoration: none; font-weight: 800; font-size: 16px; }
-    .overdue-info { background: #fff3cd; border: 1px solid #f59e0b; border-radius: 6px; padding: 12px; margin-bottom: 12px; font-size: 13px; }
-    .refresh { text-align: center; color: #747871; font-size: 11px; margin-top: 16px; padding-bottom: 32px; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(186,26,26,0.5); } 70% { box-shadow: 0 0 0 12px rgba(186,26,26,0); } }
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>🏔 Trailtag</h1>
-    <p>Ersthelfer-Portal</p>
-  </div>
 
-  <div class="status-banner">${statusText}</div>
-
-  <div class="container">
-
-    ${isAlarm && minsOverdue !== null ? `
-    <div class="overdue-info">
-      ⏱ Geplante Rückkehr war vor <strong>${minsOverdue} Minuten</strong> (${fmtTime(tour?.eta)})
-    </div>` : ''}
-
-    ${isAlarm ? `
-    <div class="card">
-      <h3>NOTRUF</h3>
-      <div class="emergency-btns">
-        <a href="tel:117" class="btn-police">🚔 Polizei 117</a>
-        <a href="tel:1414" class="btn-rega">🚁 REGA 1414</a>
+  <!-- Header -->
+  <header style="background:#f8f9fa;position:sticky;top:0;z-index:50;border-bottom:1px solid #e1e3e4;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0 16px;height:56px;max-width:600px;margin:0 auto;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:20px;">🏔</span>
+        <span style="font-size:18px;font-weight:800;color:#061907;">Trailtag</span>
       </div>
-    </div>` : ''}
-
-    <div class="card">
-      <h3>FAHRZEUG</h3>
-      <div class="vehicle-row">
-        <span class="label">KENNZEICHEN</span>
-        <span class="plate">${vehicle?.plate ?? '—'}</span>
-      </div>
-      ${vehicle?.make ? `<div class="vehicle-row"><span class="label">FAHRZEUG</span><span class="value">${vehicle.make} ${vehicle.model ?? ''}</span></div>` : ''}
-      ${vehicle?.color ? `<div class="vehicle-row"><span class="label">FARBE</span><span class="value">${vehicle.color}</span></div>` : ''}
+      ${isAlarm ? `<div style="display:flex;align-items:center;gap:6px;background:#ffdad6;color:#ba1a1a;padding:4px 12px;border-radius:100px;animation:pulse 2s infinite;">
+        <span style="font-size:14px;">⚠️</span>
+        <span style="font-size:11px;font-weight:800;letter-spacing:1px;">NOTFALL</span>
+      </div>` : `<div style="display:flex;align-items:center;gap:6px;background:#aeeecb;color:#2c694e;padding:4px 12px;border-radius:100px;">
+        <span style="font-size:14px;">✅</span>
+        <span style="font-size:11px;font-weight:800;letter-spacing:1px;">${isActive ? 'AKTIV' : 'OK'}</span>
+      </div>`}
     </div>
+  </header>
 
-    ${tour ? `
-    <div class="card">
-      <h3>TOUR</h3>
-      <div class="vehicle-row"><span class="label">GESTARTET</span><span class="value">${fmt(tour.startedAt)}</span></div>
-      <div class="vehicle-row"><span class="label">GEPLANTE RÜCKKEHR</span><span class="value">${fmtTime(tour.eta)}</span></div>
-      ${tour.activity ? `<div class="vehicle-row"><span class="label">AKTIVITÄT</span><span class="value">${tour.activity}</span></div>` : ''}
-      ${tour.difficulty ? `<div class="vehicle-row"><span class="label">SCHWIERIGKEIT</span><span class="value">${tour.difficulty}</span></div>` : ''}
-      ${tour.notes ? `<div class="vehicle-row" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="label">NOTIZEN</span><span style="font-size:14px">${tour.notes}</span></div>` : ''}
-    </div>` : ''}
-
-    ${locationBlock}
-    ${contactsBlock}
-    ${medBlock}
-
-    ${isActive && user ? `
-    <div class="card">
-      <h3>WANDERER</h3>
-      ${user.name ? `<div class="vehicle-row"><span class="label">NAME</span><span class="value">${user.name}</span></div>` : ''}
-      ${user.phone ? `<div class="vehicle-row"><span class="label">TELEFON</span><a href="tel:${user.phone}" style="font-weight:700">${user.phone}</a></div>` : ''}
-      ${user.birthYear ? `<div class="vehicle-row"><span class="label">JAHRGANG</span><span class="value">${user.birthYear}</span></div>` : ''}
+  <!-- Status Hero -->
+  <div style="background:${statusBg};color:#fff;padding:20px 16px;position:relative;overflow:hidden;">
+    <div style="max-width:600px;margin:0 auto;position:relative;z-index:1;">
+      <p style="font-size:11px;font-weight:700;opacity:0.8;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">Safety Status</p>
+      <h1 style="font-size:26px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px;">${statusLabel}</h1>
+      <p style="font-size:14px;opacity:0.9;">${statusSub}</p>
     </div>
-    ${contactsBlock}` : ''}
+    <div style="position:absolute;right:-20px;bottom:-20px;opacity:0.1;font-size:120px;">${isAlarm ? '🚨' : '⛰'}</div>
+  </div>
+
+  <div style="max-width:600px;margin:0 auto;padding-top:12px;padding-bottom:32px;">
+
+    ${overdueBanner}
+    ${emergencyBtns}
+    ${locationSection}
+    ${isAlarm ? personSection : ''}
+    ${medSection}
+    ${contactsSection}
+    ${vehicleSection}
+    ${tourSection}
+    ${isActive ? personSection : ''}
 
   </div>
 
-  <div class="refresh">
-    Zuletzt aktualisiert: ${new Date().toLocaleTimeString('de-CH')} · Seite alle 30s automatisch aktualisiert
-  </div>
+  <!-- Footer -->
+  <footer style="text-align:center;padding:16px;color:#747871;font-size:11px;border-top:1px solid #e1e3e4;background:#f8f9fa;">
+    Zuletzt aktualisiert: ${new Date().toLocaleTimeString('de-CH')} · Automatische Aktualisierung alle 30 Sekunden
+  </footer>
 
   <script>setTimeout(() => location.reload(), 30000)</script>
 </body>
