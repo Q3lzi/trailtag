@@ -296,6 +296,13 @@ export default function ProfileScreen() {
     } catch (err: any) { showAlert('Fehler', err.message); }
   }
 
+  async function savePrivacy(updates: Record<string, boolean>) {
+    try {
+      const token = await getToken();
+      await apiFetch('/profile', { method: 'PUT', body: JSON.stringify(updates) }, token ?? undefined);
+    } catch (err: any) { showAlert('Fehler beim Speichern', err.message); }
+  }
+
   function shareMyQR() {
     if (!myQrCode) return;
     const code = myQrCode.slice(0,8).toUpperCase();
@@ -690,7 +697,7 @@ export default function ProfileScreen() {
                     <Text style={{fontSize:14,fontWeight:'600',color:'#191c1d'}}>{label}</Text>
                     <Text style={{fontSize:11,color:'#c3c8bf',marginTop:1}}>{sub}</Text>
                   </View>
-                  <Switch value={val} onValueChange={set} trackColor={{false:'#e1e3e4',true:'#aeeecb'}} thumbColor={val?'#2c694e':'#fff'}/>
+                  <Switch value={val} onValueChange={(v) => { set(v); savePrivacy({ [key]: v }); }} trackColor={{false:'#e1e3e4',true:'#aeeecb'}} thumbColor={val?'#2c694e':'#fff'}/>
                 </View>
               ))}
               <Text style={{fontSize:11,color:'#2c694e',marginTop:10,fontStyle:'italic'}}>Im Alarmfall sind immer alle Daten sichtbar</Text>
