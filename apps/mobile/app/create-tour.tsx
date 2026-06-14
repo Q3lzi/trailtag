@@ -184,54 +184,6 @@ function ElevationChart({ points }: { points:any[] }) {
   );
 }
 
-// ─── DateTime Row (top-level to prevent remount on parent re-render) ──────────
-function DtRow({label,dt,setDt,showD,setShowD,showT,setShowT}:any) {
-  return (
-    <View style={{marginBottom:14}}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={styles.dtRow}>
-        {Platform.OS==='web' ? (
-          <>
-            <input type="date" style={styles.webDateIn as any}
-              value={dt.toISOString().split('T')[0]}
-              onChange={e => {
-                const [y,m,d]=e.target.value.split('-').map(Number);
-                const n=new Date(dt); n.setFullYear(y,m-1,d); setDt(n);
-              }}
-            />
-            <input type="time" style={styles.webTimeIn as any}
-              value={`${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`}
-              onChange={e => {
-                const [h,m]=e.target.value.split(':').map(Number);
-                const n=new Date(dt); n.setHours(h,m,0,0); setDt(n);
-              }}
-            />
-          </>
-        ) : (
-          <>
-            <TouchableOpacity style={styles.dtBtn} onPress={()=>setShowD(true)}>
-              <Calendar size={13} color="#747871" strokeWidth={2}/>
-              <Text style={styles.dtBtnText}>{dt.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'2-digit'})}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.dtBtn} onPress={()=>setShowT(true)}>
-              <Clock size={13} color="#747871" strokeWidth={2}/>
-              <Text style={styles.dtBtnText}>{dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})}</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-      {showD&&Platform.OS!=='web'&&(
-        <DateTimePicker value={dt} mode="date" display="inline" minimumDate={new Date()}
-          onChange={(e,d)=>{if(d){const n=new Date(dt);n.setFullYear(d.getFullYear(),d.getMonth(),d.getDate());setDt(n);}if(e.type==='set')setShowD(false);}}/>
-      )}
-      {showT&&Platform.OS!=='web'&&(
-        <DateTimePicker value={dt} mode="time" display="spinner" is24Hour
-          onChange={(e,d)=>{if(d){const n=new Date(dt);n.setHours(d.getHours(),d.getMinutes(),0,0);setDt(n);}if(e.type==='set')setShowT(false);}}/>
-      )}
-    </View>
-  );
-}
-
 export default function CreateTourScreen() {
   const params = useLocalSearchParams<{prefill?:string}>();
   const [step, setStep] = useState(0);
@@ -275,7 +227,6 @@ export default function CreateTourScreen() {
   const [newWpLng, setNewWpLng] = useState('');
   const [newWpNotes, setNewWpNotes] = useState('');
   const [showAddWp, setShowAddWp] = useState(false);
-  const [editWpIdx, setEditWpIdx] = useState<number|null>(null);
 
   const [persons, setPersons] = useState<PersonInfo[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
@@ -348,9 +299,11 @@ export default function CreateTourScreen() {
           const lat = pos.coords.latitude.toFixed(6);
           const lng = pos.coords.longitude.toFixed(6);
           setStartLat(lat); setStartLng(lng);
-          // Always overwrite parking coords with GPS
-          setParkingLat(lat); setParkingLng(lng);
-          setParkingMapKey(k => k+1); // force MapPicker remount with new coords
+          // Also set as parking if not set
+          if (!parkingLat) {
+            setParkingLat(lat); setParkingLng(lng);
+            setParkingMapKey(k => k+1); // force MapPicker remount with new coords
+          }
           setLocationStatus('ok');
         },
         () => setLocationStatus('denied')
@@ -364,8 +317,7 @@ export default function CreateTourScreen() {
     const lat = pos.coords.latitude.toFixed(6);
     const lng = pos.coords.longitude.toFixed(6);
     setStartLat(lat); setStartLng(lng);
-    // Always update parking coords with GPS (not only when empty)
-    setParkingLat(lat); setParkingLng(lng); setParkingMapKey(k=>k+1);
+    if (!parkingLat) { setParkingLat(lat); setParkingLng(lng); setParkingMapKey(k=>k+1); }
     setLocationStatus('ok');
   }
 
@@ -409,9 +361,6 @@ if (data.startLat) {
     const errs: string[] = [];
     if (s === 0 && !activity) errs.push('Bitte eine Aktivität wählen');
     if (s === 1 && etaDateTime <= startDateTime) errs.push('Rückkehrzeit muss nach dem Start liegen');
-    if (s === 1 && etaDateTime.getTime() < Date.now()) errs.push('Rückkehrzeit muss in der Zukunft liegen');
-    if (s === 2 && !routeName.trim()) errs.push('Routenname ist erforderlich');
-    if (s === 3 && selectedContacts.length === 0) errs.push('Bitte mindestens einen Notfallkontakt wählen oder hinzufügen');
     return errs;
   }
 
@@ -428,12 +377,15 @@ if (data.startLat) {
     setLoading(true);
     try {
       const token = await getToken();
+      const allWaypoints = [
+        ...waypoints.map(w=>w.name),
+        ...(gpxData?.waypoints?.map((w:any)=>w.name)||[]),
+      ].filter(Boolean);
       const allNotes = [
         notes,
         routeDesc ? `Route: ${routeDesc}` : '',
         equipmentNotes ? `Ausrüstung: ${equipmentNotes}` : '',
-        // Manual waypoints (not GPX ones — those live in gpxTrack.waypoints)
-        waypoints.length>0 ? `Wegpunkte: ${waypoints.map(w=>w.name).join(' → ')}` : '',
+        allWaypoints.length>0 ? `Wegpunkte: ${allWaypoints.join(' → ')}` : '',
         overnightStops.filter(s=>s.name).map(s=>`Nacht ${s.night}: ${s.name}${s.contactPhone?` Tel: ${s.contactPhone}`:''}`).join(', '),
       ].filter(Boolean).join('\n');
 
@@ -465,6 +417,68 @@ if (data.startLat) {
       }
     } catch(err:any) { setErrors([err.message]); }
     finally { setLoading(false); }
+  }
+
+  // ─── DateTime Row ─────────────────────────────────────────────
+  function DtRow({label,dt,setDt,showD,setShowD,showT,setShowT}:any) {
+    return (
+      <View style={{marginBottom:14}}>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        <View style={styles.dtRow}>
+          {Platform.OS==='web' ? (
+            <>
+              <input type="date" style={styles.webDateIn as any}
+                min={new Date().toISOString().split('T')[0]}
+                value={dt.toISOString().split('T')[0]}
+                onChange={e => {
+                  const [y,m,d]=e.target.value.split('-').map(Number);
+                  const n=new Date(dt); n.setFullYear(y,m-1,d); setDt(n);
+                }}
+              />
+              <input type="time" style={styles.webTimeIn as any}
+                value={`${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`}
+                onChange={e => {
+                  const [h,m]=e.target.value.split(':').map(Number);
+                  const n=new Date(dt); n.setHours(h,m,0,0); setDt(n);
+                }}
+              />
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.dtBtn} onPress={()=>setShowD(true)}>
+                <Calendar size={13} color="#747871" strokeWidth={2}/>
+                <Text style={styles.dtBtnText}>{dt.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'2-digit'})}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.dtBtn} onPress={()=>setShowT(true)}>
+                <Clock size={13} color="#747871" strokeWidth={2}/>
+                <Text style={styles.dtBtnText}>{dt.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})}</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+        {showD&&Platform.OS!=='web'&&(
+          <DateTimePicker value={dt} mode="date" display="inline" minimumDate={new Date()}
+            onChange={(e,d)=>{if(d){const n=new Date(dt);n.setFullYear(d.getFullYear(),d.getMonth(),d.getDate());setDt(n);}if(e.type==='set')setShowD(false);}}/>
+        )}
+        {showT&&Platform.OS!=='web'&&(
+          <DateTimePicker value={dt} mode="time" display="spinner" is24Hour
+            onChange={(e,d)=>{if(d){const n=new Date(dt);n.setHours(d.getHours(),d.getMinutes(),0,0);setDt(n);}if(e.type==='set')setShowT(false);}}/>
+        )}
+      </View>
+    );
+  }
+
+  // ─── Error Banner ─────────────────────────────────────────────
+  function ErrorBanner() {
+    if (errors.length === 0) return null;
+    return (
+      <View style={styles.errorBanner}>
+        <AlertTriangle size={14} color="#ba1a1a" strokeWidth={2}/>
+        <View style={{flex:1}}>
+          {errors.map((e,i) => <Text key={i} style={styles.errorText}>{e}</Text>)}
+        </View>
+      </View>
+    );
   }
 
   // ─── Steps ────────────────────────────────────────────────────
@@ -558,17 +572,25 @@ if (data.startLat) {
                 <Text style={styles.mapLink}>↗ In Google Maps öffnen</Text>
               </TouchableOpacity>
             ) : null}
-            {stop.type!=='biwak' ? (
+            {/* Reservierung nur bei buchbaren Unterkünften */}
+            {!['biwak','zelt','camping'].includes(stop.type) ? (
               <TouchableOpacity style={styles.checkRow} onPress={()=>updateStop(i,{reserved:!stop.reserved})}>
                 {stop.reserved ? <CheckSquare size={18} color="#2c694e" strokeWidth={2}/> : <Square size={18} color="#c3c8bf" strokeWidth={1.8}/>}
                 <Text style={[styles.checkTxt,stop.reserved&&{color:'#2c694e'}]}>Reservierung bestätigt</Text>
               </TouchableOpacity>
-            ) : null}
+            ) : (
+              <View style={{backgroundColor:'#f0faf4',borderRadius:6,padding:10,marginBottom:8}}>
+                <Text style={{fontSize:12,color:'#2c694e'}}>ℹ️ {stop.type === 'zelt' ? 'Zelt/Biwak' : 'Camping'} — keine Reservierung nötig</Text>
+              </View>
+            )}
+            {/* Kontaktperson nur bei buchbaren Unterkünften */}
+            {!['biwak','zelt','camping'].includes(stop.type) ? (<>
             <Text style={styles.inputLabel}>Kontaktperson</Text>
             <TextInput style={styles.input} placeholder="Name Hüttenwart / Kontakt" placeholderTextColor="#bbb"
               value={stop.contactName} onChangeText={v=>updateStop(i,{contactName:v})}/>
             <TextInput style={styles.input} placeholder="Telefonnummer" placeholderTextColor="#bbb"
               keyboardType="phone-pad" value={stop.contactPhone} onChangeText={v=>updateStop(i,{contactPhone:v})}/>
+            </>) : null}
             <Text style={styles.inputLabel}>Notizen</Text>
             <TextInput style={[styles.input,{height:56}]} placeholder="z.B. Matratzenlager, kein Empfang" placeholderTextColor="#bbb"
               multiline value={stop.notes} onChangeText={v=>updateStop(i,{notes:v})}/>
@@ -608,30 +630,54 @@ if (data.startLat) {
     <View style={styles.gpxSummary}>
       <Text style={styles.gpxSummaryText}>{gpxData.summaryLine}</Text>
     </View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginTop:12}}>
-      <View style={styles.gpxStats}>
-        <View style={styles.gpxStat}><Text style={styles.gpxVal}>{gpxData.distanceKm}</Text><Text style={styles.gpxKey}>km</Text></View>
-        <View style={styles.gpxDiv}/>
-        <View style={styles.gpxStat}><Text style={styles.gpxVal}>{gpxData.elevationUp}</Text><Text style={styles.gpxKey}>hm ↑</Text></View>
-        <View style={styles.gpxDiv}/>
-        <View style={styles.gpxStat}><Text style={styles.gpxVal}>{gpxData.elevationDown}</Text><Text style={styles.gpxKey}>hm ↓</Text></View>
-        <View style={styles.gpxDiv}/>
-        <View style={styles.gpxStat}><Text style={styles.gpxVal}>{gpxData.pointCount}</Text><Text style={styles.gpxKey}>Punkte</Text></View>
-        {gpxData.waypointCount > 0 ? (<><View style={styles.gpxDiv}/><View style={styles.gpxStat}><Text style={styles.gpxVal}>{gpxData.waypointCount}</Text><Text style={styles.gpxKey}>Stopps</Text></View></>) : null}
-        {gpxData.durationMinutes ? (<><View style={styles.gpxDiv}/><View style={styles.gpxStat}><Text style={styles.gpxVal}>{Math.floor(gpxData.durationMinutes/60)}h {gpxData.durationMinutes%60}m</Text><Text style={styles.gpxKey}>Dauer</Text></View></>) : null}
-      </View>
-    </ScrollView>
+    <View style={styles.gpxStats}>
+      <View style={styles.gpxStat}><Text style={styles.gpxVal}>{gpxData.distanceKm}</Text><Text style={styles.gpxKey}>km</Text></View>
+      <View style={styles.gpxDiv}/>
+      <View style={styles.gpxStat}><Text style={styles.gpxVal}>{gpxData.elevationUp}</Text><Text style={styles.gpxKey}>hm ↑</Text></View>
+      <View style={styles.gpxDiv}/>
+      <View style={styles.gpxStat}><Text style={styles.gpxVal}>{gpxData.elevationDown}</Text><Text style={styles.gpxKey}>hm ↓</Text></View>
+      <View style={styles.gpxDiv}/>
+      <View style={styles.gpxStat}><Text style={styles.gpxVal}>{gpxData.pointCount}</Text><Text style={styles.gpxKey}>Punkte</Text></View>
+      {gpxData.waypointCount > 0 ? (
+        <View style={{flexDirection:'row',alignItems:'center',gap:16}}>
+          <View style={styles.gpxDiv}/>
+          <View style={styles.gpxStat}><Text style={styles.gpxVal}>{gpxData.waypointCount}</Text><Text style={styles.gpxKey}>Stopps</Text></View>
+        </View>
+      ) : null}
+      {gpxData.durationMinutes ? (
+        <View style={{flexDirection:'row',alignItems:'center',gap:16}}>
+          <View style={styles.gpxDiv}/>
+          <View style={styles.gpxStat}>
+            <Text style={styles.gpxVal}>{Math.floor(gpxData.durationMinutes/60)}h {gpxData.durationMinutes%60}m</Text>
+            <Text style={styles.gpxKey}>Dauer</Text>
+          </View>
+        </View>
+      ) : null}
+    </View>
     <GpxMapPreview points={gpxData.points} waypoints={gpxData.waypoints}/>
     <ElevationChart points={gpxData.points}/>
+    {gpxData.waypoints?.length > 0 ? (
+      <View style={{marginTop:10}}>
+        <Text style={styles.inputLabel}>Wegpunkte aus GPX ({gpxData.waypointCount})</Text>
+        {gpxData.waypoints.map((wp:any, i:number) => (
+          <View key={i} style={styles.wpRow}>
+            <Flag size={12} color="#f59e0b" strokeWidth={2}/>
+            <View style={{flex:1}}>
+              <Text style={styles.wpTxt}>{wp.name}</Text>
+              {wp.ele ? <Text style={styles.wpSub}>{Math.round(wp.ele)} m</Text> : null}
+            </View>
+          </View>
+        ))}
+      </View>
+    ) : null}
   </View>
 ) : null}
-        </View>
 
         <View style={[styles.card,{marginTop:12}]}>
           <Text style={styles.fieldLabel}>STARTDETAILS</Text>
           <Text style={styles.inputLabel}>Routenname</Text>
           <TextInput style={styles.input} placeholder="z.B. Diesbacher Höhen-Loop" placeholderTextColor="#bbb"
-            value={routeName} onChangeText={v=>{setRouteName(v);if(v.trim())setErrors([]);}}/>
+            value={routeName} onChangeText={setRouteName}/>
           <Text style={styles.inputLabel}>Parkplatz / Startort</Text>
           <TextInput style={styles.input} placeholder="z.B. Wanderparkplatz Schwägalp" placeholderTextColor="#bbb"
             value={parkingLocation} onChangeText={setParkingLocation}/>
@@ -661,88 +707,23 @@ if (data.startLat) {
         {/* Manual waypoints */}
         <View style={[styles.card,{marginTop:12}]}>
           <Text style={styles.fieldLabel}>MANUELLE WEGPUNKTE / ZWISCHENSTOPPS</Text>
-          {/* GPX Waypoints (read-only, from file) */}
-          {gpxData?.waypoints?.length > 0 ? (
-            <View style={{marginBottom:8}}>
-              <Text style={styles.inputLabel}>Aus GPX-Datei ({gpxData.waypointCount} Wegpunkte)</Text>
-              {gpxData.waypoints.map((wp:any, i:number) => (
-                <View key={`gpx-${i}`} style={[styles.wpRow,{backgroundColor:'#fffbf0',borderRadius:4,paddingHorizontal:8}]}>
-                  <Flag size={12} color="#f59e0b" strokeWidth={2}/>
-                  <View style={{flex:1}}>
-                    <Text style={styles.wpTxt}>{wp.name}</Text>
-                    {wp.ele ? <Text style={styles.wpSub}>{Math.round(wp.ele)} m ü.M.</Text> : null}
-                    {(wp.lat&&wp.lng) ? <Text style={styles.wpSub}>{parseFloat(wp.lat).toFixed(4)}, {parseFloat(wp.lng).toFixed(4)}</Text> : null}
-                  </View>
-                  <Text style={{fontSize:10,color:'#f59e0b',fontWeight:'700'}}>GPX</Text>
-                </View>
-              ))}
-              {waypoints.length > 0 ? <View style={{height:1,backgroundColor:'#e1e3e4',marginVertical:8}}/> : null}
-            </View>
-          ) : null}
-          {/* Manual waypoints */}
           {waypoints.map((wp,i) => (
-            <View key={i}>
-              {editWpIdx === i ? (
-                // ── Inline Edit Form ──
-                <View style={[styles.addCForm,{marginBottom:8}]}>
-                  <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-                    <Text style={styles.inputLabel}>Wegpunkt bearbeiten</Text>
-                    <TouchableOpacity onPress={()=>setEditWpIdx(null)}>
-                      <Text style={{fontSize:12,color:'#747871',fontWeight:'700'}}>Abbrechen</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TextInput style={styles.input} placeholder="Name / Bezeichnung" placeholderTextColor="#bbb"
-                    value={newWpName} onChangeText={setNewWpName}/>
-                  <View style={{flexDirection:'row',gap:8}}>
-                    <TextInput style={[styles.input,{flex:1}]} placeholder="Breitengrad" placeholderTextColor="#bbb"
-                      keyboardType="numeric" value={newWpLat} onChangeText={setNewWpLat}/>
-                    <TextInput style={[styles.input,{flex:1}]} placeholder="Längengrad" placeholderTextColor="#bbb"
-                      keyboardType="numeric" value={newWpLng} onChangeText={setNewWpLng}/>
-                  </View>
-                  {Platform.OS==='web' ? (
-                    <MapPicker key={`wp-edit-${i}`} lat={newWpLat} lng={newWpLng} mapKey={`editwp_${i}`}
-                      onSelect={(lat,lng)=>{setNewWpLat(lat);setNewWpLng(lng);}}/>) : null}
-                  <TextInput style={styles.input} placeholder="Notizen (optional)" placeholderTextColor="#bbb"
-                    value={newWpNotes} onChangeText={setNewWpNotes}/>
-                  <TouchableOpacity style={styles.saveCBtn} onPress={()=>{
-                    if (!newWpName.trim()) { showAlert('Fehler','Name erforderlich'); return; }
-                    setWaypoints(prev=>prev.map((w,j)=>j===i?{name:newWpName.trim(),lat:newWpLat,lng:newWpLng,notes:newWpNotes}:w));
-                    setNewWpName(''); setNewWpLat(''); setNewWpLng(''); setNewWpNotes('');
-                    setEditWpIdx(null);
-                  }}>
-                    <Text style={styles.saveCTxt}>Speichern</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                // ── Display Row ──
-                <View style={[styles.wpRow,{alignItems:'center'}]}>
-                  <Flag size={12} color="#2c694e" strokeWidth={2}/>
-                  <View style={{flex:1}}>
-                    <Text style={styles.wpTxt}>{wp.name}</Text>
-                    {(wp.lat&&wp.lng) ? <Text style={styles.wpSub}>{parseFloat(wp.lat).toFixed(4)}, {parseFloat(wp.lng).toFixed(4)}</Text> : null}
-                    {wp.notes ? <Text style={styles.wpSub}>{wp.notes}</Text> : null}
-                  </View>
-                  <View style={{flexDirection:'row',gap:12}}>
-                    <TouchableOpacity onPress={()=>{
-                      setNewWpName(wp.name); setNewWpLat(wp.lat); setNewWpLng(wp.lng); setNewWpNotes(wp.notes);
-                      setEditWpIdx(i); setShowAddWp(false);
-                    }}>
-                      <Text style={{fontSize:12,color:'#2c694e',fontWeight:'700'}}>Bearbeiten</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={()=>setWaypoints(prev=>prev.filter((_,j)=>j!==i))}>
-                      <Trash2 size={14} color="#e1e3e4" strokeWidth={1.8}/>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
+            <View key={i} style={styles.wpRow}>
+              <Flag size={12} color="#2c694e" strokeWidth={2}/>
+              <View style={{flex:1}}>
+                <Text style={styles.wpTxt}>{wp.name}</Text>
+                {(wp.lat&&wp.lng) ? <Text style={styles.wpSub}>{parseFloat(wp.lat).toFixed(4)}, {parseFloat(wp.lng).toFixed(4)}</Text> : null}
+                {wp.notes ? <Text style={styles.wpSub}>{wp.notes}</Text> : null}
+              </View>
+              <TouchableOpacity onPress={()=>setWaypoints(prev=>prev.filter((_,j)=>j!==i))}>
+                <Trash2 size={14} color="#e1e3e4" strokeWidth={1.8}/>
+              </TouchableOpacity>
             </View>
           ))}
-          {editWpIdx === null ? (
-            <TouchableOpacity style={styles.addCBtn} onPress={()=>setShowAddWp(v=>!v)}>
-              <Plus size={15} color="#2c694e" strokeWidth={2}/>
-              <Text style={styles.addCTxt}>Wegpunkt hinzufügen</Text>
-            </TouchableOpacity>
-          ) : null}
+          <TouchableOpacity style={styles.addCBtn} onPress={()=>setShowAddWp(v=>!v)}>
+            <Plus size={15} color="#2c694e" strokeWidth={2}/>
+            <Text style={styles.addCTxt}>Wegpunkt hinzufügen</Text>
+          </TouchableOpacity>
           {showAddWp ? (
             <View style={[styles.addCForm,{marginTop:8}]}>
               <Text style={styles.inputLabel}>Name / Bezeichnung</Text>
@@ -1069,12 +1050,12 @@ if (data.startLat) {
 
   function renderStep() {
     switch(step) {
-      case 0: return S0();
-      case 1: return S1();
-      case 2: return S2();
-      case 3: return S3();
-      case 4: return S4();
-      case 5: return S5();
+      case 0: return <S0/>;
+      case 1: return <S1/>;
+      case 2: return <S2/>;
+      case 3: return <S3/>;
+      case 4: return <S4/>;
+      case 5: return <S5/>;
       default: return null;
     }
   }
@@ -1100,14 +1081,7 @@ if (data.startLat) {
         ))}
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollC}>
-        {errors.length > 0 ? (
-          <View style={styles.errorBanner}>
-            <AlertTriangle size={14} color="#ba1a1a" strokeWidth={2}/>
-            <View style={{flex:1}}>
-              {errors.map((e,i) => <Text key={i} style={styles.errorText}>{e}</Text>)}
-            </View>
-          </View>
-        ) : null}
+        <ErrorBanner/>
         {renderStep()}
         <View style={{height:20}}/>
       </ScrollView>
@@ -1187,7 +1161,7 @@ typeBtn: {alignItems:'center',gap:5,padding:10,borderRadius:6,borderWidth:1.5,bo
   gpxDone:{borderColor:'#2c694e',borderStyle:'solid' as any,backgroundColor:'#f0faf4'},
   gpxTitle:{fontSize:14,fontWeight:'700',color:'#434841'},
   gpxSub:{fontSize:11,color:'#c3c8bf',textAlign:'center'},
-  gpxStats:{flexDirection:'row',alignItems:'center',gap:16,backgroundColor:'#f0faf4',borderRadius:6,padding:12,paddingHorizontal:16},
+  gpxStats:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:16,backgroundColor:'#f0faf4',borderRadius:6,padding:12,marginTop:12},
   gpxStat:{alignItems:'center'},
   gpxVal:{fontSize:20,fontWeight:'900',color:'#2c694e'},
   gpxKey:{fontSize:10,color:'#747871',fontWeight:'600'},
@@ -1233,7 +1207,7 @@ typeBtn: {alignItems:'center',gap:5,padding:10,borderRadius:6,borderWidth:1.5,bo
   planBtn:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,backgroundColor:'#fff',borderRadius:6,padding:16,marginTop:10,borderWidth:1.5,borderColor:'#e1e3e4'},
   planTxt:{color:'#434841',fontWeight:'700',fontSize:14},
   bottomBar:{flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:20,paddingVertical:16,backgroundColor:'#fff',borderTopWidth:1,borderTopColor:'#e1e3e4',paddingBottom:Platform.OS==='ios'?32:16},
-  backBtnBottom:{flexDirection:'row',alignItems:'center',gap:4,paddingHorizontal:16,paddingVertical:16,borderRadius:6,borderWidth:1.5,borderColor:'#e1e3e4'},
+  backBtnBottom:{flexDirection:'row',alignItems:'center',gap:4,paddingHorizontal:14,paddingVertical:14,borderRadius:6,borderWidth:1.5,borderColor:'#e1e3e4'},
   backBtnBottomTxt:{fontSize:13,color:'#747871',fontWeight:'700'},
   nextBtn:{flex:1,backgroundColor:'#061907',borderRadius:6,paddingVertical:16,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8},
   nextOff:{opacity:0.4},
