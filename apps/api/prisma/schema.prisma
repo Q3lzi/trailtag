@@ -21,7 +21,12 @@ model User {
   allergies     String?
   medications   String?
   medicalNotes  String?
+  qrCode        String   @unique @default(uuid())
+  expoPushToken String?
   tours              Tour[]
+  friendsInitiated   Friend[]       @relation("FriendInitiator")
+  friendsReceived    Friend[]       @relation("FriendReceiver")
+  friendGroups       FriendGroup[]
   vehicles           Vehicle[]
   emergencyContacts  EmergencyContact[]
 }
@@ -109,6 +114,34 @@ model AlarmEvent {
   triggeredAt DateTime @default(now())
   channel     String
   delivered   Boolean  @default(false)
+}
+
+model FriendGroup {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  color     String   @default("#2c694e")
+  createdAt DateTime @default(now())
+  friends   Friend[]
+}
+
+model Friend {
+  id          String      @id @default(uuid())
+  initiatorId String
+  initiator   User        @relation("FriendInitiator", fields: [initiatorId], references: [id])
+  receiverId  String
+  receiver    User        @relation("FriendReceiver", fields: [receiverId], references: [id])
+  groupId     String?
+  group       FriendGroup? @relation(fields: [groupId], references: [id])
+  status      FriendStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+}
+
+enum FriendStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
 }
 
 model Vehicle {

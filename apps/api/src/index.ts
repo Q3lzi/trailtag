@@ -9,6 +9,7 @@ import vehiclesRouter from './routes/vehicles'
 import qrRouter from './routes/qr'
 import gpxRouter from './routes/gpx'
 import profileRouter from './routes/profile'
+import friendsRouter from './routes/friends'
 
 const app = express()
 
@@ -32,6 +33,7 @@ app.use('/vehicles', vehiclesRouter)
 app.use('/r', qrRouter)
 app.use('/gpx', gpxRouter)
 app.use('/profile', profileRouter)
+app.use('/friends', friendsRouter)
 
 app.get('/health', (req: Request, res: Response) => {
   res.json({
