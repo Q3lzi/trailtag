@@ -70,6 +70,16 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
   if (!tour) return res.status(404).json({ error: 'Tour nicht gefunden' })
   if (tour.status !== 'PLANNED') return res.status(400).json({ error: 'Tour bereits gestartet' })
 
+  // Complete any other active/alarm tours for this user before starting new one
+  await prisma.tour.updateMany({
+    where: {
+      userId: req.userId as string,
+      status: { in: ['ACTIVE', 'ALARM'] },
+      id: { not: id }
+    },
+    data: { status: 'COMPLETED', checkedOutAt: new Date() }
+  })
+
   const started = await prisma.tour.update({
     where: { id },
     data: {

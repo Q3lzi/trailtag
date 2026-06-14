@@ -41,20 +41,35 @@ router.get('/:token', async (req: Request, res: Response) => {
     user: { include: { emergencyContacts: { orderBy: { isPrimary: 'desc' as const } } } }
   }
 
-  // Priority: ALARM > ACTIVE by userId (vehicle might not be linked)
-  let tour: any = await prisma.tour.findFirst({ where: { userId: vehicle.userId, status: 'ALARM' }, orderBy: { startedAt: 'desc' }, include: tourInclude })
-  if (!tour) tour = await prisma.tour.findFirst({ where: { vehicleId: vehicle.id, status: 'ALARM' }, orderBy: { startedAt: 'desc' }, include: tourInclude })
-  if (!tour) tour = await prisma.tour.findFirst({ where: { userId: vehicle.userId, status: 'ACTIVE' }, orderBy: { startedAt: 'desc' }, include: tourInclude })
-  if (!tour) tour = await prisma.tour.findFirst({ where: { vehicleId: vehicle.id, status: 'ACTIVE' }, orderBy: { startedAt: 'desc' }, include: tourInclude })
+  // Find most recent ACTIVE or ALARM tour for this vehicle
+  // Prefer vehicleId match, fall back to userId
+  let tour: any = await prisma.tour.findFirst({
+    where: { vehicleId: vehicle.id, status: { in: ['ACTIVE', 'ALARM'] } },
+    orderBy: { startedAt: 'desc' },
+    include: tourInclude
+  })
+  if (!tour) {
+    tour = await prisma.tour.findFirst({
+      where: { userId: vehicle.userId, status: { in: ['ACTIVE', 'ALARM'] } },
+      orderBy: { startedAt: 'desc' },
+      include: tourInclude
+    })
+  }
 
-  if (!tour || tour.status === 'PLANNED') return res.send(renderPage('green', vehicle, null))
+  if (!tour) return res.send(renderPage('green', vehicle, null))
 
   const etaMs = tour.eta ? new Date(tour.eta).getTime() : null
-  const isOverdue = tour.status === 'ALARM' || (etaMs !== null && etaMs < Date.now())
-  // Stale: ETA is more than 6 hours in the past (likely forgotten/completed)
-  const isStale = etaMs !== null && etaMs < Date.now() - 6 * 60 * 60 * 1000
+  const nowMs = Date.now()
+
+  // Stale check FIRST: ETA > 6h ago and status is still ACTIVE (alarm engine hasn't run)
+  // But if status is ALARM, never treat as stale — alarm is intentional
+  const isStale = tour.status === 'ACTIVE' && etaMs !== null && etaMs < nowMs - 6 * 60 * 60 * 1000
 
   if (isStale) return res.send(renderPage('green', vehicle, null))
+
+  // Is overdue: ETA passed (but within 6h stale window) OR explicitly ALARM status
+  const isOverdue = tour.status === 'ALARM' || (etaMs !== null && etaMs < nowMs)
+
   if (isOverdue) return res.send(renderPage('alarm', vehicle, tour))
   return res.send(renderPage('active', vehicle, tour))
 })

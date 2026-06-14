@@ -233,12 +233,16 @@ export default function TourDetailScreen() {
               if (wp.lat && wp.lng) L.default.circleMarker([wp.lat, wp.lng] as [number, number], { radius: 7, fillColor: '#f59e0b', color: '#fff', weight: 2, fillOpacity: 1 }).bindPopup(wp.name || 'Wegpunkt').addTo(map);
             });
           }
-          // GPS tracking points as small orange dots
+          // GPS tracking points - show max 50 dots for performance
           if (tourData.locations?.length > 0) {
-            tourData.locations.forEach((loc: any, i: number) => {
-              // Show every point but small dots to not clutter
+            const locs = tourData.locations;
+            const step = Math.max(1, Math.floor(locs.length / 50));
+            locs.forEach((loc: any, i: number) => {
+              if (i % step !== 0 && i !== locs.length - 1) return; // skip, but always show last
               L.default.circleMarker([loc.lat, loc.lng] as [number, number], {
-                radius: 4, fillColor: '#f59e0b', color: '#fff', weight: 1.5, fillOpacity: 0.9,
+                radius: i === locs.length - 1 ? 8 : 4,
+                fillColor: i === locs.length - 1 ? '#dc2626' : '#f59e0b',
+                color: '#fff', weight: 1.5, fillOpacity: 0.9,
               }).bindPopup(new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })).addTo(map);
             });
           }
@@ -453,11 +457,6 @@ export default function TourDetailScreen() {
               <Text style={styles.statCellKey}>AKTUELLE HÖHE</Text>
               <Text style={styles.statCellVal}>{Math.round(tour.locations[tour.locations.length - 1].ele)} <Text style={styles.statCellUnit}>m</Text></Text>
             </View>
-          ) : tour.elevationUp ? (
-            <View style={styles.statCell}>
-              <Text style={styles.statCellKey}>HÖHENMETER</Text>
-              <Text style={styles.statCellVal}>+{tour.elevationUp} <Text style={styles.statCellUnit}>m</Text></Text>
-            </View>
           ) : tour.startedAt ? (
             <View style={styles.statCell}>
               <Text style={styles.statCellKey}>GESTARTET</Text>
@@ -496,10 +495,12 @@ export default function TourDetailScreen() {
                 <Link size={14} color="#dc2626" strokeWidth={2} />
                 <Text style={styles.portalBtnText}>Erstretter-Portal öffnen</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.portalBtn,{borderColor:'#aeeecb',backgroundColor:'#f0faf4'}]} onPress={sharePortalLink}>
-                <MessageCircle size={14} color="#2c694e" strokeWidth={2} />
-                <Text style={[styles.portalBtnText,{color:'#2c694e'}]}>Safety-Link per iMessage teilen</Text>
-              </TouchableOpacity>
+              {Platform.OS !== 'web' && (
+                <TouchableOpacity style={[styles.portalBtn,{borderColor:'#aeeecb',backgroundColor:'#f0faf4'}]} onPress={sharePortalLink}>
+                  <MessageCircle size={14} color="#2c694e" strokeWidth={2} />
+                  <Text style={[styles.portalBtnText,{color:'#2c694e'}]}>Safety-Link per iMessage teilen</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
           {isActive && (<>

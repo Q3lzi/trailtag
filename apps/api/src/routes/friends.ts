@@ -7,6 +7,7 @@ const router = express.Router()
 // GET /friends — eigene Freunde + pendente Anfragen
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   const userId = req.userId as string
+  try {
   const [accepted, pending, groups] = await Promise.all([
     prisma.friend.findMany({
       where: { OR: [{ initiatorId: userId }, { receiverId: userId }], status: 'ACCEPTED' },
@@ -31,6 +32,10 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   })
 
   res.json({ friends, pending, groups })
+  } catch {
+    // Tables might not exist yet
+    res.json({ friends: [], pending: [], groups: [] })
+  }
 })
 
 // POST /friends/add — via QR Code (qrCode = UUID im Profil)
@@ -109,11 +114,17 @@ router.put('/:id/group', requireAuth, async (req: Request, res: Response) => {
 // GET /friends/qr — eigener QR-Code
 router.get('/qr', requireAuth, async (req: Request, res: Response) => {
   const userId = req.userId as string
-  const user = await (prisma.user as any).findUnique({
-    where: { id: userId },
-    select: { qrCode: true, name: true }
-  })
-  res.json(user)
+  try {
+    const user = await (prisma.user as any).findUnique({
+      where: { id: userId },
+      select: { qrCode: true, name: true }
+    })
+    res.json(user ?? { qrCode: null, name: null })
+  } catch {
+    // qrCode field might not exist in DB yet
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } })
+    res.json({ qrCode: user?.id ?? null, name: user?.name ?? null })
+  }
 })
 
 export default router
