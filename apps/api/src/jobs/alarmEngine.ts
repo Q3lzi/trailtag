@@ -39,7 +39,7 @@ export function startAlarmEngine() {
           console.log(`🟡 STUFE 1: ${tour.user.name} — bald zurück?`)
           try {
             const u = await (prisma.user as any).findUnique({ where: { id: tour.userId }, select: { expoPushToken: true } })
-            if (u?.expoPushToken) await sendExpoPush(u.expoPushToken, '🏔️ Fast zurück?', `Safety-Timer läuft ab um ${new Date(tour.eta).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })} Uhr`)
+            if (u?.expoPushToken) await sendExpoPush(u.expoPushToken, '🏔️ Fast zurück?', `Safety-Timer läuft ab um ${new Date(tour.eta!).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })} Uhr`)
           } catch {}
         })
       }

@@ -413,6 +413,13 @@ function renderPage(state: 'green' | 'active' | 'alarm' | 'notfound', vehicle: a
       </div>
     </div>
 
+    ${(tour.persons && tour.persons > 0) || (Array.isArray(tour.overnightStops) && false) ? `
+    <div class="section">
+      <div class="section-hdr">👥 Begleitpersonen (${tour.persons ?? 1} ${(tour.persons ?? 1) === 1 ? 'Person' : 'Personen'} total)</div>
+      <div class="row"><span class="k">Personenanzahl</span><span class="v">${tour.persons ?? 1}</span></div>
+      ${tour.notes && tour.notes.includes('Person') ? `<div class="row" style="flex-direction:column;gap:4px"><span class="k">Details</span><span style="font-size:13px;color:#434841;margin-top:4px;line-height:1.6">${tour.notes.split('\n').filter((l: string) => l.includes('Person') || l.includes('person')).join('<br>')}</span></div>` : ''}
+    </div>` : ''}
+
     <div class="section">
       <div class="section-hdr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg> Tour-Details</div>
       <div class="row"><span class="k">Aktivität</span><span class="v">${ACT_LABELS[tour.activity] ?? tour.activity}</span></div>

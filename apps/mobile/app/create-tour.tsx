@@ -707,9 +707,29 @@ if (data.startLat) {
           </TouchableOpacity>
         </View>
 
-        {/* Manual waypoints */}
+        {/* Manual waypoints + GPX waypoints */}
         <View style={[styles.card,{marginTop:12}]}>
           <Text style={styles.fieldLabel}>MANUELLE WEGPUNKTE / ZWISCHENSTOPPS</Text>
+          {/* GPX Waypoints (read-only) */}
+          {gpxData?.waypoints?.length > 0 ? (
+            <View style={{marginBottom:8}}>
+              {gpxData.waypoints.map((wp:any,i:number) => (
+                <View key={`gpx-${i}`} style={[styles.wpRow,{backgroundColor:'#fffbf0',borderRadius:4,paddingHorizontal:8}]}>
+                  <Flag size={12} color="#f59e0b" strokeWidth={2}/>
+                  <View style={{flex:1}}>
+                    <Text style={styles.wpTxt}>{wp.name}</Text>
+                    {wp.ele ? <Text style={styles.wpSub}>{Math.round(wp.ele)} m ü.M.</Text> : null}
+                    {(wp.lat&&wp.lng) ? <Text style={styles.wpSub}>{parseFloat(wp.lat).toFixed(4)}, {parseFloat(wp.lng).toFixed(4)}</Text> : null}
+                  </View>
+                  <View style={{backgroundColor:'#f59e0b',paddingHorizontal:6,paddingVertical:2,borderRadius:4}}>
+                    <Text style={{fontSize:9,color:'#fff',fontWeight:'800'}}>GPX</Text>
+                  </View>
+                </View>
+              ))}
+              {waypoints.length > 0 ? <View style={{height:1,backgroundColor:'#e1e3e4',marginVertical:8}}/> : null}
+            </View>
+          ) : null}
+          {/* Manual waypoints */}
           {waypoints.map((wp,i) => (
             <View key={i} style={styles.wpRow}>
               <Flag size={12} color="#2c694e" strokeWidth={2}/>
@@ -893,11 +913,17 @@ if (data.startLat) {
           <View key={i} style={[styles.card,{marginTop:12}]}>
             <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:10}}>
               <User size={15} color="#2c694e" strokeWidth={2}/>
-              <Text style={{fontSize:14,fontWeight:'800',color:'#061907'}}>Person {i+1}{i===0?' (Tourführer)':''}</Text>
+              <Text style={{fontSize:14,fontWeight:'800',color:'#061907'}}>Person {i+1}</Text>
             </View>
             <Text style={styles.inputLabel}>Name</Text>
             <TextInput style={styles.input} placeholder="Vor- und Nachname" placeholderTextColor="#bbb"
               value={p.name} onChangeText={v=>setPersons(prev=>prev.map((x,j)=>j===i?{...x,name:v}:x))}/>
+            <Text style={styles.inputLabel}>Funktion / Rolle</Text>
+            <TextInput style={styles.input} placeholder="z.B. Tourführer, Teilnehmer, Arzt" placeholderTextColor="#bbb"
+              value={(p as any).role??''} onChangeText={v=>setPersons(prev=>prev.map((x,j)=>j===i?{...x,role:v}:x))}/>
+            <Text style={styles.inputLabel}>Telefon</Text>
+            <TextInput style={styles.input} placeholder="+41 79 123 45 67" placeholderTextColor="#bbb" keyboardType="phone-pad"
+              value={(p as any).phone??''} onChangeText={v=>setPersons(prev=>prev.map((x,j)=>j===i?{...x,phone:v}:x))}/>
             <Text style={styles.inputLabel}>Alter</Text>
             <TextInput style={styles.input} placeholder="z.B. 34" placeholderTextColor="#bbb" keyboardType="numeric"
               value={p.age} onChangeText={v=>setPersons(prev=>prev.map((x,j)=>j===i?{...x,age:v}:x))}/>
