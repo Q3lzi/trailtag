@@ -58,6 +58,7 @@ model Tour {
   routeName       String?
   difficulty      String?
   persons         Int          @default(1)
+  companions      Json?
   distanceKm      Float?
   elevationUp     Int?
   startedAt       DateTime?

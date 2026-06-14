@@ -193,8 +193,8 @@ function DtRow({label,dt,setDt,showD,setShowD,showT,setShowT}:any) {
         {Platform.OS==='web' ? (
           <>
             <input type="date" style={styles.webDateIn as any}
-              min={new Date().toISOString().split('T')[0]}
-              value={dt.toISOString().split('T')[0]}
+              min={`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`}
+              value={`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`}
               onChange={e => {
                 const [y,m,d]=e.target.value.split('-').map(Number);
                 const n=new Date(dt); n.setFullYear(y,m-1,d); setDt(n);
@@ -464,7 +464,12 @@ if (data.startLat) {
         }),
       },token??undefined);
 
-      const eta = etaDateTime.toISOString();
+      // Preserve device local timezone so alarm fires at correct local time
+      const _pad = (n: number) => String(n).padStart(2,'0');
+      const _off = -etaDateTime.getTimezoneOffset();
+      const _sign = _off >= 0 ? '+' : '-';
+      const _tzStr = `${_sign}${_pad(Math.floor(Math.abs(_off)/60))}:${_pad(Math.abs(_off)%60)}`;
+      const eta = `${etaDateTime.getFullYear()}-${_pad(etaDateTime.getMonth()+1)}-${_pad(etaDateTime.getDate())}T${_pad(etaDateTime.getHours())}:${_pad(etaDateTime.getMinutes())}:00${_tzStr}`;
       if (!planOnly) {
         await apiFetch(`/tours/${tour.id}/start`,{method:'POST',body:JSON.stringify({eta})},token??undefined);
         if (gpxData&&gpxFileContent) await apiFetch(`/gpx/attach/${tour.id}`,{method:'POST',body:JSON.stringify({gpxContent:gpxFileContent})},token??undefined);
