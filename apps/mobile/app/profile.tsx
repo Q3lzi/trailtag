@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking, Switch, Modal } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -7,8 +7,10 @@ import { getToken } from '../lib/storage';
 import { showAlert, showConfirm } from '../lib/alert';
 import {
   Mountain, User, Phone, Users, Plus, Trash2, Edit3,
-  QrCode, UserPlus, Check, X, ChevronRight, Star, Share2
+  QrCode, UserPlus, Check, X, ChevronRight, Star, Share2, Scan, Scan
 } from 'lucide-react-native';
+
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const BLOOD_TYPES = ['A+','A-','B+','B-','AB+','AB-','0+','0-'];
 const GROUP_COLORS = ['#2c694e','#1d4ed8','#dc2626','#ea580c','#7c3aed','#0891b2'];
@@ -46,6 +48,9 @@ export default function ProfileScreen() {
   const [newGroupColor, setNewGroupColor] = useState('#2c694e');
   const [editingGroup, setEditingGroup] = useState<any>(null);
   const [addingF, setAddingF] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanPermission, requestScanPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
 
   // Privacy settings (loaded from profile)
   const [privacyShowName, setPrivacyShowName] = useState(true);
@@ -166,6 +171,30 @@ export default function ProfileScreen() {
     finally { setAddingF(false); }
   }
 
+  async function handleScanQR() {
+    if (!scanPermission?.granted) {
+      const r = await requestScanPermission();
+      if (!r.granted) { showAlert('Kamera', 'Kamera-Zugriff verweigert.'); return; }
+    }
+    setScanned(false);
+    setShowScanner(true);
+  }
+
+  async function handleBarcodeScanned(data: string) {
+    if (scanned) return;
+    setScanned(true);
+    setShowScanner(false);
+    const code = data.replace('trailtag://friend/', '').trim();
+    setAddingF(true);
+    try {
+      const token = await getToken();
+      const res = await apiFetch('/friends/add', { method: 'POST', body: JSON.stringify({ qrCode: code }) }, token ?? undefined);
+      showAlert('Anfrage gesendet ✓', `${res.target?.name ?? 'Freund'} wurde eine Anfrage gesendet.`);
+      loadAll();
+    } catch (err: any) { showAlert('Fehler', err.message ?? 'Ungültiger QR-Code'); }
+    finally { setAddingF(false); }
+  }
+
   async function handleAccept(id: string) {
     try {
       const token = await getToken();
@@ -246,6 +275,39 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
+
+      {/* QR Scanner Modal */}
+      <Modal visible={showScanner} animationType="slide" onRequestClose={() => setShowScanner(false)}>
+        <View style={{flex:1,backgroundColor:'#000'}}>
+          <View style={{position:'absolute',top:0,left:0,right:0,zIndex:10,paddingTop:60,paddingHorizontal:20}}>
+            <TouchableOpacity onPress={()=>setShowScanner(false)}
+              style={{alignSelf:'flex-end',backgroundColor:'rgba(0,0,0,0.5)',borderRadius:8,paddingHorizontal:14,paddingVertical:10}}>
+              <Text style={{color:'#fff',fontWeight:'700',fontSize:14}}>✕ Schliessen</Text>
+            </TouchableOpacity>
+            <Text style={{color:'#fff',fontSize:18,fontWeight:'800',textAlign:'center',marginTop:16}}>QR-Code scannen</Text>
+            <Text style={{color:'rgba(255,255,255,0.65)',fontSize:13,textAlign:'center',marginTop:6}}>Halte die Kamera auf den Trailtag-Code deines Freundes</Text>
+          </View>
+          {showScanner && (
+            <CameraView
+              style={{flex:1}}
+              facing="back"
+              barcodeScannerSettings={{barcodeTypes:['qr']}}
+              onBarcodeScanned={({data})=>handleBarcodeScanned(data)}
+            />
+          )}
+          {/* Scan frame */}
+          <View pointerEvents="none" style={{position:'absolute',top:'50%',left:'50%',width:240,height:240,marginLeft:-120,marginTop:-120}}>
+            {[{top:0,left:0},{top:0,right:0},{bottom:0,left:0},{bottom:0,right:0}].map((pos,i)=>(
+              <View key={i} style={[{position:'absolute',width:32,height:32},pos,{
+                borderColor:'#2c694e',borderWidth:0,
+                borderTopWidth:i<2?4:0,borderBottomWidth:i>=2?4:0,
+                borderLeftWidth:i%2===0?4:0,borderRightWidth:i%2!==0?4:0,
+                borderRadius:4,
+              }]}/>
+            ))}
+          </View>
+        </View>
+      </Modal>
 
       {/* Header — weiss wie Dashboard */}
       <View style={[styles.topNav, { paddingTop: insets.top + 8 }]}>
@@ -448,17 +510,31 @@ export default function ProfileScreen() {
           {/* Freund hinzufügen */}
           <Text style={[styles.sectionLabel,{marginTop:16}]}>FREUND HINZUFÜGEN</Text>
           <View style={styles.card}>
+            {Platform.OS !== 'web' && (
+              <TouchableOpacity
+                style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:10,backgroundColor:'#f0faf4',borderRadius:10,padding:14,marginBottom:12,borderWidth:1,borderColor:'#aeeecb'}}
+                onPress={handleScanQR} disabled={addingF}>
+                <Scan size={20} color="#2c694e" strokeWidth={2}/>
+                <Text style={{fontSize:15,fontWeight:'700',color:'#2c694e'}}>QR-Code scannen</Text>
+              </TouchableOpacity>
+            )}
+            <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:10}}>
+              <View style={{flex:1,height:1,backgroundColor:'#e1e3e4'}}/>
+              <Text style={{fontSize:10,color:'#c3c8bf',fontWeight:'700',letterSpacing:1}}>ODER CODE EINGEBEN</Text>
+              <View style={{flex:1,height:1,backgroundColor:'#e1e3e4'}}/>
+            </View>
             <TextInput
               style={styles.input}
               value={friendCode}
               onChangeText={setFriendCode}
-              placeholder="Code des Freundes eingeben..."
+              placeholder="Trailtag-Code des Freundes..."
               placeholderTextColor="#c3c8bf"
               autoCapitalize="none"
               autoCorrect={false}
             />
-            <TouchableOpacity style={[styles.primaryBtn,{marginTop:8},addingF&&{opacity:0.6}]}
-              onPress={handleAddFriend} disabled={addingF}>
+            <TouchableOpacity
+              style={[styles.primaryBtn,{marginTop:8},(addingF||!friendCode.trim())&&{opacity:0.45}]}
+              onPress={handleAddFriend} disabled={addingF||!friendCode.trim()}>
               <UserPlus size={15} color="#fff" strokeWidth={2}/>
               <Text style={styles.primaryBtnTxt}>{addingF ? 'Sendet...' : 'Anfrage senden'}</Text>
             </TouchableOpacity>
