@@ -804,7 +804,7 @@ export default function TourDetailScreen() {
             <Text style={{ fontSize: 12, color: '#c3c8bf', marginTop: 6 }}>Namen werden beim Erstellen der Tour erfasst (nächste Version)</Text>
           </View>
         </View>
-
+      )}
 
       {/* Übernachtungen */}
       {tour.overnightStops?.length > 0 && (
