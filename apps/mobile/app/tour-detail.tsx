@@ -6,7 +6,7 @@ import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/storage';
 import { showAlert, showConfirm } from '../lib/alert';
 import { cancelAllNotifications } from '../lib/notifications';
-import { stopLocationTracking } from '../lib/tracking';
+import { startLocationTracking, stopLocationTracking } from '../lib/tracking';
 import { ArrowLeft, Timer, Wind, Thermometer, RefreshCw, CheckCircle, AlertTriangle, Link, Navigation, Activity, Mountain, Users, MessageCircle } from 'lucide-react-native';
 
 const ACTIVITY_COLORS: Record<string, string> = {
@@ -213,6 +213,10 @@ export default function TourDetailScreen() {
       const token = await getToken();
       const data = await apiFetch(`/tours/${id}`, {}, token ?? undefined);
       setTour(data);
+      // Auto-restart tracking if tour is active (handles app restart)
+      if ((data.status === 'ACTIVE' || data.status === 'ALARM') && Platform.OS !== 'web') {
+        startLocationTracking(data.id).catch(() => {});
+      }
     } catch { } finally { setLoading(false); }
   }
 
@@ -258,6 +262,7 @@ export default function TourDetailScreen() {
   if (!tour) return <View style={styles.loading}><Text style={styles.loadingText}>Tour nicht gefunden</Text></View>;
 
   const isActive = tour.status === 'ACTIVE' || tour.status === 'ALARM';
+  const isPlanned = tour.status === 'PLANNED';
   const activityLabel = ACTIVITY_LABELS[tour.activity] ?? tour.activity;
   const heroColor = isOverdue ? '#7f1d1d' : (ACTIVITY_COLORS[tour.activity] ?? '#1a2e1a');
   const qrUrl = tour.vehicle ? `https://trailtag-production.up.railway.app/r/${tour.vehicle.qrToken}` : null;
@@ -394,9 +399,22 @@ export default function TourDetailScreen() {
       </View>
 
       {/* Safety Controls */}
-      {(isActive || qrUrl) && (
+      {(isActive || isPlanned || qrUrl) && (
         <View style={styles.safetyCard}>
           <Text style={styles.safetyLabel}>SAFETY CONTROLS</Text>
+          {isPlanned && (
+            <TouchableOpacity style={styles.checkoutBtn} onPress={async () => {
+              try {
+                const token = await getToken();
+                await apiFetch(`/tours/${tour.id}/start`, { method: 'POST', body: JSON.stringify({ eta: tour.eta }) }, token ?? undefined);
+                setTour((t: any) => ({ ...t, status: 'ACTIVE', startedAt: new Date().toISOString() }));
+                await startLocationTracking(tour.id);
+              } catch (err: any) { showAlert('Tour starten', err.message ?? 'Fehler'); }
+            }}>
+              <CheckCircle size={18} color="#fff" strokeWidth={2.5} />
+              <Text style={styles.checkoutText}>Tour jetzt starten</Text>
+            </TouchableOpacity>
+          )}
           {isActive && (
             <TouchableOpacity style={[styles.checkoutBtn, isOverdue && styles.checkoutBtnRed]} onPress={handleCheckout}>
               <CheckCircle size={18} color="#fff" strokeWidth={2.5} />
@@ -511,18 +529,31 @@ export default function TourDetailScreen() {
   <TouchableOpacity
     style={styles.syncBadge}
     onPress={async () => {
-      if (Platform.OS === 'web' && navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-          try {
+      try {
+        if (Platform.OS === 'web') {
+          if (!navigator.geolocation) return;
+          navigator.geolocation.getCurrentPosition(async (pos) => {
             const token = await getToken();
             await apiFetch(`/tours/${tour.id}/location`, {
               method: 'POST',
               body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, ele: pos.coords.altitude }),
             }, token ?? undefined);
             loadTour();
-          } catch { }
-        }, undefined, { enableHighAccuracy: true });
-      }
+          }, undefined, { enableHighAccuracy: true });
+        } else {
+          // iOS/Android — get current position and send
+          const Location = require('expo-location');
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') { showAlert('Fehler', 'Standortberechtigung fehlt'); return; }
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const token = await getToken();
+          await apiFetch(`/tours/${tour.id}/location`, {
+            method: 'POST',
+            body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, ele: pos.coords.altitude }),
+          }, token ?? undefined);
+          loadTour();
+        }
+      } catch (err: any) { showAlert('Fehler', err.message ?? 'Sync fehlgeschlagen'); }
     }}
   >
     <RefreshCw size={11} color="#2c694e" strokeWidth={2} />
