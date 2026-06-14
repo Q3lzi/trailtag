@@ -64,19 +64,15 @@ router.post('/add', requireAuth, async (req: Request, res: Response) => {
   const { qrCode } = req.body
   if (!qrCode) return res.status(400).json({ error: 'qrCode erforderlich' })
   try {
-    // Support both full UUID and 8-char prefix (case-insensitive)
+    // Normalize: lowercase, strip hyphens from short codes
     const qrNorm = qrCode.toLowerCase().trim()
-    let target = await (prisma.user as any).findFirst({
-      where: { qrCode: { equals: qrNorm, mode: 'insensitive' } },
-      select: { id: true, name: true, phone: true }
-    })
-    // Fallback: search by prefix (first 8 chars)
-    if (!target && qrNorm.length === 8) {
-      target = await (prisma.user as any).findFirst({
-        where: { qrCode: { startsWith: qrNorm, mode: 'insensitive' } },
-        select: { id: true, name: true, phone: true }
-      })
-    }
+    // Use raw SQL with ILIKE for reliable case-insensitive search
+    const results: any[] = await prisma.$queryRaw`
+      SELECT id, name, phone FROM "User"
+      WHERE LOWER("qrCode") LIKE LOWER(${qrNorm + '%'})
+      LIMIT 1
+    `
+    let target = results[0] ?? null
     if (!target) return res.status(404).json({ error: 'Benutzer nicht gefunden. Prüfe den Code.' })
     if (target.id === userId) return res.status(400).json({ error: 'Du kannst dich nicht selbst hinzufügen' })
     const existing = await (prisma as any).friend.findFirst({
