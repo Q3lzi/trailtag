@@ -45,11 +45,11 @@ const fmtT = (d: any) => d ? new Date(d).toLocaleTimeString('de-CH',{hour:'2-dig
 
 // Swiss plate — Wappen (SVG) left, white bg, black border
 const plate = (text: string) => `<span style="display:inline-flex;align-items:stretch;border:2px solid #333;border-radius:4px;overflow:hidden;font-family:Arial,sans-serif;box-shadow:0 1px 4px rgba(0,0,0,.15);">
-  <span style="background:#fff;border-right:2px solid #333;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 7px;gap:2px;">
-    <svg width="20" height="14" viewBox="0 0 40 28" xmlns="http://www.w3.org/2000/svg">
-      <rect width="40" height="28" rx="2" fill="#D52B1E"/>
-      <rect x="16" y="4" width="8" height="20" fill="#fff"/>
-      <rect x="8" y="10" width="24" height="8" fill="#fff"/>
+  <span style="background:#fff;border-right:2px solid #333;display:flex;align-items:center;justify-content:center;padding:4px 8px;">
+    <svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
+      <rect width="22" height="22" rx="2" fill="#D52B1E"/>
+      <rect x="9" y="3" width="4" height="16" fill="#fff"/>
+      <rect x="3" y="9" width="16" height="4" fill="#fff"/>
     </svg>
   </span>
   <span style="background:#fff;padding:5px 14px;font-size:17px;font-weight:900;letter-spacing:3px;color:#111;">${e(text)}</span>
@@ -160,7 +160,7 @@ function buildWandererCard(user: any, isAlarm: boolean) {
   </div>`
 }
 
-function buildTourCard(tour: any, compact: boolean) {
+function buildTourCard(tour: any, compact: boolean, isAlarm = false) {
   const stops: any[] = Array.isArray(tour.overnightStops) ? tour.overnightStops : (tour.overnightStops ? [tour.overnightStops] : [])
   const gpx: any = tour.gpxTrack || null
   const manualWPs: any[] = gpx?.waypoints || []
@@ -188,11 +188,11 @@ function buildTourCard(tour: any, compact: boolean) {
         ${tour.persons>1?row('Personen', tour.persons+' Personen'):''}
         ${tour.parkingLocation?row('Parkplatz / Start', e(tour.parkingLocation)):''}
       </tbody></table>
-      ${tour.notes?`<div style="padding:12px 16px;border-top:1px solid #f3f4f5;">
+      ${isAlarm&&tour.notes?`<div style="padding:12px 16px;border-top:1px solid #f3f4f5;">
         <p style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">Notizen für Rettungskräfte</p>
         <p style="font-size:13px;color:#191c1d;line-height:1.6;">${e(tour.notes)}</p>
       </div>`:''}
-      ${manualWPs.length>0?`<div style="padding:12px 16px;border-top:1px solid #f3f4f5;">
+      ${isAlarm&&manualWPs.length>0?`<div style="padding:12px 16px;border-top:1px solid #f3f4f5;">
         <p style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Wegpunkte / Route (${manualWPs.length})</p>
         ${manualWPs.map((wp: any, i: number)=>`
         <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;${i<manualWPs.length-1?'border-bottom:1px solid #f3f4f5;':''}">
@@ -350,17 +350,7 @@ function render(vehicle: any, tour: any, state: 'active'|'alarm') {
     </a>
   </div>` : ''
 
-  const bentoCols = isAlarm ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-    ${buildVehicleCard(vehicle, true)}
-    <div style="background:#fff;border-radius:12px;border:1px solid #e1e3e4;padding:14px;">
-      <p style="font-size:10px;font-weight:700;color:#747871;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Tour</p>
-      ${tour.activity?`<p style="font-size:14px;font-weight:700;color:#061907;margin-bottom:6px;">${e(tour.activity)}</p>`:''}
-      <p style="font-size:12px;color:#434841;margin-bottom:3px;">Gestartet: <strong>${fmt(tour.startedAt)}</strong></p>
-      <p style="font-size:12px;font-weight:700;color:#ba1a1a;margin-bottom:3px;">Rückkehr: ${fmt(tour.eta)}</p>
-      ${tour.difficulty?`<p style="font-size:12px;color:#747871;margin-top:4px;">Schwierigkeit: ${e(tour.difficulty)}</p>`:''}
-      ${tour.persons>1?`<p style="font-size:12px;color:#747871;margin-top:3px;">${tour.persons} Personen</p>`:''}
-    </div>
-  </div>` : ''
+  const bentoCols = '' // removed - vehicle now full width, tour goes after map
 
   const heroSub = isAlarm
     ? `${minsOver!==null?`Wanderer ${minsOver} Min. überfällig. `:''}${lastLoc?`Letztes GPS-Update: ${fmt(lastLoc.timestamp)}.`:'Noch kein GPS-Signal.'}`
@@ -368,7 +358,7 @@ function render(vehicle: any, tour: any, state: 'active'|'alarm') {
 
   let body = ''
   if (isAlarm) {
-    body = overdue + callBtns + buildWandererCard(user, true) + bentoCols + buildGpsCard(locs, lastLoc) + buildMedCard(user) + buildContactsCard(contacts) + buildTourCard(tour, false)
+    body = overdue + callBtns + buildWandererCard(user, true) + buildVehicleCard(vehicle, false) + buildGpsCard(locs, lastLoc) + buildTourCard(tour, false, true) + buildMedCard(user) + buildContactsCard(contacts)
   } else {
     body = buildWandererCard(user, false) + buildTourCard(tour, false) + buildVehicleCard(vehicle, false)
   }
