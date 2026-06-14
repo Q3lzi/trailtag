@@ -357,7 +357,7 @@ function renderAlarm(vehicle: any, tour: any) {
       <span style="font-size:15px;font-weight:700;color:#061907;">Notfallkontakte</span>
     </div>
     ${contacts.map((c: any, i: number) => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #f3f4f5;${i===0?'':'opacity:.85;}">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #f3f4f5;${i>0?'opacity:.85;':''}">
       <div>
         <p style="font-size:16px;font-weight:700;color:#061907;">${e(c.name)}${c.isPrimary ? '&nbsp;<span style="font-size:10px;background:#aeeecb;color:#005227;padding:2px 8px;border-radius:100px;font-weight:700;vertical-align:middle;">Primär</span>' : ''}</p>
         ${c.relation ? `<p style="font-size:13px;color:#747871;margin-top:2px;">${e(c.relation)}</p>` : ''}
