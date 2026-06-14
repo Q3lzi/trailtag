@@ -118,6 +118,51 @@ function mapHtml(tour: any) {
   </script>`
 }
 
+
+function overnightSection(tour: any) {
+  const stops = tour.overnightStops
+  if (!stops?.length) return ''
+
+  const typeLabel: Record<string,string> = {
+    huette:'SAC Hütte', berghütte:'Berghütte', hotel:'Hotel/B&B',
+    zelt:'Zelt/Biwak', camping:'Camping', schutz:'Schutzhütte', privat:'Privat'
+  }
+
+  const rows = stops.map((s: any) => `
+    <div style="background:#fff;border:1px solid #e1e3e4;border-radius:8px;margin-bottom:10px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid #f3f4f5;background:#f8f9fa">
+        <span style="font-size:16px">🌙</span>
+        <span style="font-size:13px;font-weight:800;color:#061907">Nacht ${s.night}</span>
+        ${s.type ? `<span style="margin-left:auto;font-size:10px;font-weight:700;background:#f0faf4;color:#2c694e;padding:3px 9px;border-radius:100px">${typeLabel[s.type] ?? s.type}</span>` : ''}
+      </div>
+      <div style="padding:12px 16px">
+        ${s.name ? `<div class="row"><span class="k">Unterkunft</span><span class="v" style="font-weight:800">${s.name}</span></div>` : ''}
+        ${s.address ? `<div class="row"><span class="k">Adresse</span><span class="v">${s.address}</span></div>` : ''}
+        ${s.reserved ? `<div class="row"><span class="k">Reservierung</span><span class="v" style="color:#2c694e">✓ Bestätigt</span></div>` : ''}
+        ${s.contactName ? `<div class="row"><span class="k">Kontakt</span><span class="v">${s.contactName}</span></div>` : ''}
+        ${s.contactPhone ? `<div class="row"><span class="k">Telefon</span><a href="tel:${s.contactPhone}" class="v" style="color:#2c694e">${s.contactPhone}</a></div>` : ''}
+        ${s.notes ? `<div class="row" style="flex-direction:column;gap:4px"><span class="k">Notizen</span><span style="font-size:13px;color:#434841;margin-top:4px">${s.notes}</span></div>` : ''}
+        ${(s.lat && s.lng) ? `
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <a href="https://maps.google.com/?q=${s.lat},${s.lng}" target="_blank"
+            style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#f0faf4;border:1px solid #aeeecb;border-radius:6px;padding:9px;font-size:12px;font-weight:700;color:#2c694e;text-decoration:none">
+            📍 In Maps öffnen
+          </a>
+          ${s.contactPhone ? `<a href="tel:${s.contactPhone}"
+            style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#f0faf4;border:1px solid #aeeecb;border-radius:6px;padding:9px;font-size:12px;font-weight:700;color:#2c694e;text-decoration:none">
+            📞 Anrufen
+          </a>` : ''}
+        </div>` : ''}
+      </div>
+    </div>`).join('')
+
+  return `
+  <div class="section">
+    <div class="section-hdr">🌙 Übernachtungen (${stops.length} Nacht${stops.length > 1 ? 'e' : ''})</div>
+    <div style="padding:12px 16px">${rows}</div>
+  </div>`
+}
+
 function elevHtml(tour: any) {
   const pts = tour.gpxTrack?.points?.filter((p: any) => p.ele != null) ?? []
   if (pts.length < 2) return ''
@@ -399,6 +444,7 @@ function renderPage(state: 'green' | 'active' | 'alarm' | 'notfound', vehicle: a
       <div class="notes-body">${tour.notes.replace(/\n/g, '<br>')}</div>
     </div>` : ''}
 
+    ${overnightSection(tour)}
     ${elevHtml(tour)}
 
     <footer>

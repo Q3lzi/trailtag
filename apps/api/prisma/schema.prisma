@@ -21,7 +21,6 @@ model User {
   allergies     String?
   medications   String?
   medicalNotes  String?
-  expoPushToken String?
   tours              Tour[]
   vehicles           Vehicle[]
   emergencyContacts  EmergencyContact[]
@@ -60,6 +59,7 @@ model Tour {
   lastLng         Float?
   locationUpdatedAt DateTime?
   gpxTrack        Json?
+  overnightStops  Json?
   parkingLocation String?
   notes           String?
   status          TourStatus   @default(PLANNED)

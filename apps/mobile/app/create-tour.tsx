@@ -449,9 +449,8 @@ if (data.startLat) {
         notes,
         routeDesc ? `Route: ${routeDesc}` : '',
         equipmentNotes ? `Ausrüstung: ${equipmentNotes}` : '',
-        allWaypoints.length>0 ? `Wegpunkte: ${allWaypoints.join(' → ')}` : '',
-        overnightStops.filter(s=>s.name).map(s=>`Nacht ${s.night}: ${s.name}${s.contactPhone?` Tel: ${s.contactPhone}`:''}`).join(', '),
       ].filter(Boolean).join('\n');
+      // overnightStops saved as structured JSON separately
 
       const diffLabel = difficulty||klettersteigGrade||mtbScale||pisteLevel||null;
       const tour = await apiFetch('/tours',{
@@ -461,6 +460,7 @@ if (data.startLat) {
           persons:persons.length, distanceKm:distanceKm?parseFloat(distanceKm):null,
           elevationUp:elevationUp?parseInt(elevationUp):null,
           parkingLocation:parkingLocation||null, notes:allNotes||null,
+          overnightStops:overnightStops.length>0?overnightStops:null,
           startLat:startLat?parseFloat(startLat):null, startLng:startLng?parseFloat(startLng):null,
           vehicleId:vehicleId??null,
         }),

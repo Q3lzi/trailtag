@@ -7,7 +7,7 @@ import { getToken } from '../lib/storage';
 import { showAlert, showConfirm } from '../lib/alert';
 import { cancelAllNotifications } from '../lib/notifications';
 import { startLocationTracking, stopLocationTracking } from '../lib/tracking';
-import { ArrowLeft, Timer, Wind, Thermometer, RefreshCw, CheckCircle, AlertTriangle, Link, Navigation, Activity, Mountain, Users, MessageCircle } from 'lucide-react-native';
+import { ArrowLeft, Timer, Wind, Thermometer, RefreshCw, CheckCircle, AlertTriangle, Link, Navigation, Activity, Mountain, Users, MessageCircle, Moon, MapPin as MapPinIcon, Phone } from 'lucide-react-native';
 
 const ACTIVITY_COLORS: Record<string, string> = {
   WANDERN: '#1a3d2b', BERGTOUR: '#0f2027', KLETTERN: '#1a1a2e',
@@ -719,6 +719,92 @@ export default function TourDetailScreen() {
         </View>
       </View>
 
+      {/* Übernachtungen */}
+      {tour.overnightStops?.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Übernachtungen</Text>
+          {tour.overnightStops.map((stop: any, i: number) => (
+            <View key={i} style={[styles.card, { marginBottom: 10 }]}>
+              {/* Header */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 14, borderBottomWidth: 1, borderBottomColor: '#f3f4f5' }}>
+                <Moon size={16} color="#2c694e" strokeWidth={2} />
+                <Text style={{ fontSize: 13, fontWeight: '800', color: '#061907' }}>Nacht {stop.night}</Text>
+                {stop.type ? (
+                  <View style={{ backgroundColor: '#f0faf4', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100, marginLeft: 'auto' }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: '#2c694e' }}>
+                      {stop.type === 'huette' ? 'SAC Hütte' : stop.type === 'zelt' ? 'Zelt/Biwak' : stop.type === 'camping' ? 'Camping' : stop.type === 'hotel' ? 'Hotel/B&B' : stop.type === 'schutz' ? 'Schutzhütte' : stop.type === 'privat' ? 'Privat' : stop.type}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={{ padding: 14 }}>
+                {stop.name ? (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailKey}>Unterkunft</Text>
+                    <Text style={[styles.detailVal, { fontWeight: '800' }]}>{stop.name}</Text>
+                  </View>
+                ) : null}
+                {stop.address ? (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailKey}>Adresse</Text>
+                    <Text style={styles.detailVal}>{stop.address}</Text>
+                  </View>
+                ) : null}
+                {stop.reserved ? (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailKey}>Reservierung</Text>
+                    <Text style={[styles.detailVal, { color: '#2c694e' }]}>✓ Bestätigt</Text>
+                  </View>
+                ) : null}
+                {stop.contactName ? (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailKey}>Kontakt</Text>
+                    <Text style={styles.detailVal}>{stop.contactName}</Text>
+                  </View>
+                ) : null}
+                {stop.contactPhone ? (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailKey}>Telefon</Text>
+                    <TouchableOpacity onPress={() => Linking.openURL(`tel:${stop.contactPhone}`)}>
+                      <Text style={[styles.detailVal, { color: '#2c694e' }]}>{stop.contactPhone}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+                {stop.notes ? (
+                  <View style={[styles.detailRow, { flexDirection: 'column', gap: 4 }]}>
+                    <Text style={styles.detailKey}>Notizen</Text>
+                    <Text style={[styles.detailVal, { textAlign: 'left' }]}>{stop.notes}</Text>
+                  </View>
+                ) : null}
+
+                {/* Map Links */}
+                {(stop.lat && stop.lng) ? (
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                    <TouchableOpacity style={styles.overnightMapBtn}
+                      onPress={() => {
+                        const url = `https://maps.google.com/?q=${stop.lat},${stop.lng}`;
+                        if (Platform.OS === 'web') { (window as any).open(url, '_blank'); }
+                        else { Linking.openURL(url); }
+                      }}>
+                      <MapPinIcon size={13} color="#2c694e" strokeWidth={2} />
+                      <Text style={styles.overnightMapBtnTxt}>In Maps öffnen</Text>
+                    </TouchableOpacity>
+                    {stop.contactPhone ? (
+                      <TouchableOpacity style={[styles.overnightMapBtn, { borderColor: '#aeeecb' }]}
+                        onPress={() => Linking.openURL(`tel:${stop.contactPhone}`)}>
+                        <Phone size={13} color="#2c694e" strokeWidth={2} />
+                        <Text style={styles.overnightMapBtnTxt}>Anrufen</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
     </ScrollView>
   );
 }
@@ -786,6 +872,8 @@ const styles = StyleSheet.create({
   showAllBtn: { marginTop:6,paddingVertical:10,alignItems:'center',borderRadius:6,backgroundColor:'#f3f4f5',marginLeft:24 },
   showAllTxt: { fontSize:12,fontWeight:'700',color:'#2c694e' },
   detailSub: { fontSize:11,color:'#747871',marginTop:1 },
+  overnightMapBtn: { flexDirection:'row',alignItems:'center',gap:5,flex:1,backgroundColor:'#f0faf4',borderRadius:6,paddingVertical:9,paddingHorizontal:12,borderWidth:1,borderColor:'#e1e3e4',justifyContent:'center' },
+  overnightMapBtnTxt: { fontSize:12,fontWeight:'700',color:'#2c694e' },
   sectionLabel: { fontSize:10,fontWeight:'700',color:'#747871',letterSpacing:1,marginBottom:10 },
   checkoutText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   portalBtn: { backgroundColor: '#fff', borderRadius: 4, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#fca5a5', marginBottom: 8 },
