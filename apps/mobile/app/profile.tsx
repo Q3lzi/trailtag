@@ -690,12 +690,12 @@ export default function ProfileScreen() {
             <Text style={styles.hint}>Was Ersthelfer bei aktiver Tour sehen dürfen. Im Alarmfall ist immer alles sichtbar.</Text>
             <View style={styles.card}>
               {([
-                {key:'showName', label:'Name', sub:'Wanderer erkennbar', val:privacyShowName, set:setPrivacyShowName},
-                {key:'showPhone', label:'Telefonnummer', sub:'Direkt anrufbar', val:privacyShowPhone, set:setPrivacyShowPhone},
-                {key:'showMedical', label:'Medizinische Daten', sub:'Blutgruppe, Allergien, Medis', val:privacyShowMedical, set:setPrivacyShowMedical},
-                {key:'showContacts', label:'Notfallkontakte', sub:'Angehörige benachrichtigen', val:privacyShowContacts, set:setPrivacyShowContacts},
-                {key:'showGps', label:'GPS-Standort', sub:'Live-Tracking sichtbar', val:privacyShowGps, set:setPrivacyShowGps},
-                {key:'showNotes', label:'Notizen für Rettungskräfte', sub:'Ausrüstung, Route etc.', val:privacyShowNotes, set:setPrivacyShowNotes},
+                {key:'privacyShowName', label:'Name', sub:'Wanderer erkennbar', val:privacyShowName, set:setPrivacyShowName},
+                {key:'privacyShowPhone', label:'Telefonnummer', sub:'Direkt anrufbar', val:privacyShowPhone, set:setPrivacyShowPhone},
+                {key:'privacyShowMedical', label:'Medizinische Daten', sub:'Blutgruppe, Allergien, Medis', val:privacyShowMedical, set:setPrivacyShowMedical},
+                {key:'privacyShowContacts', label:'Notfallkontakte', sub:'Angehörige benachrichtigen', val:privacyShowContacts, set:setPrivacyShowContacts},
+                {key:'privacyShowGps', label:'GPS-Standort', sub:'Live-Tracking sichtbar', val:privacyShowGps, set:setPrivacyShowGps},
+                {key:'privacyShowNotes', label:'Notizen für Rettungskräfte', sub:'Ausrüstung, Route etc.', val:privacyShowNotes, set:setPrivacyShowNotes},
               ] as any[]).map(({key,label,sub,val,set},i,arr) => (
                 <View key={key} style={{flexDirection:'row',alignItems:'center',paddingVertical:13,borderBottomWidth:i<arr.length-1?1:0,borderBottomColor:'#f3f4f5'}}>
                   <View style={{flex:1,paddingRight:12}}>
