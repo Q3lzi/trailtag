@@ -131,4 +131,32 @@ router.put('/:id/group', requireAuth, async (req: Request, res: Response) => {
   res.json(updated)
 })
 
+
+// PUT /friends/groups/:id
+router.put('/groups/:id', requireAuth, async (req: Request, res: Response) => {
+  const userId = req.userId as string
+  const id = req.params['id'] as string
+  const { name, color } = req.body
+  try {
+    const group = await (prisma as any).friendGroup.findFirst({ where: { id, userId } })
+    if (!group) return res.status(404).json({ error: 'Gruppe nicht gefunden' })
+    const updated = await (prisma as any).friendGroup.update({ where: { id }, data: { name, color } })
+    res.json(updated)
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// DELETE /friends/groups/:id
+router.delete('/groups/:id', requireAuth, async (req: Request, res: Response) => {
+  const userId = req.userId as string
+  const id = req.params['id'] as string
+  try {
+    await (prisma as any).friendGroup.deleteMany({ where: { id, userId } })
+    res.json({ ok: true })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 export default router

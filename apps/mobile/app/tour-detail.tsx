@@ -267,6 +267,22 @@ export default function TourDetailScreen() {
     return () => clearTimeout(t);
   }, [tour?.id, tour?.locations?.length, tour?.lastLat, tour?.lastLng]);
 
+  // Re-init map when tab/window gains focus (handles back-navigation)
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const onFocus = () => { if (tour) setTimeout(() => initLeafletMap(tour), 200); };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', onFocus);
+      document.addEventListener('visibilitychange', onFocus);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', onFocus);
+        document.removeEventListener('visibilitychange', onFocus);
+      }
+    };
+  }, [tour]);
+
   async function loadTour() {
     try {
       const token = await getToken();
@@ -725,7 +741,7 @@ export default function TourDetailScreen() {
           {tour.notes && (
             <View style={[styles.detailRow, { flexDirection: 'column', gap: 4 }]}>
               <Text style={styles.detailKey}>Notizen für Rettungskräfte</Text>
-              <Text style={[styles.detailVal, { textAlign: 'center', color: '#747871', fontStyle: 'italic' }]}>{tour.notes}</Text>
+              <Text style={[styles.detailVal, { textAlign: 'left', color: '#434841' }]}>{tour.notes}</Text>
             </View>
           )}
         </View>
