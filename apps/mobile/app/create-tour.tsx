@@ -235,7 +235,7 @@ function DtRow({label,dt,setDt,showD,setShowD,showT,setShowT}:any) {
 
 
   // ─── Error Banner ─────────────────────────────────────────────
-function ErrorBanner() {
+function ErrorBanner({ errors }: { errors: string[] }) {
   if (errors.length === 0) return null;
   return (
     <View style={styles.errorBanner}>
@@ -1084,7 +1084,7 @@ if (data.startLat) {
         ))}
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollC}>
-        <ErrorBanner/>
+        <ErrorBanner errors={errors}/>
         {renderStep()}
         <View style={{height:20}}/>
       </ScrollView>

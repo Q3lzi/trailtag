@@ -286,11 +286,21 @@ function shell(badge: string, badgeCls: string, heroClass: string, heroTitle: st
     /* Green status */
     .green-banner{background:#f0faf4;border:1px solid #aeeecb;border-radius:8px;padding:16px;margin-bottom:12px;font-size:14px;color:#2c694e;line-height:1.6}
 
+    /* Contact call buttons */
+    .contact-call-btn { display:flex;align-items:center;gap:7px;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;border:none }
+    .contact-call-primary { background:#aeeecb;color:#006838 }
+    .contact-call-secondary { background:#edeeef;color:#434841 }
+
     /* Privacy */
     .privacy-box{background:#f8f9fa;border:1px solid #e1e3e4;border-radius:8px;padding:24px;text-align:center;margin-bottom:12px}
     .privacy-icon{font-size:30px;margin-bottom:8px}
     .privacy-title{font-size:14px;font-weight:700;color:#434841;margin-bottom:4px}
     .privacy-sub{font-size:13px;color:#747871}
+
+    /* Swiss license plate */
+    .plate-ch { display:inline-flex;align-items:center;gap:5px;background:#fff;border:2px solid #191c1d;border-radius:4px;padding:3px 10px;font-family:monospace }
+    .plate-ch-flag { font-size:14px }
+    .plate-ch-num { font-size:15px;font-weight:800;color:#191c1d;letter-spacing:1px }
 
     /* Notes */
     .notes-body{padding:14px 16px;font-size:14px;line-height:1.65;color:#434841}
@@ -339,7 +349,12 @@ function renderPage(state: 'green' | 'active' | 'alarm' | 'notfound', vehicle: a
       </div>
       <div class="section">
         <div class="section-hdr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> Fahrzeug am Parkplatz</div>
-        <div class="row"><span class="k">Kennzeichen</span><span class="v">${vehicle.plate}</span></div>
+        <div class="row"><span class="k">Kennzeichen</span>
+        <div class="plate-ch" style="margin-left:auto">
+          <span class="plate-ch-flag">🇨🇭</span>
+          <span class="plate-ch-num">${vehicle.plate}</span>
+        </div>
+      </div>
         <div class="row"><span class="k">Fahrzeug</span><span class="v">${vehicle.make} ${vehicle.model}</span></div>
         ${tour.parkingLocation ? `<div class="row"><span class="k">Parkplatz</span><span class="v">${tour.parkingLocation}</span></div>` : ''}
       </div>
@@ -351,7 +366,12 @@ function renderPage(state: 'green' | 'active' | 'alarm' | 'notfound', vehicle: a
       <div class="green-banner">✅ Dieses Fahrzeug ist registriert. Aktuell keine aktive Tour.</div>
       <div class="section">
         <div class="section-hdr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> Fahrzeug</div>
-        <div class="row"><span class="k">Kennzeichen</span><span class="v">${vehicle.plate}</span></div>
+        <div class="row"><span class="k">Kennzeichen</span>
+        <div class="plate-ch" style="margin-left:auto">
+          <span class="plate-ch-flag">🇨🇭</span>
+          <span class="plate-ch-num">${vehicle.plate}</span>
+        </div>
+      </div>
         <div class="row"><span class="k">Fahrzeug</span><span class="v">${vehicle.make} ${vehicle.model}</span></div>
         <div class="row"><span class="k">Farbe</span><span class="v">${vehicle.color}</span></div>
       </div>`}
@@ -379,6 +399,7 @@ function renderPage(state: 'green' | 'active' | 'alarm' | 'notfound', vehicle: a
   </div>
   <div class="content">
     ${mapHtml(tour)}
+    ${elevHtml(tour)}
 
     <div class="section">
       <div class="section-hdr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Vermisste Person</div>
@@ -408,7 +429,13 @@ function renderPage(state: 'green' | 'active' | 'alarm' | 'notfound', vehicle: a
     <div class="section">
       <div class="section-hdr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> Fahrzeug am Parkplatz</div>
       <div class="vehicle-grid">
-        <div class="vcell"><div class="vk">Kennzeichen</div><div class="vv">${vehicle.plate}</div></div>
+        <div class="vcell">
+        <div class="vk">Kennzeichen</div>
+        <div class="plate-ch">
+          <span class="plate-ch-flag">🇨🇭</span>
+          <span class="plate-ch-num">${vehicle.plate}</span>
+        </div>
+      </div>
         <div class="vcell"><div class="vk">Fahrzeug</div><div class="vv">${vehicle.make} ${vehicle.model}</div><div class="vs">${vehicle.color}</div></div>
       </div>
     </div>
@@ -420,7 +447,7 @@ function renderPage(state: 'green' | 'active' | 'alarm' | 'notfound', vehicle: a
         <span class="med-title">Medizinische Daten</span>
       </div>
       ${user.bloodType ? `<div class="blood"><span class="blood-lbl">Blutgruppe</span><span class="blood-val">${user.bloodType}</span></div>` : ''}
-      ${allergies.length > 0 ? `<div class="allergy-tags">${allergies.map((a: string) => `<span class="allergy-tag">${a}</span>`).join('')}</div>` : ''}
+      ${allergies.length > 0 ? `<div class="row" style="border-bottom:none"><span class="k">Allergien</span></div><div class="allergy-tags">${allergies.map((a: string) => `<span class="allergy-tag">${a}</span>`).join('')}</div>` : ''}
       ${user.medications ? `<div class="row"><span class="k">Medikamente</span><span class="v">${user.medications}</span></div>` : ''}
       ${user.medicalNotes ? `<div class="row"><span class="k">Hinweise</span><span class="v">${user.medicalNotes}</span></div>` : ''}
     </div>` : ''}
@@ -434,7 +461,10 @@ function renderPage(state: 'green' | 'active' | 'alarm' | 'notfound', vehicle: a
             <div class="contact-name">${c.name}${c.isPrimary ? ' <span style="font-size:10px;background:#aeeecb;color:#006838;padding:2px 7px;border-radius:100px;font-weight:700">Primär</span>' : ''}</div>
             <div class="contact-sub">${c.relation ?? ''}</div>
           </div>
-          <a class="call-circle ${i === 0 ? 'call-primary' : 'call-secondary'}" href="tel:${c.phone}">📞</a>
+          <a class="contact-call-btn ${i === 0 ? 'contact-call-primary' : 'contact-call-secondary'}" href="tel:${c.phone}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12 19.79 19.79 0 0 1 1.95 3.36 2 2 0 0 1 3.92 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 5.99 5.99l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            ${c.phone}
+          </a>
         </div>`).join('')}
     </div>` : ''}
 
@@ -445,7 +475,6 @@ function renderPage(state: 'green' | 'active' | 'alarm' | 'notfound', vehicle: a
     </div>` : ''}
 
     ${overnightSection(tour)}
-    ${elevHtml(tour)}
 
     <footer>
       <div class="token">Secure Token: <span>${vehicle.qrToken?.slice(0,8).toUpperCase()}</span></div>
