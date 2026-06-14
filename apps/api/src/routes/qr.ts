@@ -44,8 +44,8 @@ const fmt  = (d: any) => d ? new Date(d).toLocaleString('de-CH',{day:'2-digit',m
 const fmtT = (d: any) => d ? new Date(d).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) : '—'
 
 // Swiss plate — Wappen (SVG) left, white bg, black border
-const plate = (text: string) => `<span style="display:inline-flex;align-items:stretch;border:2px solid #333;border-radius:4px;overflow:hidden;font-family:Arial,sans-serif;box-shadow:0 1px 4px rgba(0,0,0,.15);">
-  <span style="background:#fff;border-right:2px solid #333;display:flex;align-items:center;justify-content:center;padding:4px 8px;">
+const plate = (text: string) => `<span style="display:inline-flex;align-items:stretch;border:1px solid #bbb;border-radius:5px;overflow:hidden;font-family:Arial,sans-serif;box-shadow:0 1px 3px rgba(0,0,0,.1);">
+  <span style="background:#fff;border-right:1px solid #bbb;display:flex;align-items:center;justify-content:center;padding:4px 8px;">
     <svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
       <rect width="22" height="22" rx="2" fill="#D52B1E"/>
       <rect x="9" y="3" width="4" height="16" fill="#fff"/>
@@ -132,7 +132,7 @@ table{border-collapse:collapse;width:100%;}
 
 // ── GREEN ──────────────────────────────────────────────────────────────────────
 function renderGreen(vehicle: any) {
-  const veh = card(sectionTitle('🚗','Fahrzeug am Parkplatz'),
+  const veh = card(sectionTitle('','Fahrzeug am Parkplatz'),
     `<div style="padding:16px;display:flex;align-items:center;gap:16px;">${plate(vehicle.plate)}
     <div>${vehicle.make?`<p style="font-size:15px;font-weight:700;color:#061907;">${e(vehicle.make)}${vehicle.model?' '+e(vehicle.model):''}</p>`:''}
     ${vehicle.color?`<p style="font-size:13px;color:#747871;margin-top:3px;">${e(vehicle.color)}</p>`:''}
@@ -194,18 +194,27 @@ function buildTourCard(tour: any, compact: boolean, isAlarm = false) {
       </div>`:''}
       ${isAlarm&&manualWPs.length>0?`<div style="padding:12px 16px;border-top:1px solid #f3f4f5;">
         <p style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Wegpunkte / Route (${manualWPs.length})</p>
-        ${manualWPs.map((wp: any, i: number)=>`
+        ${manualWPs.map((wp: any, i: number)=>{
+          const isFirst=i===0;const isLast=i===manualWPs.length-1;
+          const wpLabel=isFirst?'Start':isLast?'Ziel':`Wegpunkt ${i}`;
+          const dotColor=isFirst?'#2c694e':isLast?'#ba1a1a':'#747871';
+          return `
         <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;${i<manualWPs.length-1?'border-bottom:1px solid #f3f4f5;':''}">
-          <span style="background:#f3f4f5;border-radius:100px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#747871;flex-shrink:0;margin-top:1px;">${i+1}</span>
+          <div style="flex-shrink:0;margin-top:1px;text-align:center;">
+            <div style="width:22px;height:22px;border-radius:50%;background:${dotColor};display:flex;align-items:center;justify-content:center;">
+              <div style="width:8px;height:8px;border-radius:50%;background:#fff;"></div>
+            </div>
+          </div>
           <div style="flex:1;">
-            <p style="font-size:13px;font-weight:700;color:#061907;">${e(wp.name||'Wegpunkt')}</p>
+            <p style="font-size:10px;font-weight:700;color:${dotColor};letter-spacing:.5px;text-transform:uppercase;margin-bottom:1px;">${wpLabel}</p>
+            <p style="font-size:13px;font-weight:700;color:#061907;">${e(wp.name||wpLabel)}</p>
             ${wp.lat&&wp.lng?`<a href="https://maps.google.com/?q=${wp.lat},${wp.lng}" target="_blank" style="font-size:11px;color:#2c694e;font-family:monospace;">${Number(wp.lat).toFixed(5)}, ${Number(wp.lng).toFixed(5)} ↗</a>`:''}
             ${wp.notes?`<p style="font-size:12px;color:#747871;margin-top:2px;">${e(wp.notes)}</p>`:''}
           </div>
-        </div>`).join('')}
+        </div>`;}).join('')}
       </div>`:''}
-      ${stops.length>0?`<div style="padding:12px 16px;border-top:1px solid #f3f4f5;">
-        <p style="font-size:11px;font-weight:700;color:#2c694e;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">${ICONS.moon} Übernachtungen (${stops.length} Nacht${stops.length>1?'e':''})</p>
+      ${isAlarm&&stops.length>0?`<div style="padding:12px 16px;border-top:1px solid #f3f4f5;">
+        <p style="font-size:11px;font-weight:700;color:#2c694e;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">${Übernachtungen (${stops.length} Nacht${stops.length>1?'e':''})</p>
         ${stops.map((s: any, i: number)=>`
         <div style="padding:10px 0;${i<stops.length-1?'border-bottom:1px solid #f3f4f5;':''}">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
@@ -220,11 +229,11 @@ function buildTourCard(tour: any, compact: boolean, isAlarm = false) {
       </div>`:''}
       `
 
-  return card(sectionTitle('🥾','Tour'), rows)
+  return card(sectionTitle('','Tour'), rows)
 }
 
 function buildGpsCard(locs: any[], lastLoc: any) {
-  if (!lastLoc) return card(sectionTitle('📍','Letzter bekannter Standort'),
+  if (!lastLoc) return card(sectionTitle('','Letzter bekannter Standort'),
     `<p style="padding:20px 16px;font-size:13px;color:#747871;text-align:center;">Noch keine GPS-Daten verfügbar</p>`)
 
   return `<div style="background:#fff;border-radius:12px;border:1px solid #e1e3e4;overflow:hidden;margin-bottom:12px;">
@@ -261,15 +270,17 @@ function buildGpsCard(locs: any[], lastLoc: any) {
     </div>
   </div>
   <script>
-  (function(){
+  function initMap(){
+    if(typeof L==='undefined'){setTimeout(initMap,200);return;}
     var lat=${lastLoc.lat},lng=${lastLoc.lng};
-    var map=L.map('tt-map',{attributionControl:false});
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    var map=L.map('tt-map',{attributionControl:false,zoomControl:true});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
     map.setView([lat,lng],14);
     var pts=[${locs.slice(0,100).reverse().map((l: any)=>`[${l.lat},${l.lng}]`).join(',')}];
     if(pts.length>1)L.polyline(pts,{color:'#ba1a1a',weight:3,opacity:.6}).addTo(map);
     L.circleMarker([lat,lng],{radius:10,fillColor:'#ba1a1a',color:'#fff',weight:3,fillOpacity:1}).bindPopup('Letzter Standort').addTo(map);
-  })();
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initMap);}else{initMap();}
   </script>`
 }
 
@@ -317,7 +328,7 @@ function buildVehicleCard(vehicle: any, compact: boolean) {
     ${plate(vehicle.plate)}
     ${vehicle.color?`<p style="font-size:12px;color:#747871;margin-top:6px;">${e(vehicle.color)}</p>`:''}
   </div>`
-  return card(sectionTitle('🚗','Fahrzeug am Parkplatz'),
+  return card(sectionTitle('','Fahrzeug am Parkplatz'),
     `<div style="padding:16px;display:flex;align-items:center;gap:16px;">${plate(vehicle.plate)}
     <div>${vehicle.make?`<p style="font-size:15px;font-weight:700;color:#061907;">${e(vehicle.make)}${vehicle.model?' '+e(vehicle.model):''}</p>`:''}
     ${vehicle.color?`<p style="font-size:13px;color:#747871;margin-top:3px;">${e(vehicle.color)}</p>`:''}
