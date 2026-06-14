@@ -140,15 +140,10 @@ model Friend {
   receiver    User        @relation("FriendReceiver", fields: [receiverId], references: [id])
   groupId     String?
   group       FriendGroup? @relation(fields: [groupId], references: [id])
-  status      FriendStatus @default(PENDING)
+  status      String       @default("PENDING")
   createdAt   DateTime    @default(now())
 }
 
-enum FriendStatus {
-  PENDING
-  ACCEPTED
-  BLOCKED
-}
 
 model Vehicle {
   id       String  @id @default(uuid())
