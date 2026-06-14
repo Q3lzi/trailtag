@@ -215,21 +215,23 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
 
-      {/* ── HEADER — identisch mit Dashboard ── */}
+      {/* Header — identisch mit Dashboard */}
       <View style={styles.topNav}>
         <View style={styles.topNavLeft}>
           <Mountain size={22} color="#061907" strokeWidth={2.5}/>
           <Text style={styles.logoText}>Trailtag</Text>
         </View>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarLetter}>{name ? name.charAt(0).toUpperCase() : '?'}</Text>
-        </View>
       </View>
 
-      {/* ── PROFIL-STRIP ── */}
-      <View style={styles.profileStrip}>
-        <Text style={styles.stripName}>{name || '—'}</Text>
-        <Text style={styles.stripEmail}>{profile?.email}</Text>
+      {/* Profil-Block — Avatar + Name + Email */}
+      <View style={styles.profileBlock}>
+        <View style={styles.profileAvatar}>
+          <Text style={styles.profileAvatarLetter}>{name ? name.charAt(0).toUpperCase() : '?'}</Text>
+        </View>
+        <View style={{flex:1}}>
+          <Text style={styles.profileBlockName}>{name || '—'}</Text>
+          <Text style={styles.profileBlockEmail}>{profile?.email}</Text>
+        </View>
       </View>
 
       {/* ── TABS ── */}
@@ -413,17 +415,28 @@ export default function ProfileScreen() {
           <Text style={styles.sectionLabel}>MEIN TRAILTAG-CODE</Text>
           <View style={[styles.card,{alignItems:'center',paddingVertical:24}]}>
             {myQrCode ? (
-              <View style={styles.qrBox}>
-                <QRCodeSVG
-                  value={`trailtag://friend/${myQrCode}`}
-                  size={160}
-                  color="#061907"
-                  backgroundColor="#fff"
-                />
-              </View>
+              Platform.OS !== 'web' ? (
+                <View style={styles.qrBox}>
+                  <QRCodeSVG
+                    value={`trailtag://friend/${myQrCode}`}
+                    size={160}
+                    color="#061907"
+                    backgroundColor="#fff"
+                  />
+                </View>
+              ) : (
+                <View style={[styles.qrBox, {padding:20, alignItems:'center'}]}>
+                  <View style={{width:160,height:160,backgroundColor:'#f3f4f5',borderRadius:8,alignItems:'center',justifyContent:'center'}}>
+                    <Text style={{fontSize:11,color:'#747871',textAlign:'center',marginBottom:8}}>QR-Code</Text>
+                    <Text style={{fontSize:13,fontWeight:'800',color:'#061907',fontFamily:'monospace',textAlign:'center',letterSpacing:1}}>{myQrCode.slice(0,8).toUpperCase()}</Text>
+                    <Text style={{fontSize:11,color:'#747871',textAlign:'center',marginTop:8}}>Im App scannbar</Text>
+                  </View>
+                </View>
+              )
             ) : (
               <View style={[styles.qrBox,{height:160,justifyContent:'center',alignItems:'center'}]}>
-                <Text style={{color:'#c3c8bf'}}>Lädt...</Text>
+                <Text style={{color:'#c3c8bf'}}>Code wird geladen...</Text>
+                <Text style={{color:'#c3c8bf',fontSize:11,marginTop:4}}>DB-Migration nötig</Text>
               </View>
             )}
             <Text style={styles.qrCodeText}>{myQrCode?.slice(0,8).toUpperCase() ?? '...'}</Text>
@@ -582,9 +595,6 @@ const styles = StyleSheet.create({
   avatarLetter: { fontSize:15, fontWeight:'800', color:'#fff' },
 
   // Profile strip below header
-  profileStrip: { backgroundColor:'#1a2e1a', paddingHorizontal:20, paddingVertical:14 },
-  stripName: { fontSize:18, fontWeight:'800', color:'#fff', letterSpacing:-0.3 },
-  stripEmail: { fontSize:12, color:'rgba(255,255,255,0.5)', marginTop:2 },
 
   // Tabs
   tabBar: { flexDirection:'row', backgroundColor:'#fff', borderBottomWidth:1, borderBottomColor:'#e1e3e4' },

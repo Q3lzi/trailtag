@@ -4,75 +4,131 @@ import { requireAuth } from '../middleware/auth'
 
 const router = express.Router()
 
-// GET /profile
+// GET /friends — eigene Freunde + pendente Anfragen + Gruppen
 router.get('/', requireAuth, async (req: Request, res: Response) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.userId as string },
-    select: {
-      id: true, email: true, name: true, phone: true, birthYear: true,
-      bloodType: true, allergies: true, medications: true, medicalNotes: true,
-      emergencyContacts: { orderBy: { isPrimary: 'desc' } }
-    }
-  })
-  if (!user) return res.status(404).json({ error: 'User nicht gefunden' })
-  res.json(user)
+  const userId = req.userId as string
+  try {
+    const [accepted, pending, groups] = await Promise.all([
+      (prisma as any).friend.findMany({
+        where: { OR: [{ initiatorId: userId }, { receiverId: userId }], status: 'ACCEPTED' },
+        include: {
+          initiator: { select: { id: true, name: true, phone: true } },
+          receiver: { select: { id: true, name: true, phone: true } },
+          group: true,
+        }
+      }),
+      (prisma as any).friend.findMany({
+        where: { receiverId: userId, status: 'PENDING' },
+        include: { initiator: { select: { id: true, name: true, phone: true } } }
+      }),
+      (prisma as any).friendGroup.findMany({ where: { userId } })
+    ])
+    const friends = accepted.map((f: any) => {
+      const isMine = f.initiatorId === userId
+      const other = isMine ? f.receiver : f.initiator
+      return { friendshipId: f.id, groupId: f.groupId, group: f.group, ...other }
+    })
+    res.json({ friends, pending, groups })
+  } catch {
+    res.json({ friends: [], pending: [], groups: [] })
+  }
 })
 
-// PUT /profile
-router.put('/', requireAuth, async (req: Request, res: Response) => {
-  const { name, phone, birthYear, bloodType, allergies, medications, medicalNotes } = req.body
-  const user = await prisma.user.update({
-    where: { id: req.userId as string },
-    data: { name, phone, birthYear: birthYear ? Number(birthYear) : null, bloodType, allergies, medications, medicalNotes }
-  })
-  res.json(user)
+// GET /friends/qr — eigener QR-Code
+router.get('/qr', requireAuth, async (req: Request, res: Response) => {
+  const userId = req.userId as string
+  try {
+    const user = await (prisma.user as any).findUnique({
+      where: { id: userId },
+      select: { qrCode: true, name: true }
+    })
+    res.json(user ?? { qrCode: userId, name: null })
+  } catch {
+    res.json({ qrCode: userId, name: null })
+  }
 })
 
-// POST /profile/emergency-contacts
-router.post('/emergency-contacts', requireAuth, async (req: Request, res: Response) => {
-  const { name, phone, relation, isPrimary } = req.body
-  if (!name || !phone) return res.status(400).json({ error: 'Name und Telefon erforderlich' })
-  const contact = await prisma.emergencyContact.create({
-    data: { userId: req.userId as string, name, phone, relation: relation || null, isPrimary: isPrimary ?? false }
-  })
-  res.json(contact)
+// POST /friends/add — via QR Code
+router.post('/add', requireAuth, async (req: Request, res: Response) => {
+  const userId = req.userId as string
+  const { qrCode } = req.body
+  if (!qrCode) return res.status(400).json({ error: 'qrCode erforderlich' })
+  try {
+    const target = await (prisma.user as any).findUnique({
+      where: { qrCode },
+      select: { id: true, name: true, phone: true }
+    })
+    if (!target) return res.status(404).json({ error: 'Benutzer nicht gefunden' })
+    if (target.id === userId) return res.status(400).json({ error: 'Du kannst dich nicht selbst hinzufügen' })
+    const existing = await (prisma as any).friend.findFirst({
+      where: { OR: [
+        { initiatorId: userId, receiverId: target.id },
+        { initiatorId: target.id, receiverId: userId }
+      ]}
+    })
+    if (existing) return res.status(400).json({ error: 'Bereits verbunden oder Anfrage ausstehend' })
+    const friend = await (prisma as any).friend.create({
+      data: { initiatorId: userId, receiverId: target.id, status: 'PENDING' }
+    })
+    res.json({ friend, target })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'Fehler beim Hinzufügen' })
+  }
 })
 
-// PUT /profile/emergency-contacts/:id
-router.put('/emergency-contacts/:id', requireAuth, async (req: Request, res: Response) => {
+// POST /friends/:id/accept
+router.post('/:id/accept', requireAuth, async (req: Request, res: Response) => {
+  const userId = req.userId as string
   const id = req.params['id'] as string
-  const { name, phone, relation } = req.body
-  const contact = await prisma.emergencyContact.findFirst({
-    where: { id, userId: req.userId as string }
-  })
-  if (!contact) return res.status(404).json({ error: 'Kontakt nicht gefunden' })
-  const updated = await prisma.emergencyContact.update({
-    where: { id },
-    data: { name, phone, relation: relation || null }
-  })
-  res.json(updated)
+  try {
+    const f = await (prisma as any).friend.findFirst({ where: { id, receiverId: userId, status: 'PENDING' } })
+    if (!f) return res.status(404).json({ error: 'Anfrage nicht gefunden' })
+    const updated = await (prisma as any).friend.update({ where: { id }, data: { status: 'ACCEPTED' } })
+    res.json(updated)
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
 })
 
-// DELETE /profile/emergency-contacts/:id
-router.delete('/emergency-contacts/:id', requireAuth, async (req: Request, res: Response) => {
+// POST /friends/:id/decline
+router.post('/:id/decline', requireAuth, async (req: Request, res: Response) => {
+  const userId = req.userId as string
   const id = req.params['id'] as string
-  const contact = await prisma.emergencyContact.findFirst({
-    where: { id, userId: req.userId as string }
-  })
-  if (!contact) return res.status(404).json({ error: 'Kontakt nicht gefunden' })
-  await prisma.emergencyContact.delete({ where: { id } })
-  res.json({ message: 'Kontakt gelöscht' })
+  await (prisma as any).friend.deleteMany({ where: { id, receiverId: userId } })
+  res.json({ ok: true })
 })
 
-// POST /profile/push-token
-router.post('/push-token', requireAuth, async (req: Request, res: Response) => {
-  const { token } = req.body
-  if (!token) return res.status(400).json({ error: 'Token required' })
-  await (prisma.user as any).update({
-    where: { id: req.userId as string },
-    data: { expoPushToken: token }
+// DELETE /friends/:id
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+  const userId = req.userId as string
+  const id = req.params['id'] as string
+  await (prisma as any).friend.deleteMany({
+    where: { id, OR: [{ initiatorId: userId }, { receiverId: userId }] }
   })
   res.json({ ok: true })
+})
+
+// POST /friends/groups
+router.post('/groups', requireAuth, async (req: Request, res: Response) => {
+  const userId = req.userId as string
+  const { name, color } = req.body
+  if (!name) return res.status(400).json({ error: 'Name erforderlich' })
+  try {
+    const group = await (prisma as any).friendGroup.create({
+      data: { userId, name, color: color ?? '#2c694e' }
+    })
+    res.json(group)
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'Fehler beim Erstellen' })
+  }
+})
+
+// PUT /friends/:id/group
+router.put('/:id/group', requireAuth, async (req: Request, res: Response) => {
+  const id = req.params['id'] as string
+  const { groupId } = req.body
+  const updated = await (prisma as any).friend.update({ where: { id }, data: { groupId: groupId ?? null } })
+  res.json(updated)
 })
 
 export default router
