@@ -145,7 +145,7 @@ function renderGreen(vehicle: any) {
 
 // ── Shared blocks ──────────────────────────────────────────────────────────────
 
-function buildWandererCard(user: any, isAlarm: boolean) {
+function buildWandererCard(user: any, isAlarm: boolean, priv?: any) {
   return `<div style="background:#fff;border-radius:12px;border:1px solid #e1e3e4;overflow:hidden;margin-bottom:12px;">
     <div style="padding:16px;display:flex;align-items:center;gap:14px;">
       <div style="width:64px;height:64px;border-radius:10px;background:#f3f4f5;border:1px solid #e1e3e4;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -163,7 +163,7 @@ function buildWandererCard(user: any, isAlarm: boolean) {
   </div>`
 }
 
-function buildTourCard(tour: any, compact: boolean, isAlarm = false) {
+function buildTourCard(tour: any, compact: boolean, isAlarm = false, priv?: any) {
   const stops: any[] = Array.isArray(tour.overnightStops) ? tour.overnightStops : (tour.overnightStops ? [tour.overnightStops] : [])
   const gpx: any = tour.gpxTrack || null
   const manualWPs: any[] = gpx?.waypoints || []
@@ -191,7 +191,7 @@ function buildTourCard(tour: any, compact: boolean, isAlarm = false) {
         ${tour.persons>1?row('Personen', tour.persons+' Personen'):''}
         ${tour.parkingLocation?row('Parkplatz / Start', e(tour.parkingLocation)):''}
       </tbody></table>
-      ${isAlarm&&tour.notes?`<div style="padding:12px 16px;border-top:1px solid #f3f4f5;">
+      ${(isAlarm || (priv&&priv.notes))&&tour.notes?`<div style="padding:12px 16px;border-top:1px solid #f3f4f5;">
         <p style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">Notizen für Rettungskräfte</p>
         <p style="font-size:13px;color:#191c1d;line-height:1.6;">${e(tour.notes)}</p>
       </div>`:''}
@@ -374,7 +374,21 @@ function render(vehicle: any, tour: any, state: 'active'|'alarm') {
   if (isAlarm) {
     body = overdue + callBtns + buildWandererCard(user, true) + buildVehicleCard(vehicle, false) + buildGpsCard(locs, lastLoc) + buildTourCard(tour, false, true) + buildMedCard(user) + buildContactsCard(contacts)
   } else {
-    body = buildWandererCard(user, false) + buildTourCard(tour, false, false) + buildVehicleCard(vehicle, false)
+    // Apply user privacy settings for active tour
+    const priv = {
+      name:     user?.privacyShowName     !== false,
+      phone:    user?.privacyShowPhone    !== false,
+      medical:  user?.privacyShowMedical  === true,
+      contacts: user?.privacyShowContacts !== false,
+      gps:      user?.privacyShowGps      === true,
+      notes:    user?.privacyShowNotes    === true,
+    }
+    let activeBlocks = buildVehicleCard(vehicle, false) + buildTourCard(tour, false, false, priv)
+    if (priv.name || priv.phone) activeBlocks = buildWandererCard(user, false, priv) + activeBlocks
+    if (priv.contacts) activeBlocks += buildContactsCard(contacts)
+    if (priv.gps && lastLoc) activeBlocks += buildGpsCard(locs, lastLoc)
+    if (priv.medical) activeBlocks += buildMedCard(user)
+    body = activeBlocks
   }
 
   return shell(isAlarm, isAlarm?'#ba1a1a':'#2c694e',
