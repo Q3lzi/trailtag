@@ -130,6 +130,7 @@ export default function TourDetailScreen() {
   const [weather, setWeather] = useState<any>(null);
   const [showAllLogs, setShowAllLogs] = useState(false);
   const [extendLoading, setExtendLoading] = useState(false);
+  const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, time: string} | null>(null);
   const leafletMapRef = useRef<any>(null);
   const mapSectionRef = useRef<any>(null);
@@ -380,6 +381,11 @@ export default function TourDetailScreen() {
               <View style={styles.cwRow}>
                 <Timer size={11} color="#434841" strokeWidth={2} />
                 <Text style={styles.cwLabel}>{effectiveIsOverdue ? 'ÜBERFÄLLIG' : isPlanned ? 'GEPLANTE RÜCKKEHR' : 'NEXT CHECK-IN'}</Text>
+                {batteryLevel !== null && (
+                  <Text style={{ fontSize: 10, color: batteryLevel < 20 ? '#dc2626' : 'rgba(6,25,7,0.5)', fontWeight: '700', marginTop: 2 }}>
+                    {batteryLevel < 20 ? '🪫' : batteryLevel < 50 ? '🔋' : '🔋'} {batteryLevel}% Akku
+                  </Text>
+                )}
               </View>
               <Text style={[styles.cwTime, isOverdue && { color: '#ba1a1a' }]}>{timeLeft}</Text>
               {isOverdue && (
@@ -446,6 +452,11 @@ export default function TourDetailScreen() {
             <View style={styles.statCell}>
               <Text style={styles.statCellKey}>AKTUELLE HÖHE</Text>
               <Text style={styles.statCellVal}>{Math.round(tour.locations[tour.locations.length - 1].ele)} <Text style={styles.statCellUnit}>m</Text></Text>
+            </View>
+          ) : tour.elevationUp ? (
+            <View style={styles.statCell}>
+              <Text style={styles.statCellKey}>HÖHENMETER</Text>
+              <Text style={styles.statCellVal}>+{tour.elevationUp} <Text style={styles.statCellUnit}>m</Text></Text>
             </View>
           ) : tour.startedAt ? (
             <View style={styles.statCell}>
@@ -713,7 +724,7 @@ export default function TourDetailScreen() {
           {tour.notes && (
             <View style={[styles.detailRow, { flexDirection: 'column', gap: 4 }]}>
               <Text style={styles.detailKey}>Notizen für Rettungskräfte</Text>
-              <Text style={[styles.detailVal, { textAlign: 'left' }]}>{tour.notes}</Text>
+              <Text style={[styles.detailVal, { textAlign: 'center', color: '#747871', fontStyle: 'italic' }]}>{tour.notes}</Text>
             </View>
           )}
         </View>

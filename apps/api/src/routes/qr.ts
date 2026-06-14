@@ -51,7 +51,8 @@ router.get('/:token', async (req: Request, res: Response) => {
 
   const etaMs = tour.eta ? new Date(tour.eta).getTime() : null
   const isOverdue = tour.status === 'ALARM' || (etaMs !== null && etaMs < Date.now())
-  const isStale = tour.status === 'ACTIVE' && tour.eta && new Date(tour.eta).getTime() < Date.now() - 48 * 60 * 60 * 1000
+  // Stale: ETA is more than 6 hours in the past (likely forgotten/completed)
+  const isStale = etaMs !== null && etaMs < Date.now() - 6 * 60 * 60 * 1000
 
   if (isStale) return res.send(renderPage('green', vehicle, null))
   if (isOverdue) return res.send(renderPage('alarm', vehicle, tour))
@@ -413,12 +414,12 @@ function renderPage(state: 'green' | 'active' | 'alarm' | 'notfound', vehicle: a
       </div>
     </div>
 
-    ${(tour.persons && tour.persons > 0) || (Array.isArray(tour.overnightStops) && false) ? `
+    ${(tour.persons && tour.persons > 1) ? `
     <div class="section">
-      <div class="section-hdr">👥 Begleitpersonen (${tour.persons ?? 1} ${(tour.persons ?? 1) === 1 ? 'Person' : 'Personen'} total)</div>
-      <div class="row"><span class="k">Personenanzahl</span><span class="v">${tour.persons ?? 1}</span></div>
-      ${tour.notes && tour.notes.includes('Person') ? `<div class="row" style="flex-direction:column;gap:4px"><span class="k">Details</span><span style="font-size:13px;color:#434841;margin-top:4px;line-height:1.6">${tour.notes.split('\n').filter((l: string) => l.includes('Person') || l.includes('person')).join('<br>')}</span></div>` : ''}
-    </div>` : ''}
+      <div class="section-hdr">👥 Begleitpersonen</div>
+      <div class="row"><span class="k">Personen total</span><span class="v" style="font-weight:800;font-size:18px">${tour.persons}</span></div>
+      <div class="row"><span class="k">Hinweis</span><span class="v" style="color:#747871">Inklusive Tourführer</span></div>
+    </div>` : ``}
 
     <div class="section">
       <div class="section-hdr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg> Tour-Details</div>
@@ -478,7 +479,7 @@ function renderPage(state: 'green' | 'active' | 'alarm' | 'notfound', vehicle: a
     ${tour.notes ? `
     <div class="section">
       <div class="section-hdr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Notizen für Rettungskräfte</div>
-      <div class="notes-body">${tour.notes.replace(/\n/g, '<br>')}</div>
+      <div class="notes-body" style="text-align:center;font-style:italic;color:#747871">${tour.notes.replace(/\n/g, '<br>')}</div>
     </div>` : ''}
 
     ${overnightSection(tour)}

@@ -537,65 +537,6 @@ if (data.startLat) {
             </View>
           </View>
         ) : null}
-        {overnightStops.map((stop,i) => (
-          <View key={i} style={[styles.card,{marginTop:12}]}>
-            <Text style={styles.sectionLabel}>ÜBERNACHTUNG — NACHT {stop.night}</Text>
-            <Text style={styles.inputLabel}>Art der Unterkunft</Text>
-            <View style={styles.typeRow}>
-              {OVERNIGHT_TYPES.map(ot => (
-                <TouchableOpacity key={ot.key}
-                  style={[styles.typeBtn, stop.type===ot.key&&styles.typeBtnOn]}
-                  onPress={()=>updateStop(i,{type:ot.key})}>
-                  <ot.Icon size={16} color={stop.type===ot.key?'#2c694e':'#c3c8bf'} strokeWidth={1.8}/>
-                  <Text style={[styles.typeTxt, stop.type===ot.key&&{color:'#2c694e',fontWeight:'700'}]}>{ot.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Text style={styles.inputLabel}>Name / Bezeichnung</Text>
-            <TextInput style={styles.input} placeholder="z.B. Muttseehütte SAC" placeholderTextColor="#bbb"
-              value={stop.name} onChangeText={v=>updateStop(i,{name:v})}/>
-            <Text style={styles.inputLabel}>Adresse / Gebiet</Text>
-            <TextInput style={styles.input} placeholder="z.B. Muttsee, Glarus" placeholderTextColor="#bbb"
-              value={stop.address} onChangeText={v=>updateStop(i,{address:v})}/>
-            <Text style={styles.inputLabel}>Koordinaten</Text>
-            <View style={{flexDirection:'row',gap:8}}>
-              <TextInput style={[styles.input,{flex:1}]} placeholder="Breitengrad" placeholderTextColor="#bbb"
-                keyboardType="numeric" value={stop.lat} onChangeText={v=>updateStop(i,{lat:v})}/>
-              <TextInput style={[styles.input,{flex:1}]} placeholder="Längengrad" placeholderTextColor="#bbb"
-                keyboardType="numeric" value={stop.lng} onChangeText={v=>updateStop(i,{lng:v})}/>
-            </View>
-            {Platform.OS==='web' ? (
-              <MapPicker key={`stop-${i}-${stop.lat}-${stop.lng}`} lat={stop.lat} lng={stop.lng} mapKey={`overnight_${i}`} onSelect={(lat,lng)=>updateStop(i,{lat,lng})}/>
-            ) : null}
-            {(stop.lat&&stop.lng&&Platform.OS==='web') ? (
-              <TouchableOpacity onPress={()=>window.open(`https://maps.google.com/?q=${stop.lat},${stop.lng}`,'_blank')}>
-                <Text style={styles.mapLink}>↗ In Google Maps öffnen</Text>
-              </TouchableOpacity>
-            ) : null}
-            {['biwak','zelt','camping'].includes(stop.type) ? (
-              <View style={{backgroundColor:'#f0faf4',borderRadius:6,padding:10,marginBottom:8}}>
-                <Text style={{fontSize:12,color:'#2c694e'}}>ℹ️ Keine Reservierung nötig</Text>
-              </View>
-            ) : (
-              <TouchableOpacity style={styles.checkRow} onPress={()=>updateStop(i,{reserved:!stop.reserved})}>
-                {stop.reserved ? <CheckSquare size={18} color="#2c694e" strokeWidth={2}/> : <Square size={18} color="#c3c8bf" strokeWidth={1.8}/>}
-                <Text style={[styles.checkTxt,stop.reserved&&{color:'#2c694e'}]}>Reservierung bestätigt</Text>
-              </TouchableOpacity>
-            )}
-            {['biwak','zelt','camping'].includes(stop.type) ? null : (
-              <View>
-                <Text style={styles.inputLabel}>Kontaktperson</Text>
-                <TextInput style={styles.input} placeholder="Name Hüttenwart / Kontakt" placeholderTextColor="#bbb"
-                  value={stop.contactName} onChangeText={v=>updateStop(i,{contactName:v})}/>
-                <TextInput style={styles.input} placeholder="Telefonnummer" placeholderTextColor="#bbb"
-                  keyboardType="phone-pad" value={stop.contactPhone} onChangeText={v=>updateStop(i,{contactPhone:v})}/>
-              </View>
-            )}
-            <Text style={styles.inputLabel}>Notizen</Text>
-            <TextInput style={[styles.input,{height:56}]} placeholder="z.B. Matratzenlager, kein Empfang" placeholderTextColor="#bbb"
-              multiline value={stop.notes} onChangeText={v=>updateStop(i,{notes:v})}/>
-          </View>
-        ))}
       </View>
     );
   }
@@ -674,7 +615,68 @@ if (data.startLat) {
 ) : null}
         </View>
 
-        <View style={[styles.card,{marginTop:12}]}>
+        {/* Übernachtungen — nur bei Mehrtagestour, nach GPX damit man Route sieht */}
+        {multiDay && overnightStops.map((stop,i) => (
+          <View key={i} style={[styles.card,{marginTop:12}]}>
+            <Text style={styles.sectionLabel}>🌙 ÜBERNACHTUNG — NACHT {stop.night}</Text>
+            <Text style={styles.inputLabel}>Art der Unterkunft</Text>
+            <View style={styles.typeRow}>
+              {OVERNIGHT_TYPES.map(ot => (
+                <TouchableOpacity key={ot.key}
+                  style={[styles.typeBtn, stop.type===ot.key&&styles.typeBtnOn]}
+                  onPress={()=>updateStop(i,{type:ot.key})}>
+                  <ot.Icon size={16} color={stop.type===ot.key?'#2c694e':'#c3c8bf'} strokeWidth={1.8}/>
+                  <Text style={[styles.typeTxt, stop.type===ot.key&&{color:'#2c694e',fontWeight:'700'}]}>{ot.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.inputLabel}>Name / Bezeichnung</Text>
+            <TextInput style={styles.input} placeholder="z.B. Muttseehütte SAC" placeholderTextColor="#bbb"
+              value={stop.name} onChangeText={v=>updateStop(i,{name:v})}/>
+            <Text style={styles.inputLabel}>Adresse / Gebiet</Text>
+            <TextInput style={styles.input} placeholder="z.B. Muttsee, Glarus" placeholderTextColor="#bbb"
+              value={stop.address} onChangeText={v=>updateStop(i,{address:v})}/>
+            <Text style={styles.inputLabel}>Koordinaten (auf Karte klicken)</Text>
+            <View style={{flexDirection:'row',gap:8}}>
+              <TextInput style={[styles.input,{flex:1}]} placeholder="Breitengrad" placeholderTextColor="#bbb"
+                keyboardType="numeric" value={stop.lat} onChangeText={v=>updateStop(i,{lat:v})}/>
+              <TextInput style={[styles.input,{flex:1}]} placeholder="Längengrad" placeholderTextColor="#bbb"
+                keyboardType="numeric" value={stop.lng} onChangeText={v=>updateStop(i,{lng:v})}/>
+            </View>
+            {Platform.OS==='web' ? (
+              <MapPicker key={`stop-${i}-${stop.lat}-${stop.lng}`} lat={stop.lat} lng={stop.lng} mapKey={`overnight_${i}`} onSelect={(lat,lng)=>updateStop(i,{lat,lng})}/>
+            ) : null}
+            {(stop.lat&&stop.lng&&Platform.OS==='web') ? (
+              <TouchableOpacity onPress={()=>(window as any).open(`https://maps.google.com/?q=${stop.lat},${stop.lng}`,'_blank')}>
+                <Text style={styles.mapLink}>↗ In Google Maps öffnen</Text>
+              </TouchableOpacity>
+            ) : null}
+            {['biwak','zelt','camping'].includes(stop.type) ? (
+              <View style={{backgroundColor:'#f0faf4',borderRadius:6,padding:10,marginBottom:8}}>
+                <Text style={{fontSize:12,color:'#2c694e'}}>ℹ️ Keine Reservierung nötig</Text>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.checkRow} onPress={()=>updateStop(i,{reserved:!stop.reserved})}>
+                {stop.reserved ? <CheckSquare size={18} color="#2c694e" strokeWidth={2}/> : <Square size={18} color="#c3c8bf" strokeWidth={1.8}/>}
+                <Text style={[styles.checkTxt,stop.reserved&&{color:'#2c694e'}]}>Reservierung bestätigt</Text>
+              </TouchableOpacity>
+            )}
+            {['biwak','zelt','camping'].includes(stop.type) ? null : (
+              <View>
+                <Text style={styles.inputLabel}>Kontaktperson</Text>
+                <TextInput style={styles.input} placeholder="Name Hüttenwart / Kontakt" placeholderTextColor="#bbb"
+                  value={stop.contactName} onChangeText={v=>updateStop(i,{contactName:v})}/>
+                <TextInput style={styles.input} placeholder="Telefonnummer" placeholderTextColor="#bbb"
+                  keyboardType="phone-pad" value={stop.contactPhone} onChangeText={v=>updateStop(i,{contactPhone:v})}/>
+              </View>
+            )}
+            <Text style={styles.inputLabel}>Notizen</Text>
+            <TextInput style={[styles.input,{height:56}]} placeholder="z.B. Matratzenlager, kein Empfang" placeholderTextColor="#bbb"
+              multiline value={stop.notes} onChangeText={v=>updateStop(i,{notes:v})}/>
+          </View>
+        ))}
+
+                <View style={[styles.card,{marginTop:12}]}>
           <Text style={styles.fieldLabel}>STARTDETAILS</Text>
           <Text style={styles.inputLabel}>Routenname</Text>
           <TextInput style={styles.input} placeholder="z.B. Diesbacher Höhen-Loop" placeholderTextColor="#bbb"
