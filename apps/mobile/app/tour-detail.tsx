@@ -233,6 +233,15 @@ export default function TourDetailScreen() {
               if (wp.lat && wp.lng) L.default.circleMarker([wp.lat, wp.lng] as [number, number], { radius: 7, fillColor: '#f59e0b', color: '#fff', weight: 2, fillOpacity: 1 }).bindPopup(wp.name || 'Wegpunkt').addTo(map);
             });
           }
+          // Overnight stops as moon markers
+          if (tourData.overnightStops?.length > 0) {
+            tourData.overnightStops.forEach((stop: any) => {
+              if (stop.lat && stop.lng) {
+                const icon = L.default.divIcon({ html: '<div style="font-size:18px;line-height:1">🌙</div>', iconSize: [24, 24], iconAnchor: [12, 12], className: '' });
+                L.default.marker([stop.lat, stop.lng] as [number, number], { icon }).bindPopup(`Nacht ${stop.night}${stop.name ? ': ' + stop.name : ''}`).addTo(map);
+              }
+            });
+          }
           // GPS tracking points - show max 50 dots for performance
           if (tourData.locations?.length > 0) {
             const locs = tourData.locations;
@@ -259,29 +268,34 @@ export default function TourDetailScreen() {
     setTimeout(tryInit, 400);
   }
 
-  // Trigger map init whenever tour data changes or on first mount
+  // Init map whenever tour data changes
   useEffect(() => {
     if (!tour || Platform.OS !== 'web') return;
-    // Delay to ensure DOM is ready after React render
-    const t = setTimeout(() => initLeafletMap(tour), 50);
+    const t = setTimeout(() => initLeafletMap(tour), 300);
     return () => clearTimeout(t);
   }, [tour?.id, tour?.locations?.length, tour?.lastLat, tour?.lastLng]);
 
-  // Re-init map when tab/window gains focus (handles back-navigation)
+  // KRITISCH: Auch beim Zurücknavigieren die Karte neu laden
+  // Expo Router mountet die Komponente NEU — aber Leaflet-Container ist im neuen DOM leer
+  // Lösung: useEffect mit [] = läuft bei JEDEM Mount der Komponente
   useEffect(() => {
     if (Platform.OS !== 'web') return;
-    const onFocus = () => { if (tour) setTimeout(() => initLeafletMap(tour), 200); };
-    if (typeof window !== 'undefined') {
-      window.addEventListener('focus', onFocus);
-      document.addEventListener('visibilitychange', onFocus);
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('focus', onFocus);
-        document.removeEventListener('visibilitychange', onFocus);
+    // Karte beim Mount erzwingen (tour kommt ggf. erst nach loadTour)
+    const t1 = setTimeout(() => { if (tour) initLeafletMap(tour); }, 500);
+    const t2 = setTimeout(() => { if (tour) initLeafletMap(tour); }, 1200);
+    // Auch bei Page-Visibility-Change (Browser Tab wechsel)
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        setTimeout(() => { if (tour) initLeafletMap(tour); }, 300);
       }
     };
-  }, [tour]);
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []); // leere deps = läuft bei JEDEM Mount
 
   async function loadTour() {
     try {
@@ -648,20 +662,41 @@ export default function TourDetailScreen() {
 )}
         </View>
         <View style={styles.timeline}>
-          {tour.startedAt && (
-            <TouchableOpacity style={styles.tlEntry} onPress={() => tour.startLat && handleLocationSelect({ lat: tour.startLat, lng: tour.startLng, time: new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
+          {/* Neueste oben */}
+          {tour.checkedOutAt && (
+            <View style={styles.tlEntry}>
               <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: '#2c694e' }]} /><View style={styles.tlLine} /></View>
               <View style={styles.tlCard}>
-                <View style={styles.tlTop}><Text style={styles.tlTitle}>START</Text><Text style={styles.tlTime}>{new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
-                {tour.parkingLocation && <Text style={styles.tlDesc}>{tour.parkingLocation}</Text>}
-                {tour.startLat && <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>}
+                <View style={styles.tlTop}><Text style={styles.tlTitle}>AUSGECHECKT ✓</Text><Text style={styles.tlTime}>{new Date(tour.checkedOutAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
+              </View>
+            </View>
+          )}
+
+          {tour.eta && (
+            <View style={styles.tlEntry}>
+              <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: isOverdue ? '#dc2626' : '#2c694e' }]} /><View style={styles.tlLine} /></View>
+              <View style={styles.tlCard}>
+                <View style={styles.tlTop}>
+                  <Text style={[styles.tlTitle, isOverdue && { color: '#dc2626' }]}>GEPLANTE RÜCKKEHR</Text>
+                  <Text style={[styles.tlTime, isOverdue && { color: '#dc2626', fontWeight: '800' }]}>{new Date(tour.eta).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {tour.locationUpdatedAt && (
+            <TouchableOpacity style={styles.tlEntry} onPress={() => tour.lastLat && handleLocationSelect({ lat: tour.lastLat, lng: tour.lastLng, time: new Date(tour.locationUpdatedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
+              <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: '#f59e0b' }]} /><View style={styles.tlLine} /></View>
+              <View style={styles.tlCard}>
+                <View style={styles.tlTop}><Text style={styles.tlTitle}>LETZTER STANDORT</Text><Text style={styles.tlTime}>{new Date(tour.locationUpdatedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
+                <Text style={styles.tlDesc}>{minutesSinceUpdate !== null ? `vor ${minutesSinceUpdate} Minuten` : ''}{minutesSinceUpdate !== null && minutesSinceUpdate > 30 ? ' — Möglicherweise kein Signal' : ' — Aktuell'}</Text>
+                {tour.lastLat && <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>}
               </View>
             </TouchableOpacity>
           )}
 
           {(() => {
-            // Newest first — reverse so latest GPS points show at top
-            const locs = [...(tour.locations ?? [])].reverse();
+            const locs = [...(tour.locations ?? [])].reverse(); // neueste zuerst
             const shown = showAllLogs ? locs : locs.slice(0, 3);
             return (<>
               {shown.map((loc: any, idx: number) => (
@@ -694,36 +729,16 @@ export default function TourDetailScreen() {
             </>);
           })()}
 
-          {tour.locationUpdatedAt && (
-            <TouchableOpacity style={styles.tlEntry} onPress={() => tour.lastLat && handleLocationSelect({ lat: tour.lastLat, lng: tour.lastLng, time: new Date(tour.locationUpdatedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
-              <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: '#f59e0b' }]} /><View style={styles.tlLine} /></View>
-              <View style={styles.tlCard}>
-                <View style={styles.tlTop}><Text style={styles.tlTitle}>LETZTER STANDORT</Text><Text style={styles.tlTime}>{new Date(tour.locationUpdatedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
-                <Text style={styles.tlDesc}>{minutesSinceUpdate !== null ? `vor ${minutesSinceUpdate} Minuten` : ''}{minutesSinceUpdate !== null && minutesSinceUpdate > 30 ? ' — Möglicherweise kein Signal' : ' — Aktuell'}</Text>
-                {tour.lastLat && <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>}
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {tour.eta && (
-            <View style={styles.tlEntry}>
-              <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: isOverdue ? '#dc2626' : '#2c694e' }]} /></View>
-              <View style={styles.tlCard}>
-                <View style={styles.tlTop}>
-                  <Text style={[styles.tlTitle, isOverdue && { color: '#dc2626' }]}>GEPLANTE RÜCKKEHR</Text>
-                  <Text style={[styles.tlTime, isOverdue && { color: '#dc2626', fontWeight: '800' }]}>{new Date(tour.eta).toLocaleString('de-CH', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {tour.checkedOutAt && (
-            <View style={styles.tlEntry}>
+          {/* START immer unten */}
+          {tour.startedAt && (
+            <TouchableOpacity style={styles.tlEntry} onPress={() => tour.startLat && handleLocationSelect({ lat: tour.startLat, lng: tour.startLng, time: new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) })}>
               <View style={styles.tlLeft}><View style={[styles.tlDot, { backgroundColor: '#2c694e' }]} /></View>
               <View style={styles.tlCard}>
-                <View style={styles.tlTop}><Text style={styles.tlTitle}>AUSGECHECKT ✓</Text><Text style={styles.tlTime}>{new Date(tour.checkedOutAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
+                <View style={styles.tlTop}><Text style={styles.tlTitle}>START</Text><Text style={styles.tlTime}>{new Date(tour.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</Text></View>
+                {tour.parkingLocation && <Text style={styles.tlDesc}>{tour.parkingLocation}</Text>}
+                {tour.startLat && <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>}
               </View>
-            </View>
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -736,7 +751,19 @@ export default function TourDetailScreen() {
           {tour.difficulty && <View style={styles.detailRow}><Text style={styles.detailKey}>Schwierigkeit</Text><Text style={styles.detailVal}>{tour.difficulty}</Text></View>}
           {tour.startedAt && <View style={styles.detailRow}><Text style={styles.detailKey}>Gestartet</Text><Text style={styles.detailVal}>{new Date(tour.startedAt).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text></View>}
           {tour.eta && <View style={styles.detailRow}><Text style={styles.detailKey}>Geplante Rückkehr</Text><Text style={[styles.detailVal, isOverdue && { color: '#dc2626' }]}>{new Date(tour.eta).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text></View>}
-          {tour.parkingLocation && <View style={styles.detailRow}><Text style={styles.detailKey}>Parkplatz / Start</Text><Text style={styles.detailVal}>{tour.parkingLocation}</Text></View>}
+          {tour.parkingLocation && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>Parkplatz / Start</Text>
+              <TouchableOpacity onPress={() => {
+                const q = encodeURIComponent(tour.parkingLocation);
+                const url = `https://maps.apple.com/?q=${q}`;
+                if (Platform.OS === 'web') { if (typeof window !== 'undefined') window.open(`https://www.google.com/maps/search/?q=${q}`, '_blank'); }
+                else { Linking.openURL(url); }
+              }}>
+                <Text style={[styles.detailVal, { color: '#2c694e', textDecorationLine: 'underline' }]}>{tour.parkingLocation} ↗</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           {tour.persons > 1 && <View style={styles.detailRow}><Text style={styles.detailKey}>Personen</Text><Text style={styles.detailVal}>{tour.persons} Personen</Text></View>}
           {tour.notes && (
             <View style={[styles.detailRow, { flexDirection: 'column', gap: 4 }]}>
@@ -751,59 +778,35 @@ export default function TourDetailScreen() {
       {tour.vehicle && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Fahrzeug</Text>
-          <View style={styles.card}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailKey}>Kennzeichen</Text>
-              <View style={styles.plateBadge}><Text style={styles.plateBadgeTxt}>{tour.vehicle.plate}</Text></View>
+          <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 16 }]}>
+            {/* Kennzeichen links */}
+            <View style={styles.plateBadge}>
+              <Text style={styles.plateBadgeTxt}>{tour.vehicle.plate}</Text>
             </View>
-            {tour.vehicle.make && <View style={styles.detailRow}><Text style={styles.detailKey}>Fahrzeug</Text><Text style={styles.detailVal}>{tour.vehicle.make} {tour.vehicle.model ?? ''}</Text></View>}
-            {tour.vehicle.color && <View style={styles.detailRow}><Text style={styles.detailKey}>Farbe</Text><Text style={styles.detailVal}>{tour.vehicle.color}</Text></View>}
+            {/* Details rechts */}
+            <View style={{ flex: 1 }}>
+              {tour.vehicle.make && <Text style={{ fontSize: 14, fontWeight: '700', color: '#061907' }}>{tour.vehicle.make}{tour.vehicle.model ? ` ${tour.vehicle.model}` : ''}</Text>}
+              {tour.vehicle.color && <Text style={{ fontSize: 12, color: '#747871', marginTop: 2 }}>{tour.vehicle.color}</Text>}
+            </View>
           </View>
         </View>
       )}
 
       {/* Begleitpersonen */}
-      {tour.persons > 1 && (
+      {(tour.persons ?? 1) > 1 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Begleitpersonen</Text>
           <View style={styles.card}>
             <View style={styles.detailRow}>
-              <Text style={styles.detailKey}>Anzahl</Text>
-              <Text style={styles.detailVal}>{tour.persons - 1} Begleitperson{tour.persons - 1 !== 1 ? 'en' : ''}</Text>
+              <Text style={styles.detailKey}>Begleitpersonen</Text>
+              <Text style={styles.detailVal}>{(tour.persons ?? 1) - 1} Person{(tour.persons ?? 1) - 1 !== 1 ? 'en' : ''}</Text>
             </View>
-            <Text style={{ fontSize: 12, color: '#c3c8bf', marginTop: 8 }}>
-              Detailierte Infos werden in einer späteren Version erfasst
-            </Text>
+            <Text style={{ fontSize: 12, color: '#c3c8bf', marginTop: 6 }}>Namen werden beim Erstellen der Tour erfasst (nächste Version)</Text>
           </View>
         </View>
       )}
 
-      {/* GPS-Tracking Log */}
-      {tour.locations?.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>GPS-Tracking</Text>
-          <View style={styles.card}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailKey}>Punkte gesamt</Text>
-              <Text style={styles.detailVal}>{tour.locations.length}</Text>
-            </View>
-            {/* Letzte 3 Punkte sichtbar, Rest versteckt */}
-            {[...tour.locations].reverse().slice(0, 3).map((loc: any, i: number) => (
-              <View key={i} style={[styles.detailRow, i === 0 && { backgroundColor: '#f0faf4', borderRadius: 6, paddingHorizontal: 8, marginHorizontal: -8 }]}>
-                <Text style={[styles.detailKey, i === 0 && { color: '#2c694e' }]}>
-                  {i === 0 ? 'Letzter Standort' : `vor ${i === 1 ? 'einem' : 'zwei'} Update${i > 1 ? 's' : ''}`}
-                </Text>
-                <Text style={[styles.detailVal, i === 0 && { color: '#2c694e', fontWeight: '800' }]}>
-                  {loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}
-                </Text>
-              </View>
-            ))}
-            {tour.locations.length > 3 && (
-              <Text style={{ fontSize: 11, color: '#c3c8bf', marginTop: 8, textAlign: 'center' }}>
-                + {tour.locations.length - 3} ältere Punkte auf der Karte
-              </Text>
-            )}
-          </View>
+
         </View>
       )}
 
