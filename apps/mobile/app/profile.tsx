@@ -299,8 +299,13 @@ export default function ProfileScreen() {
   async function savePrivacy(updates: Record<string, boolean>) {
     try {
       const token = await getToken();
-      await apiFetch('/profile', { method: 'PUT', body: JSON.stringify(updates) }, token ?? undefined);
-    } catch (err: any) { showAlert('Fehler beim Speichern', err.message); }
+      console.log('savePrivacy sending:', JSON.stringify(updates));
+      const result = await apiFetch('/profile', { method: 'PUT', body: JSON.stringify(updates) }, token ?? undefined);
+      console.log('savePrivacy result:', JSON.stringify(result));
+    } catch (err: any) {
+      console.log('savePrivacy ERROR:', err.message);
+      showAlert('Fehler beim Speichern', err.message);
+    }
   }
 
   function shareMyQR() {
