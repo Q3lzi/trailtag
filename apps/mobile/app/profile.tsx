@@ -7,7 +7,7 @@ import { getToken } from '../lib/storage';
 import { showAlert, showConfirm } from '../lib/alert';
 import {
   Mountain, User, Phone, Users, Plus, Trash2, Edit3,
-  QrCode, UserPlus, Check, X, ChevronRight, Star, Share2, Scan, Scan
+  QrCode, UserPlus, Check, X, ChevronRight, Star, Share2, Scan
 } from 'lucide-react-native';
 
 import { CameraView, useCameraPermissions } from 'expo-camera';
