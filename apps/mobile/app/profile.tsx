@@ -1,5 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, Modal, ActivityIndicator } from 'react-native';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Platform, Linking } from 'react-native';
 import { router } from 'expo-router';
@@ -26,23 +26,24 @@ const GROUP_COLORS = ['#2c694e','#1d4ed8','#dc2626','#ea580c','#7c3aed','#0891b2
 // ── Auto-save hook ─────────────────────────────────────────────────────────────
 function useAutoSave(data: any, enabled: boolean) {
   const timerRef = useRef<any>(null);
+  const dataRef = useRef(data);
   const [status, setStatus] = useState<'idle'|'saving'|'saved'>('idle');
 
-  const save = useCallback(async () => {
-    if (!enabled) return;
-    setStatus('saving');
-    try {
-      const token = await getToken();
-      await apiFetch('/profile', { method: 'PUT', body: JSON.stringify(data) }, token ?? undefined);
-      setStatus('saved');
-      setTimeout(() => setStatus('idle'), 2000);
-    } catch { setStatus('idle'); }
-  }, [data, enabled]);
+  // Keep ref current so the timer callback always uses latest data
+  dataRef.current = data;
 
   useEffect(() => {
     if (!enabled) return;
     clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(save, 1200);
+    timerRef.current = setTimeout(async () => {
+      setStatus('saving');
+      try {
+        const token = await getToken();
+        await apiFetch('/profile', { method: 'PUT', body: JSON.stringify(dataRef.current) }, token ?? undefined);
+        setStatus('saved');
+        setTimeout(() => setStatus('idle'), 2000);
+      } catch { setStatus('idle'); }
+    }, 1200);
     return () => clearTimeout(timerRef.current);
   }, [JSON.stringify(data), enabled]);
 
