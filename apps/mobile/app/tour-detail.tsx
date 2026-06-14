@@ -733,11 +733,11 @@ export default function TourDetailScreen() {
         <Text style={styles.sectionTitle}>Tour-Details</Text>
         <View style={styles.card}>
           <View style={styles.detailRow}><Text style={styles.detailKey}>Aktivität</Text><Text style={styles.detailVal}>{activityLabel}</Text></View>
-          {tour.persons && <View style={styles.detailRow}><Text style={styles.detailKey}>Personen</Text><Text style={styles.detailVal}>{tour.persons}</Text></View>}
-          {tour.parkingLocation && <View style={styles.detailRow}><Text style={styles.detailKey}>Parkplatz</Text><Text style={styles.detailVal}>{tour.parkingLocation}</Text></View>}
-          {tour.vehicle && <View style={styles.detailRow}><Text style={styles.detailKey}>Fahrzeug</Text><Text style={styles.detailVal}>{tour.vehicle.plate} · {tour.vehicle.make} {tour.vehicle.model}</Text></View>}
-          {tour.startedAt && <View style={styles.detailRow}><Text style={styles.detailKey}>Gestartet</Text><Text style={styles.detailVal}>{new Date(tour.startedAt).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</Text></View>}
-          {tour.eta && <View style={styles.detailRow}><Text style={styles.detailKey}>Geplante Rückkehr</Text><Text style={[styles.detailVal, isOverdue && { color: '#dc2626' }]}>{new Date(tour.eta).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</Text></View>}
+          {tour.difficulty && <View style={styles.detailRow}><Text style={styles.detailKey}>Schwierigkeit</Text><Text style={styles.detailVal}>{tour.difficulty}</Text></View>}
+          {tour.startedAt && <View style={styles.detailRow}><Text style={styles.detailKey}>Gestartet</Text><Text style={styles.detailVal}>{new Date(tour.startedAt).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text></View>}
+          {tour.eta && <View style={styles.detailRow}><Text style={styles.detailKey}>Geplante Rückkehr</Text><Text style={[styles.detailVal, isOverdue && { color: '#dc2626' }]}>{new Date(tour.eta).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text></View>}
+          {tour.parkingLocation && <View style={styles.detailRow}><Text style={styles.detailKey}>Parkplatz / Start</Text><Text style={styles.detailVal}>{tour.parkingLocation}</Text></View>}
+          {tour.persons > 1 && <View style={styles.detailRow}><Text style={styles.detailKey}>Personen</Text><Text style={styles.detailVal}>{tour.persons} Personen</Text></View>}
           {tour.notes && (
             <View style={[styles.detailRow, { flexDirection: 'column', gap: 4 }]}>
               <Text style={styles.detailKey}>Notizen für Rettungskräfte</Text>
@@ -746,6 +746,66 @@ export default function TourDetailScreen() {
           )}
         </View>
       </View>
+
+      {/* Fahrzeug — eigener Block */}
+      {tour.vehicle && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Fahrzeug</Text>
+          <View style={styles.card}>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>Kennzeichen</Text>
+              <View style={styles.plateBadge}><Text style={styles.plateBadgeTxt}>{tour.vehicle.plate}</Text></View>
+            </View>
+            {tour.vehicle.make && <View style={styles.detailRow}><Text style={styles.detailKey}>Fahrzeug</Text><Text style={styles.detailVal}>{tour.vehicle.make} {tour.vehicle.model ?? ''}</Text></View>}
+            {tour.vehicle.color && <View style={styles.detailRow}><Text style={styles.detailKey}>Farbe</Text><Text style={styles.detailVal}>{tour.vehicle.color}</Text></View>}
+          </View>
+        </View>
+      )}
+
+      {/* Begleitpersonen */}
+      {tour.persons > 1 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Begleitpersonen</Text>
+          <View style={styles.card}>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>Anzahl</Text>
+              <Text style={styles.detailVal}>{tour.persons - 1} Begleitperson{tour.persons - 1 !== 1 ? 'en' : ''}</Text>
+            </View>
+            <Text style={{ fontSize: 12, color: '#c3c8bf', marginTop: 8 }}>
+              Detailierte Infos werden in einer späteren Version erfasst
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* GPS-Tracking Log */}
+      {tour.locations?.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>GPS-Tracking</Text>
+          <View style={styles.card}>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>Punkte gesamt</Text>
+              <Text style={styles.detailVal}>{tour.locations.length}</Text>
+            </View>
+            {/* Letzte 3 Punkte sichtbar, Rest versteckt */}
+            {[...tour.locations].reverse().slice(0, 3).map((loc: any, i: number) => (
+              <View key={i} style={[styles.detailRow, i === 0 && { backgroundColor: '#f0faf4', borderRadius: 6, paddingHorizontal: 8, marginHorizontal: -8 }]}>
+                <Text style={[styles.detailKey, i === 0 && { color: '#2c694e' }]}>
+                  {i === 0 ? 'Letzter Standort' : `vor ${i === 1 ? 'einem' : 'zwei'} Update${i > 1 ? 's' : ''}`}
+                </Text>
+                <Text style={[styles.detailVal, i === 0 && { color: '#2c694e', fontWeight: '800' }]}>
+                  {loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}
+                </Text>
+              </View>
+            ))}
+            {tour.locations.length > 3 && (
+              <Text style={{ fontSize: 11, color: '#c3c8bf', marginTop: 8, textAlign: 'center' }}>
+                + {tour.locations.length - 3} ältere Punkte auf der Karte
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* Übernachtungen */}
       {tour.overnightStops?.length > 0 && (
