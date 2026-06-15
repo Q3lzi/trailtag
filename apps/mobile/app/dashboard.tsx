@@ -61,6 +61,7 @@ async function fetchWeather(lat: number, lng: number) {
 export default function DashboardScreen() {
   const [activeTour, setActiveTour] = useState<any>(null);
   const [vehicle, setVehicle] = useState<any>(null);
+  
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState<any>(null);
@@ -261,6 +262,29 @@ export default function DashboardScreen() {
                 <Link size={14} color="#ba1a1a" />
                 <Text style={styles.rescueBtnText}>Portal öffnen</Text>
               </View>
+            </TouchableOpacity>
+          )}
+
+          {/* iMessage / SMS an Notfallkontakt */}
+          {user?.emergencyContacts?.length > 0 && qrUrl && Platform.OS !== 'web' && (
+            <TouchableOpacity
+              style={[styles.card, {marginHorizontal:16, marginTop:8, flexDirection:'row', alignItems:'center', gap:12, padding:14}]}
+              onPress={() => {
+                const contact = user?.emergencyContacts.find((c:any) => c.isPrimary) ?? user?.emergencyContacts[0];
+                const msg = `Hallo ${contact.name}, ich bin auf einer Wanderung. Mein Trailtag Sicherheitsportal: ${qrUrl}`;
+                Linking.openURL(`sms:${contact.phone}?body=${encodeURIComponent(msg)}`);
+              }}
+            >
+              <View style={{width:36,height:36,borderRadius:18,backgroundColor:'#aeeecb',alignItems:'center',justifyContent:'center'}}>
+                <MessageCircle size={18} color="#2c694e" strokeWidth={2}/>
+              </View>
+              <View style={{flex:1}}>
+                <Text style={{fontSize:13,fontWeight:'700',color:'#061907'}}>Portal-Link per iMessage senden</Text>
+                <Text style={{fontSize:11,color:'#747871',marginTop:1}}>
+                  An {user?.emergencyContacts.find((c:any)=>c.isPrimary)?.name ?? user?.emergencyContacts[0]?.name}
+                </Text>
+              </View>
+              <ChevronRight size={16} color="#c3c8bf"/>
             </TouchableOpacity>
           )}
         </>

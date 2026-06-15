@@ -549,63 +549,67 @@ export default function ProfileScreen() {
         {tab === 'freunde' && (
           <View>
 
-            {/* My QR */}
-            <View style={[styles.card,{alignItems:'center',paddingVertical:20,gap:14}]}>
+            {/* Mein QR-Code */}
+            <View style={[styles.card, {alignItems:'center', paddingVertical:24, gap:14}]}>
+              <Text style={[styles.sectionLabel, {marginBottom:0}]}>MEIN TRAILTAG-CODE</Text>
               {myQrCode ? (
-                <View style={{padding:12,backgroundColor:'#fff',borderRadius:12,borderWidth:1,borderColor:'#e1e3e4'}}>
-                  <QRCode value={`trailtag://friend/${shortCode}`} size={160} color="#061907" backgroundColor="#fff"/>
+                <View style={{padding:14, backgroundColor:'#fff', borderRadius:14, borderWidth:1, borderColor:'#e1e3e4', shadowColor:'#000', shadowOpacity:0.06, shadowRadius:8, elevation:2}}>
+                  <QRCode value={"trailtag://friend/" + shortCode} size={160} color="#061907" backgroundColor="#fff"/>
                 </View>
               ) : (
-                <View style={{width:160,height:160,backgroundColor:'#f3f4f5',borderRadius:12,alignItems:'center',justifyContent:'center'}}>
+                <View style={{width:160,height:160,backgroundColor:'#f3f4f5',borderRadius:14,alignItems:'center',justifyContent:'center'}}>
                   <ActivityIndicator color="#2c694e"/>
                 </View>
               )}
-              <Text style={{fontSize:18,fontWeight:'900',color:'#061907',letterSpacing:3}}>{shortCode ?? '—'}</Text>
-              <TouchableOpacity style={[styles.primaryBtn,{paddingHorizontal:24}]} onPress={shareMyQR}>
+              <Text style={{fontSize:22,fontWeight:'900',color:'#061907',letterSpacing:4}}>{shortCode ?? '—'}</Text>
+              <Text style={[styles.hint, {textAlign:'center', marginBottom:0}]}>Freunde scannen diesen Code oder geben ihn manuell ein</Text>
+              <TouchableOpacity style={[styles.primaryBtn, {paddingHorizontal:28}]} onPress={shareMyQR}>
                 <Share2 size={14} color="#fff" strokeWidth={2}/>
                 <Text style={styles.primaryBtnTxt}>Code teilen</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Pending */}
+            {/* Pendente Anfragen */}
             {pendingCount > 0 && (
-              <View style={{marginBottom:8}}>
-                <Text style={[styles.sectionLabel,{marginTop:8}]}>ANFRAGEN ({pendingCount})</Text>
+              <View style={{marginTop:16}}>
+                <Text style={styles.sectionLabel}>{"ANFRAGEN (" + pendingCount + ")"}</Text>
                 {pending.map((f: any) => (
-                  <View key={f.id} style={[styles.listRow,{borderLeftWidth:3,borderLeftColor:'#f59e0b'}]}>
-                    <View style={[styles.rowIcon,{backgroundColor:'#fef3c7'}]}>
-                      <User size={13} color="#92400e" strokeWidth={2}/>
+                  <View key={f.id} style={[styles.listRow, {borderLeftWidth:3, borderLeftColor:'#f59e0b'}]}>
+                    <View style={[styles.rowIcon, {backgroundColor:'#fef3c7'}]}>
+                      <User size={14} color="#92400e" strokeWidth={2}/>
                     </View>
                     <View style={{flex:1}}>
                       <Text style={styles.rowTitle}>{f.initiator?.name ?? '?'}</Text>
                       <Text style={styles.rowSub}>Freundschaftsanfrage</Text>
                     </View>
-                    <TouchableOpacity style={[styles.iconBtn,{backgroundColor:'#aeeecb'}]} onPress={() => handleAccept(f.id)}>
-                      <Check size={13} color="#2c694e" strokeWidth={2.5}/>
+                    <TouchableOpacity style={[styles.iconBtn, {backgroundColor:'#aeeecb'}]} onPress={() => handleAccept(f.id)}>
+                      <Check size={14} color="#2c694e" strokeWidth={2.5}/>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.iconBtn,{backgroundColor:'#ffdad6',marginLeft:4}]} onPress={() => handleDecline(f.id)}>
-                      <X size={13} color="#ba1a1a" strokeWidth={2.5}/>
+                    <TouchableOpacity style={[styles.iconBtn, {backgroundColor:'#ffdad6', marginLeft:4}]} onPress={() => handleDecline(f.id)}>
+                      <X size={14} color="#ba1a1a" strokeWidth={2.5}/>
                     </TouchableOpacity>
                   </View>
                 ))}
               </View>
             )}
 
-            {/* Add friend */}
-            <Text style={[styles.sectionLabel,{marginTop:8}]}>FREUND HINZUFÜGEN</Text>
+            {/* Freund hinzufuegen */}
+            <Text style={[styles.sectionLabel, {marginTop:16}]}>FREUND HINZUFUEGEN</Text>
             <View style={styles.card}>
               {Platform.OS !== 'web' && (
                 <TouchableOpacity style={styles.scanBtn} onPress={handleScanQR} disabled={addingF}>
                   <Scan size={18} color="#2c694e" strokeWidth={2}/>
-                  <Text style={{fontSize:14,fontWeight:'700',color:'#2c694e'}}>QR-Code scannen</Text>
+                  <Text style={{fontSize:14, fontWeight:'700', color:'#2c694e'}}>QR-Code scannen</Text>
                 </TouchableOpacity>
               )}
               <View style={styles.dividerRow}>
-                <View style={styles.dividerLine}/><Text style={styles.dividerTxt}>ODER CODE EINGEBEN</Text><View style={styles.dividerLine}/>
+                <View style={styles.dividerLine}/>
+                <Text style={styles.dividerTxt}>ODER CODE EINGEBEN</Text>
+                <View style={styles.dividerLine}/>
               </View>
-              <View style={{flexDirection:'row',gap:8}}>
+              <View style={{flexDirection:'row', gap:8}}>
                 <TextInput
-                  style={[styles.fieldInput,{flex:1}]}
+                  style={[styles.fieldInput, {flex:1}]}
                   value={friendCode}
                   onChangeText={setFriendCode}
                   placeholder="z.B. 00BDB196"
@@ -614,101 +618,116 @@ export default function ProfileScreen() {
                   autoCorrect={false}
                 />
                 <TouchableOpacity
-                  style={[styles.primaryBtn,{paddingHorizontal:16},(addingF||!friendCode.trim())&&{opacity:0.4}]}
+                  style={[styles.primaryBtn, {paddingHorizontal:16}, (addingF||!friendCode.trim()) && {opacity:0.4}]}
                   onPress={handleAddFriend} disabled={addingF||!friendCode.trim()}>
                   {addingF ? <ActivityIndicator size="small" color="#fff"/> : <UserPlus size={16} color="#fff" strokeWidth={2}/>}
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Friends list */}
-            <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:16,marginBottom:8}}>
-              <Text style={styles.sectionLabel}>MEINE FREUNDE ({friends.length})</Text>
-            </View>
-
-            {/* Group chips */}
-            {groups.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom:12}}>
-                {groups.map((g: any) => (
-                  <View key={g.id} style={{flexDirection:'row',alignItems:'center',gap:5,backgroundColor:g.color+'18',borderRadius:100,paddingHorizontal:10,paddingVertical:5,marginRight:8,borderWidth:1,borderColor:g.color+'44'}}>
-                    <View style={{width:8,height:8,borderRadius:4,backgroundColor:g.color}}/>
-                    <Text style={{fontSize:11,fontWeight:'700',color:g.color}}>{g.name}</Text>
-                    <Text style={{fontSize:11,color:g.color+'99'}}>{friends.filter((f:any)=>f.groupId===g.id).length}</Text>
-                  </View>
-                ))}
-              </ScrollView>
+            {/* Freundesliste gruppiert */}
+            {friends.length > 0 && (
+              <View style={{marginTop:16}}>
+                <Text style={styles.sectionLabel}>{"FREUNDE (" + friends.length + ")"}</Text>
+                {[null, ...groups].map((grp: any) => {
+                  const gf = friends.filter((f:any) => grp === null ? !f.groupId : f.groupId === grp?.id);
+                  if (gf.length === 0) return null;
+                  return (
+                    <View key={grp?.id ?? 'ung'} style={{marginBottom:14}}>
+                      {grp && (
+                        <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:6,paddingLeft:2}}>
+                          <View style={{width:10,height:10,borderRadius:5,backgroundColor:grp.color}}/>
+                          <Text style={{fontSize:10,fontWeight:'700',color:grp.color,letterSpacing:0.5}}>{grp.name.toUpperCase()}</Text>
+                          <Text style={{fontSize:10,color:'#c3c8bf'}}>({gf.length})</Text>
+                        </View>
+                      )}
+                      {!grp && gf.length > 0 && (
+                        <Text style={[styles.sectionLabel, {marginBottom:6, color:'#c3c8bf'}]}>OHNE GRUPPE</Text>
+                      )}
+                      {gf.map((f: any) => {
+                        const g = groups.find((gr:any) => gr.id === f.groupId);
+                        return (
+                          <View key={f.friendshipId} style={[styles.listRow, g && {borderLeftWidth:3, borderLeftColor:g.color}]}>
+                            <View style={[styles.rowIcon, g && {backgroundColor:g.color+'22'}]}>
+                              <User size={14} color={g?.color ?? '#747871'} strokeWidth={2}/>
+                            </View>
+                            <View style={{flex:1}}>
+                              <Text style={styles.rowTitle}>{f.name}</Text>
+                              <Text style={styles.rowSub}>{g ? g.name : 'Keine Gruppe'}</Text>
+                            </View>
+                            <TouchableOpacity style={[styles.iconBtn, {backgroundColor:'#f0faf4'}]} onPress={() => setGroupPickerFriend(f)}>
+                              <ChevronDown size={13} color="#2c694e" strokeWidth={2}/>
+                            </TouchableOpacity>
+                            {f.phone && Platform.OS !== 'web' && (
+                              <TouchableOpacity style={[styles.iconBtn, {backgroundColor:'#aeeecb', marginLeft:4}]} onPress={() => Linking.openURL("tel:" + f.phone)}>
+                                <Phone size={13} color="#2c694e" strokeWidth={2}/>
+                              </TouchableOpacity>
+                            )}
+                            <TouchableOpacity style={[styles.iconBtn, {backgroundColor:'#ffdad6', marginLeft:4}]} onPress={() => handleRemoveFriend(f.friendshipId)}>
+                              <Trash2 size={13} color="#ba1a1a" strokeWidth={2}/>
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  );
+                })}
+              </View>
             )}
 
-            {friends.length === 0 ? (
-              <View style={[styles.card,{alignItems:'center',padding:24}]}>
-                <Users size={32} color="#c3c8bf" strokeWidth={1.5}/>
-                <Text style={{fontSize:14,fontWeight:'700',color:'#434841',marginTop:10,marginBottom:4}}>Noch keine Freunde</Text>
-                <Text style={styles.hint}>Teile deinen Code und verbinde dich</Text>
+            {friends.length === 0 && (
+              <View style={[styles.card, {alignItems:'center', padding:28, marginTop:8}]}>
+                <Users size={36} color="#c3c8bf" strokeWidth={1.5}/>
+                <Text style={{fontSize:15,fontWeight:'700',color:'#434841',marginTop:12,marginBottom:4}}>Noch keine Freunde</Text>
+                <Text style={[styles.hint, {textAlign:'center'}]}>Teile deinen Code und verbinde dich mit anderen Trailtag-Nutzern</Text>
               </View>
-            ) : friends.map((f: any) => {
-              const grp = groups.find((g:any) => g.id === f.groupId);
-              return (
-                <View key={f.friendshipId} style={styles.listRow}>
-                  <View style={[styles.rowIcon, grp && {backgroundColor:grp.color+'22'}]}>
-                    <User size={14} color={grp?.color ?? '#747871'} strokeWidth={2}/>
-                  </View>
-                  <View style={{flex:1}}>
-                    <Text style={styles.rowTitle}>{f.name}</Text>
-                    <Text style={styles.rowSub}>{grp ? grp.name : 'Keine Gruppe'}</Text>
-                  </View>
-                  <TouchableOpacity style={[styles.iconBtn,{backgroundColor:'#f0faf4'}]} onPress={() => setGroupPickerFriend(f)}>
-                    <ChevronDown size={13} color="#2c694e" strokeWidth={2}/>
-                  </TouchableOpacity>
-                  {f.phone && Platform.OS !== 'web' && (
-                    <TouchableOpacity style={[styles.iconBtn,{backgroundColor:'#aeeecb',marginLeft:4}]} onPress={() => Linking.openURL(`tel:${f.phone}`)}>
-                      <Phone size={13} color="#2c694e" strokeWidth={2}/>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity style={[styles.iconBtn,{backgroundColor:'#ffdad6',marginLeft:4}]} onPress={() => handleRemoveFriend(f.friendshipId)}>
-                    <Trash2 size={13} color="#ba1a1a" strokeWidth={2}/>
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
+            )}
 
-            {/* Groups manage */}
+            {/* Gruppen */}
             <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:20,marginBottom:8}}>
-              <Text style={styles.sectionLabel}>GRUPPEN VERWALTEN</Text>
-              <TouchableOpacity onPress={() => { setEditingGroup(null); setNewGroupName(''); setNewGroupColor('#2c694e'); setShowNewGroup(v=>!v); }}>
-                <Plus size={18} color="#2c694e" strokeWidth={2}/>
+              <Text style={styles.sectionLabel}>GRUPPEN</Text>
+              <TouchableOpacity style={{flexDirection:'row',alignItems:'center',gap:4}} onPress={() => { setEditingGroup(null); setNewGroupName(''); setNewGroupColor('#2c694e'); setShowNewGroup((v:boolean)=>!v); }}>
+                <Plus size={16} color="#2c694e" strokeWidth={2}/>
+                <Text style={{fontSize:12,fontWeight:'700',color:'#2c694e'}}>Neu</Text>
               </TouchableOpacity>
             </View>
+            {groups.length === 0 && !showNewGroup && (
+              <Text style={styles.hint}>Kategorisiere deine Freunde (Familie, Kollegen, Bergkameraden...)</Text>
+            )}
             {groups.map((g: any) => (
-              <View key={g.id} style={[styles.listRow,{borderLeftWidth:3,borderLeftColor:g.color}]}>
-                <View style={[styles.rowIcon,{backgroundColor:g.color+'22'}]}>
-                  <View style={{width:10,height:10,borderRadius:5,backgroundColor:g.color}}/>
+              <View key={g.id} style={[styles.listRow, {borderLeftWidth:3, borderLeftColor:g.color}]}>
+                <View style={[styles.rowIcon, {backgroundColor:g.color+'18'}]}>
+                  <View style={{width:12,height:12,borderRadius:6,backgroundColor:g.color}}/>
                 </View>
-                <Text style={{flex:1,fontSize:13,fontWeight:'700',color:'#061907'}}>{g.name}</Text>
-                <Text style={{fontSize:12,color:'#747871',marginRight:8}}>{friends.filter((f:any)=>f.groupId===g.id).length}</Text>
+                <View style={{flex:1}}>
+                  <Text style={styles.rowTitle}>{g.name}</Text>
+                  <Text style={styles.rowSub}>{friends.filter((f:any)=>f.groupId===g.id).length} Mitglieder</Text>
+                </View>
                 <TouchableOpacity style={styles.iconBtn} onPress={() => { setEditingGroup(g); setNewGroupName(g.name); setNewGroupColor(g.color); setShowNewGroup(true); }}>
                   <Edit3 size={13} color="#2c694e" strokeWidth={2}/>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.iconBtn,{backgroundColor:'#ffdad6',marginLeft:4}]} onPress={() => handleDeleteGroup(g.id)}>
+                <TouchableOpacity style={[styles.iconBtn, {backgroundColor:'#ffdad6', marginLeft:4}]} onPress={() => handleDeleteGroup(g.id)}>
                   <Trash2 size={13} color="#ba1a1a" strokeWidth={2}/>
                 </TouchableOpacity>
               </View>
             ))}
             {showNewGroup && (
-              <View style={[styles.card,{marginTop:8}]}>
-                <Text style={styles.sectionLabel}>{editingGroup ? 'GRUPPE BEARBEITEN' : 'NEUE GRUPPE'}</Text>
+              <View style={[styles.card, {marginTop:8}]}>
+                <Text style={[styles.sectionLabel, {marginBottom:12}]}>{editingGroup ? 'GRUPPE BEARBEITEN' : 'NEUE GRUPPE'}</Text>
                 <View style={styles.fieldRow}>
                   <Text style={styles.fieldLabel}>Name</Text>
-                  <TextInput style={styles.fieldInput} value={newGroupName} onChangeText={setNewGroupName} placeholder="z.B. Familie" placeholderTextColor="#c3c8bf"/>
+                  <TextInput style={styles.fieldInput} value={newGroupName} onChangeText={setNewGroupName} placeholder="z.B. Familie, Bergkameraden..." placeholderTextColor="#c3c8bf"/>
                 </View>
-                <Text style={[styles.fieldLabel,{marginTop:12,marginBottom:8}]}>Farbe</Text>
-                <View style={{flexDirection:'row',gap:10,marginBottom:14}}>
-                  {GROUP_COLORS.map(gc => (
-                    <TouchableOpacity key={gc} onPress={() => setNewGroupColor(gc)}
-                      style={{width:28,height:28,borderRadius:14,backgroundColor:gc,borderWidth:newGroupColor===gc?3:0,borderColor:'#fff',elevation:newGroupColor===gc?4:0}}/>
+                <Text style={[styles.fieldLabel, {marginTop:10, marginBottom:8}]}>Farbe</Text>
+                <View style={{flexDirection:'row', gap:12, marginBottom:16}}>
+                  {GROUP_COLORS.map((gc:string) => (
+                    <TouchableOpacity key={gc} onPress={() => setNewGroupColor(gc)}>
+                      <View style={{width:30,height:30,borderRadius:15,backgroundColor:gc,borderWidth:newGroupColor===gc?3:1,borderColor:newGroupColor===gc?'rgba(0,0,0,0.3)':'rgba(0,0,0,0.1)'}}/>
+                    </TouchableOpacity>
                   ))}
                 </View>
-                <View style={{flexDirection:'row',gap:8}}>
-                  <TouchableOpacity style={[styles.primaryBtn,{flex:1}]} onPress={handleCreateGroup}>
+                <View style={{flexDirection:'row', gap:8}}>
+                  <TouchableOpacity style={[styles.primaryBtn, {flex:1}]} onPress={handleCreateGroup}>
                     <Text style={styles.primaryBtnTxt}>{editingGroup ? 'Speichern' : 'Erstellen'}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.ghostBtn} onPress={() => { setShowNewGroup(false); setEditingGroup(null); }}>
@@ -717,6 +736,7 @@ export default function ProfileScreen() {
                 </View>
               </View>
             )}
+
           </View>
         )}
 
