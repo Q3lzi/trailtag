@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/storage';
-import { ArrowLeft, Phone, MapPin, AlertTriangle, Shield, Mountain, ExternalLink } from 'lucide-react-native';
+import { ArrowLeft, Phone, AlertTriangle, Shield, Mountain, ExternalLink, Eye, EyeOff } from 'lucide-react-native';
 
 export default function FriendProfileScreen() {
   const { friendshipId, name } = useLocalSearchParams<{ friendshipId: string; name: string }>();
@@ -12,9 +12,7 @@ export default function FriendProfileScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   async function load() {
     try {
@@ -28,12 +26,12 @@ export default function FriendProfileScreen() {
     }
   }
 
-  const hasActiveTour = profile?.activeTour;
+  const hasActiveTour = !!profile?.activeTour;
   const isAlarm = profile?.activeTour?.status === 'ALARM';
+  const priv = profile?.privacySettings ?? {};
 
   return (
-    <View style={[styles.container]}>
-      {/* Header */}
+    <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ArrowLeft size={22} color="#061907" strokeWidth={2.5}/>
@@ -47,7 +45,7 @@ export default function FriendProfileScreen() {
           <ActivityIndicator color="#2c694e" size="large"/>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <ScrollView contentContainerStyle={{ padding:16, paddingBottom:60 }}>
 
           {/* Avatar + Name */}
           <View style={styles.heroCard}>
@@ -58,49 +56,50 @@ export default function FriendProfileScreen() {
             {profile?.birthYear && (
               <Text style={styles.heroSub}>Jahrgang {profile.birthYear}</Text>
             )}
-            {profile?.phone && (
+            {profile?.phone ? (
               <TouchableOpacity
                 style={styles.callBtn}
-                onPress={() => Platform.OS === 'web' ? Linking.openURL(`tel:${profile.phone}`) : Linking.openURL(`tel:${profile.phone}`)}>
-                <Phone size={16} color="#fff" strokeWidth={2}/>
+                onPress={() => Linking.openURL(`tel:${profile.phone}`)}>
+                <Phone size={15} color="#fff" strokeWidth={2}/>
                 <Text style={styles.callBtnTxt}>{profile.phone}</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
 
           {/* Active Tour Status */}
           {hasActiveTour ? (
-            <View style={[styles.card, isAlarm && { borderColor:'#ba1a1a', borderWidth: 2 }]}>
+            <View style={[styles.card, isAlarm && { borderColor:'#ba1a1a', borderWidth:2 }]}>
               <View style={{ flexDirection:'row', alignItems:'center', gap:10, marginBottom:12 }}>
                 <View style={[styles.statusDot, { backgroundColor: isAlarm ? '#ba1a1a' : '#2c694e' }]}/>
                 <Text style={{ fontSize:14, fontWeight:'800', color: isAlarm ? '#ba1a1a' : '#2c694e' }}>
-                  {isAlarm ? 'ALARM — ÜBERFÄLLIG' : 'TOUR AKTIV'}
+                  {isAlarm ? '🚨 ALARM — ÜBERFÄLLIG' : '🏔 TOUR AKTIV'}
                 </Text>
               </View>
               {profile.activeTour.activity && (
                 <View style={styles.infoRow}>
-                  <Mountain size={14} color="#747871" strokeWidth={2}/>
+                  <Mountain size={13} color="#747871" strokeWidth={2}/>
                   <Text style={styles.infoTxt}>{profile.activeTour.activity}</Text>
                 </View>
               )}
               {profile.activeTour.eta && (
                 <View style={styles.infoRow}>
-                  <AlertTriangle size={14} color="#747871" strokeWidth={2}/>
+                  <AlertTriangle size={13} color="#747871" strokeWidth={2}/>
                   <Text style={styles.infoTxt}>
-                    Rückkehr: {new Date(profile.activeTour.eta).toLocaleDateString('de-CH', { day:'2-digit', month:'2-digit', year:'numeric' })} {new Date(profile.activeTour.eta).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' })}
+                    Rückkehr: {new Date(profile.activeTour.eta).toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit'})} {new Date(profile.activeTour.eta).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})}
                   </Text>
                 </View>
               )}
-              {isAlarm && profile.activeTour.qrUrl && (
+              {profile.activeTour.qrUrl && (
                 <TouchableOpacity
-                  style={[styles.alarmBtn]}
+                  style={[styles.portalBtn, !isAlarm && { backgroundColor:'#2c694e' }]}
                   onPress={() => {
-                    const url = profile.activeTour.qrUrl;
-                    if (Platform.OS === 'web') (window as any).open(url, '_blank');
-                    else Linking.openURL(url);
+                    if (Platform.OS === 'web') { (window as any).open(profile.activeTour.qrUrl, '_blank'); }
+                    else { Linking.openURL(profile.activeTour.qrUrl); }
                   }}>
-                  <ExternalLink size={15} color="#fff" strokeWidth={2}/>
-                  <Text style={styles.alarmBtnTxt}>Ersthelfer-Portal öffnen</Text>
+                  <ExternalLink size={14} color="#fff" strokeWidth={2}/>
+                  <Text style={styles.portalBtnTxt}>
+                    {isAlarm ? 'Ersthelfer-Portal öffnen' : 'Tour-Portal anzeigen'}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -111,11 +110,39 @@ export default function FriendProfileScreen() {
             </View>
           )}
 
-          {/* Privacy notice */}
-          <Text style={styles.privacyNote}>
-            ℹ️ {name} entscheidet welche Informationen sichtbar sind.
-          </Text>
+          {/* Datenschutz-Einstellungen des Freundes */}
+          <Text style={styles.sectionLabel}>SICHTBARE INFORMATIONEN</Text>
+          <View style={styles.card}>
+            {[
+              { key:'showName',     label:'Name' },
+              { key:'showPhone',    label:'Telefonnummer' },
+              { key:'showMedical',  label:'Medizinische Daten' },
+              { key:'showContacts', label:'Notfallkontakte' },
+              { key:'showGps',      label:'GPS-Standort' },
+              { key:'showNotes',    label:'Notizen' },
+            ].map(({ key, label }, i, arr) => {
+              const visible = priv[key] !== false;
+              return (
+                <View key={key} style={{ flexDirection:'row', alignItems:'center', gap:10, paddingVertical:10, borderBottomWidth: i < arr.length-1 ? 1:0, borderBottomColor:'#f3f4f5' }}>
+                  {visible
+                    ? <Eye size={14} color="#2c694e" strokeWidth={2}/>
+                    : <EyeOff size={14} color="#c3c8bf" strokeWidth={2}/>
+                  }
+                  <Text style={{ flex:1, fontSize:13, color: visible ? '#061907' : '#c3c8bf' }}>{label}</Text>
+                  <Text style={{ fontSize:11, fontWeight:'600', color: visible ? '#2c694e' : '#c3c8bf' }}>
+                    {visible ? 'Sichtbar' : 'Verborgen'}
+                  </Text>
+                </View>
+              );
+            })}
+            <Text style={{ fontSize:11, color:'#c3c8bf', marginTop:8, fontStyle:'italic' }}>
+              Im Alarmfall sind immer alle Daten sichtbar
+            </Text>
+          </View>
 
+          <Text style={styles.privacyNote}>
+            {name} entscheidet welche Informationen im Portal sichtbar sind.
+          </Text>
         </ScrollView>
       )}
     </View>
@@ -138,7 +165,8 @@ const styles = StyleSheet.create({
   statusDot: { width:10, height:10, borderRadius:5 },
   infoRow: { flexDirection:'row', alignItems:'center', gap:8, marginBottom:6 },
   infoTxt: { fontSize:13, color:'#434841' },
-  alarmBtn: { backgroundColor:'#ba1a1a', borderRadius:8, padding:12, flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8, marginTop:8 },
-  alarmBtnTxt: { fontSize:14, fontWeight:'700', color:'#fff' },
-  privacyNote: { fontSize:11, color:'#c3c8bf', textAlign:'center', marginTop:8, lineHeight:16 },
+  portalBtn: { backgroundColor:'#ba1a1a', borderRadius:8, padding:12, flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8, marginTop:8 },
+  portalBtnTxt: { fontSize:14, fontWeight:'700', color:'#fff' },
+  sectionLabel: { fontSize:10, fontWeight:'700', color:'#747871', letterSpacing:1, marginBottom:8, marginTop:4 },
+  privacyNote: { fontSize:11, color:'#c3c8bf', textAlign:'center', marginTop:4, lineHeight:16 },
 });

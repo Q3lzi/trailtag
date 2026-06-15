@@ -303,8 +303,10 @@ export default function DashboardScreen() {
               <Text style={styles.startBtnText}>Tour starten</Text>
             </TouchableOpacity>
           </View>
+        </>
+      )}
 
-          {/* Freunde auf Tour — 2-spaltig */}
+      {/* Freunde auf Tour — immer sichtbar */}
           {friendsOnTour.length > 0 && (
             <View style={{marginHorizontal:16, marginBottom:12}}>
               <Text style={styles.sectionTitle}>FREUNDE UNTERWEGS ({friendsOnTour.length})</Text>
@@ -331,7 +333,7 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          {/* Geplante Touren */}
+      {/* Geplante Touren */}
           {plannedTours.length > 0 && (
             <View style={styles.plannedSection}>
               <Text style={styles.sectionTitle}>GEPLANTE TOUREN</Text>
@@ -428,8 +430,6 @@ export default function DashboardScreen() {
               </View>
             </TouchableOpacity>
           )}
-        </>
-      )}
     </ScrollView>
   );
 }

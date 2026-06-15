@@ -653,7 +653,7 @@ export default function ProfileScreen() {
                       {gf.map((f: any) => {
                         const g = groups.find((gr:any) => gr.id === f.groupId);
                         return (
-                          <View key={f.friendshipId} style={[styles.listRow, g && {borderLeftWidth:3, borderLeftColor:g.color}]}>
+                          <TouchableOpacity key={f.friendshipId} style={[styles.listRow, g && {borderLeftWidth:3, borderLeftColor:g.color}]} onPress={() => router.push({ pathname: '/friend-profile', params: { friendshipId: f.friendshipId, name: f.name } })}>
                             <View style={[styles.rowIcon, g && {backgroundColor:g.color+'22'}]}>
                               <User size={14} color={g?.color ?? '#747871'} strokeWidth={2}/>
                             </View>
@@ -669,10 +669,10 @@ export default function ProfileScreen() {
                                 <Phone size={13} color="#2c694e" strokeWidth={2}/>
                               </TouchableOpacity>
                             )}
-                            <TouchableOpacity style={[styles.iconBtn, {backgroundColor:'#ffdad6', marginLeft:4}]} onPress={() => handleRemoveFriend(f.friendshipId)}>
+                            <TouchableOpacity style={[styles.iconBtn, {backgroundColor:'#ffdad6', marginLeft:4}]} onPress={(e) => { e.stopPropagation?.(); handleRemoveFriend(f.friendshipId); }}>
                               <Trash2 size={13} color="#ba1a1a" strokeWidth={2}/>
                             </TouchableOpacity>
-                          </View>
+                          </TouchableOpacity>
                         );
                       })}
                     </View>
