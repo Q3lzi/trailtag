@@ -141,11 +141,10 @@ export default function ProfileScreen() {
   const [groupPickerFriend, setGroupPickerFriend] = useState<any>(null);
 
   // Auto-save
+  // Auto-save: only profile fields (NOT privacy — those are saved immediately via savePrivacy)
   const saveData = {
     name, phone, birthYear: birthYear ? parseInt(birthYear) : null,
     bloodType, allergies, medications, medicalNotes,
-    privacyShowName, privacyShowPhone, privacyShowMedical,
-    privacyShowContacts, privacyShowGps, privacyShowNotes,
   };
   const saveStatus = useAutoSave(saveData, loaded);
 
@@ -336,11 +335,19 @@ export default function ProfileScreen() {
   async function savePrivacy(updates: Record<string, boolean>) {
     try {
       const token = await getToken();
-      console.log('savePrivacy sending:', JSON.stringify(updates));
+      console.log('[savePrivacy] sending:', JSON.stringify(updates));
       const result = await apiFetch('/profile', { method: 'PUT', body: JSON.stringify(updates) }, token ?? undefined);
-      console.log('savePrivacy result:', JSON.stringify(result));
+      // Verify the value was actually saved
+      const key = Object.keys(updates)[0];
+      const saved = (result as any)[key];
+      const sent = updates[key];
+      if (saved !== sent) {
+        console.log('[savePrivacy] MISMATCH - sent:', sent, 'got back:', saved);
+      } else {
+        console.log('[savePrivacy] OK -', key, '=', saved);
+      }
     } catch (err: any) {
-      console.log('savePrivacy ERROR:', err.message);
+      console.log('[savePrivacy] ERROR:', err.message);
       showAlert('Fehler beim Speichern', err.message);
     }
   }
