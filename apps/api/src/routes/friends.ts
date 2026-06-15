@@ -222,10 +222,36 @@ router.get('/:id/profile', requireAuth, async (req: Request, res: Response) => {
       qrUrl = base + '/r/' + veh.qrToken
     }
 
+    // Get recent tours (last 5 completed)
+    const recentTours = await prisma.tour.findMany({
+      where: { userId: friendId, status: 'COMPLETED' },
+      orderBy: { checkedOutAt: 'desc' },
+      take: 5,
+      select: { id: true, activity: true, routeName: true, distanceKm: true, elevationUp: true, difficulty: true, checkedOutAt: true, startedAt: true }
+    })
+
+    // Tour stats
+    const allTours = await prisma.tour.findMany({
+      where: { userId: friendId, status: 'COMPLETED' },
+      select: { distanceKm: true, elevationUp: true, activity: true }
+    })
+    const totalKm = allTours.reduce((s: number, t: any) => s + (t.distanceKm ?? 0), 0)
+    const totalEle = allTours.reduce((s: number, t: any) => s + (t.elevationUp ?? 0), 0)
+    const activities: Record<string, number> = {}
+    allTours.forEach((t: any) => { if (t.activity) activities[t.activity] = (activities[t.activity] ?? 0) + 1 })
+    const favActivity = Object.entries(activities).sort((a,b) => b[1]-a[1])[0]?.[0] ?? null
+
     res.json({
       name: friend.name,
       birthYear: friend.birthYear,
       phone: friend.privacyShowPhone !== false ? friend.phone : null,
+      stats: {
+        totalTours: allTours.length,
+        totalKm: Math.round(totalKm),
+        totalElevation: Math.round(totalEle),
+        favActivity,
+      },
+      recentTours,
       activeTour: activeTour ? { ...activeTour, qrUrl } : null,
     })
   } catch (err: any) {
