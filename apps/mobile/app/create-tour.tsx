@@ -13,7 +13,7 @@ import {
   ArrowLeft, ArrowRight, Check, MapPin, Upload, Calendar, Clock,
   Car, Mountain, Flag, User, Plus, Trash2, Home, Tent,
   Building, CheckSquare, Square, AlertTriangle, Navigation,
-  Activity, Wind, UserPlus
+  Activity, Wind, UserPlus, X
 } from 'lucide-react-native';
 
 const ACTIVITIES = [
