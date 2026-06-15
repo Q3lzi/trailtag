@@ -304,28 +304,30 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Freunde auf Tour */}
+          {/* Freunde auf Tour — 2-spaltig */}
           {friendsOnTour.length > 0 && (
             <View style={{marginHorizontal:16, marginBottom:12}}>
               <Text style={styles.sectionTitle}>FREUNDE UNTERWEGS ({friendsOnTour.length})</Text>
-              {friendsOnTour.map((f: any) => (
-                <View key={f.friendshipId} style={{backgroundColor:'#fff',borderRadius:10,borderWidth:1,borderColor:'#e1e3e4',padding:12,marginBottom:8,flexDirection:'row',alignItems:'center',gap:12}}>
-                  <View style={{width:36,height:36,borderRadius:18,backgroundColor:'#f0faf4',alignItems:'center',justifyContent:'center'}}>
-                    <Mountain size={16} color="#2c694e" strokeWidth={2}/>
-                  </View>
-                  <View style={{flex:1}}>
-                    <Text style={{fontSize:14,fontWeight:'700',color:'#061907'}}>{f.name}</Text>
-                    <Text style={{fontSize:11,color:'#747871',marginTop:1}}>
-                      {f.activeTour?.activity ?? 'Tour'} · Rückkehr {f.activeTour?.eta ? new Date(f.activeTour.eta).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) : '—'}
-                    </Text>
-                  </View>
-                  {f.activeTour?.status === 'ALARM' && (
-                    <View style={{backgroundColor:'#ffdad6',borderRadius:6,paddingHorizontal:8,paddingVertical:3}}>
-                      <Text style={{fontSize:10,fontWeight:'800',color:'#ba1a1a'}}>ALARM</Text>
+              <View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>
+                {friendsOnTour.map((f: any) => {
+                  const eta = f.activeTour?.eta ? new Date(f.activeTour.eta) : null;
+                  const isAlarm = f.activeTour?.status === 'ALARM';
+                  const etaStr = eta ? eta.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit'}) + ' ' + eta.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) : '—';
+                  return (
+                    <View key={f.friendshipId} style={{width:'47%',backgroundColor:isAlarm?'#fff8f8':'#fff',borderRadius:10,borderWidth:1,borderColor:isAlarm?'#ffdad6':'#e1e3e4',padding:10}}>
+                      <View style={{flexDirection:'row',alignItems:'center',gap:6,marginBottom:4}}>
+                        <View style={{width:28,height:28,borderRadius:14,backgroundColor:isAlarm?'#ffdad6':'#f0faf4',alignItems:'center',justifyContent:'center'}}>
+                          <Mountain size={13} color={isAlarm?'#ba1a1a':'#2c694e'} strokeWidth={2}/>
+                        </View>
+                        {isAlarm && <View style={{backgroundColor:'#ba1a1a',borderRadius:4,paddingHorizontal:5,paddingVertical:1}}><Text style={{fontSize:8,fontWeight:'800',color:'#fff'}}>ALARM</Text></View>}
+                      </View>
+                      <Text style={{fontSize:13,fontWeight:'700',color:'#061907'}} numberOfLines={1}>{f.name}</Text>
+                      <Text style={{fontSize:10,color:'#747871',marginTop:1}} numberOfLines={1}>{f.activeTour?.activity ?? 'Tour'}</Text>
+                      <Text style={{fontSize:10,color:isAlarm?'#ba1a1a':'#2c694e',fontWeight:'600',marginTop:2}}>↩ {etaStr}</Text>
                     </View>
-                  )}
-                </View>
-              ))}
+                  );
+                })}
+              </View>
             </View>
           )}
 
