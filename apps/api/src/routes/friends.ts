@@ -23,10 +23,18 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       }),
       (prisma as any).friendGroup.findMany({ where: { userId } })
     ])
+    // Get active tours for each friend
+    const friendIds = accepted.map((f: any) => f.initiatorId === userId ? f.receiverId : f.initiatorId)
+    const activeTours = friendIds.length > 0 ? await prisma.tour.findMany({
+      where: { userId: { in: friendIds }, status: { in: ['ACTIVE', 'ALARM'] } },
+      select: { userId: true, id: true, activity: true, eta: true, status: true, startedAt: true }
+    }) : []
+
     const friends = accepted.map((f: any) => {
       const isMine = f.initiatorId === userId
       const other = isMine ? f.receiver : f.initiator
-      return { friendshipId: f.id, groupId: f.groupId, group: f.group, ...other }
+      const activeTour = activeTours.find((t: any) => t.userId === other.id) ?? null
+      return { friendshipId: f.id, groupId: f.groupId, group: f.group, activeTour, ...other }
     })
     res.json({ friends, pending, groups })
   } catch {

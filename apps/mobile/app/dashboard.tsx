@@ -61,6 +61,7 @@ async function fetchWeather(lat: number, lng: number) {
 export default function DashboardScreen() {
   const [activeTour, setActiveTour] = useState<any>(null);
   const [vehicle, setVehicle] = useState<any>(null);
+  const [friendsOnTour, setFriendsOnTour] = useState<any[]>([]);
   
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -81,10 +82,11 @@ export default function DashboardScreen() {
   async function loadData() {
     try {
       const token = await getToken();
-      const [tours, vehicles, profile] = await Promise.all([
+      const [tours, vehicles, profile, friendsData] = await Promise.all([
         apiFetch('/tours', {}, token ?? undefined),
         apiFetch('/vehicles', {}, token ?? undefined),
         apiFetch('/profile', {}, token ?? undefined),
+        apiFetch('/friends', {}, token ?? undefined).catch(() => ({ friends: [] })),
       ]);
       const active = tours.find((t: any) => t.status === 'ACTIVE' || t.status === 'ALARM');
       setActiveTour(active ?? null);
@@ -98,6 +100,9 @@ export default function DashboardScreen() {
       }
       if (vehicles.length > 0) setVehicle(vehicles[0]);
       setUser(profile);
+      // Friends with active tours
+      const activeFriends = (friendsData.friends ?? []).filter((f: any) => f.activeTour);
+      setFriendsOnTour(activeFriends);
       if (active?.lastLat) fetchWeather(active.lastLat, active.lastLng).then(setWeather);
       else if (active?.startLat) fetchWeather(active.startLat, active.startLng).then(setWeather);
     } catch { console.log('Fehler'); }
@@ -298,6 +303,31 @@ export default function DashboardScreen() {
               <Text style={styles.startBtnText}>Tour starten</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Freunde auf Tour */}
+          {friendsOnTour.length > 0 && (
+            <View style={{marginHorizontal:16, marginBottom:12}}>
+              <Text style={styles.sectionTitle}>FREUNDE UNTERWEGS ({friendsOnTour.length})</Text>
+              {friendsOnTour.map((f: any) => (
+                <View key={f.friendshipId} style={{backgroundColor:'#fff',borderRadius:10,borderWidth:1,borderColor:'#e1e3e4',padding:12,marginBottom:8,flexDirection:'row',alignItems:'center',gap:12}}>
+                  <View style={{width:36,height:36,borderRadius:18,backgroundColor:'#f0faf4',alignItems:'center',justifyContent:'center'}}>
+                    <Mountain size={16} color="#2c694e" strokeWidth={2}/>
+                  </View>
+                  <View style={{flex:1}}>
+                    <Text style={{fontSize:14,fontWeight:'700',color:'#061907'}}>{f.name}</Text>
+                    <Text style={{fontSize:11,color:'#747871',marginTop:1}}>
+                      {f.activeTour?.activity ?? 'Tour'} · Rückkehr {f.activeTour?.eta ? new Date(f.activeTour.eta).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) : '—'}
+                    </Text>
+                  </View>
+                  {f.activeTour?.status === 'ALARM' && (
+                    <View style={{backgroundColor:'#ffdad6',borderRadius:6,paddingHorizontal:8,paddingVertical:3}}>
+                      <Text style={{fontSize:10,fontWeight:'800',color:'#ba1a1a'}}>ALARM</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
 
           {/* Geplante Touren */}
           {plannedTours.length > 0 && (
