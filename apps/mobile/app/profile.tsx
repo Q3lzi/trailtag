@@ -218,9 +218,24 @@ export default function ProfileScreen() {
   }
 
   async function handleScanQR() {
+    if (scanPermission?.status === 'denied') {
+      // User previously denied — send them to settings
+      showAlert(
+        'Kamera-Zugriff verweigert',
+        'Bitte erlaube den Kamera-Zugriff in den Einstellungen unter Trailtag → Kamera.',
+      );
+      if (Platform.OS !== 'web') {
+        const { Linking: RNLinking } = require('react-native');
+        RNLinking.openSettings();
+      }
+      return;
+    }
     if (!scanPermission?.granted) {
       const r = await requestScanPermission();
-      if (!r.granted) { showAlert('Kamera-Zugriff verweigert'); return; }
+      if (!r.granted) {
+        showAlert('Kamera-Zugriff benötigt', 'Trailtag benötigt die Kamera um QR-Codes zu scannen.');
+        return;
+      }
     }
     setScanned(false); setShowScanner(true);
   }
@@ -686,8 +701,8 @@ export default function ProfileScreen() {
         {/* ══ EINSTELLUNGEN ══ */}
         {tab === 'einstellungen' && (
           <View>
-            <Text style={styles.sectionLabel}>DATENSCHUTZ — QR-PORTAL</Text>
-            <Text style={styles.hint}>Was Ersthelfer bei aktiver Tour sehen dürfen. Im Alarmfall ist immer alles sichtbar.</Text>
+            <Text style={styles.sectionLabel}>DATENSCHUTZ — ERSTHELFER-PORTAL</Text>
+            <Text style={styles.hint}>Was Ersthelfer bei aktiver Tour im Portal sehen dürfen. Im Alarmfall ist immer alles sichtbar.</Text>
             <View style={styles.card}>
               {([
                 {key:'privacyShowName', label:'Name', sub:'Wanderer erkennbar', val:privacyShowName, set:setPrivacyShowName},

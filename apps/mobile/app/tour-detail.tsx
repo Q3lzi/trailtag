@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as Battery from 'expo-battery';
 import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/storage';
 import { showAlert, showConfirm } from '../lib/alert';
@@ -131,6 +132,19 @@ export default function TourDetailScreen() {
   const [showAllLogs, setShowAllLogs] = useState(false);
   const [extendLoading, setExtendLoading] = useState(false);
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Load battery level on mount, update periodically
+    const loadBattery = async () => {
+      try {
+        const level = await Battery.getBatteryLevelAsync();
+        if (level >= 0) setBatteryLevel(Math.round(level * 100));
+      } catch {}
+    };
+    loadBattery();
+    const interval = setInterval(loadBattery, 60000);
+    return () => clearInterval(interval);
+  }, []);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, time: string} | null>(null);
   const leafletMapRef = useRef<any>(null);
   const mapSectionRef = useRef<any>(null);
@@ -218,7 +232,7 @@ export default function TourDetailScreen() {
         leafletMapRef.current = map;
         L.default.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap © CARTO' }).addTo(map);
         const gpxPoints = tourData.gpxTrack?.points?.length > 0 ? tourData.gpxTrack.points.map((p: any) => [p.lat, p.lng]) : null;
-        const trackPoints = tourData.locations?.length > 0 ? tourData.locations.map((l: any) => [l.lat, l.lng]) : null;
+        const trackPoints = tourData.locations?.length > 0 ? [...tourData.locations].reverse().map((l: any) => [l.lat, l.lng]) : null;
         const displayPoints = gpxPoints ?? trackPoints ?? null;
         if (displayPoints && displayPoints.length > 1) {
           L.default.polyline(displayPoints as [number, number][], { color: '#2c694e', weight: 4, opacity: 0.9 }).addTo(map);
@@ -244,7 +258,7 @@ export default function TourDetailScreen() {
           }
           // GPS tracking points - show max 50 dots for performance
           if (tourData.locations?.length > 0) {
-            const locs = tourData.locations;
+            const locs = [...tourData.locations].reverse(); // oldest first for display
             const step = Math.max(1, Math.floor(locs.length / 50));
             locs.forEach((loc: any, i: number) => {
               if (i % step !== 0 && i !== locs.length - 1) return; // skip, but always show last
@@ -779,13 +793,17 @@ export default function TourDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Fahrzeug</Text>
           <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 16 }]}>
-            {/* Schweizer Kennzeichen — weiss, schwarzer Rand */}
-            <View style={{
-              borderWidth: 2.5, borderColor: '#111', borderRadius: 4,
-              backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 7,
-              minWidth: 100, alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Text style={{ fontSize: 15, fontWeight: '900', color: '#111', letterSpacing: 3, fontFamily: 'monospace' }}>{tour.vehicle.plate}</Text>
+            {/* Schweizer Kennzeichen — wie Portal */}
+            <View style={{display:'flex',flexDirection:'row',alignItems:'stretch',borderWidth:1.5,borderColor:'#bbb',borderRadius:4,overflow:'hidden',shadowColor:'#000',shadowOpacity:0.1,shadowRadius:2}}>
+              <View style={{backgroundColor:'#D52B1E',width:28,flexDirection:'column',alignItems:'center',justifyContent:'center',paddingVertical:4,gap:2}}>
+                <View style={{backgroundColor:'#fff',width:16,height:16,borderRadius:2,alignItems:'center',justifyContent:'center'}}>
+                  <View style={{position:'absolute',width:12,height:3,backgroundColor:'#D52B1E',borderRadius:1}}/>
+                  <View style={{position:'absolute',width:3,height:12,backgroundColor:'#D52B1E',borderRadius:1}}/>
+                </View>
+              </View>
+              <View style={{backgroundColor:'#fff',paddingHorizontal:10,paddingVertical:5,justifyContent:'center'}}>
+                <Text style={{fontSize:15,fontWeight:'900',color:'#111',letterSpacing:2.5,fontFamily:'monospace'}}>{tour.vehicle.plate}</Text>
+              </View>
             </View>
             {/* Details rechts */}
             <View style={{ flex: 1 }}>

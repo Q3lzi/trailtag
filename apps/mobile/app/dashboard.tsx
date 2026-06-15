@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { apiFetch } from '../lib/api';
@@ -117,6 +118,7 @@ export default function DashboardScreen() {
   async function handleLogout() { await removeToken(); router.replace('/'); }
 
   const qrUrl = vehicle ? `https://trailtag-production.up.railway.app/r/${vehicle.qrToken}` : null;
+  const insets = useSafeAreaInsets();
   const minutesSinceUpdate = activeTour?.locationUpdatedAt
     ? Math.floor((now - new Date(activeTour.locationUpdatedAt).getTime()) / 60000)
     : null;
@@ -129,7 +131,7 @@ export default function DashboardScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
       {/* Top Nav */}
-      <View style={styles.topNav}>
+      <View style={[styles.topNav, { paddingTop: insets.top + 10 }]}>
         <View style={styles.topNavLeft}>
           <Mountain size={22} color="#061907" strokeWidth={2.5} />
           <Text style={styles.logoText}>Trailtag</Text>
@@ -381,7 +383,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   content: { paddingBottom: 50 },
 
-  topNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#edeeef' },
+  topNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#edeeef' },
   topNavLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logoText: { fontSize: 20, fontWeight: '800', color: '#061907', letterSpacing: -0.5 },
   accountBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#f3f4f5', alignItems: 'center', justifyContent: 'center' },

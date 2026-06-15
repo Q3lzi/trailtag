@@ -26,7 +26,8 @@
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "^15.15.5",
-    "react-native-web": "^0.21.2"
+    "react-native-web": "^0.21.2",
+    "expo-battery": "~7.0.1"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.21",
