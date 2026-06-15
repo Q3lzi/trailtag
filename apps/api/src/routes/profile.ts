@@ -13,6 +13,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       bloodType: true, allergies: true, medications: true, medicalNotes: true,
       privacyShowName: true, privacyShowPhone: true, privacyShowMedical: true,
       privacyShowContacts: true, privacyShowGps: true, privacyShowNotes: true,
+      pushNotifyFriendsStart: true, pushNotifyFriendsEnd: true, pushNotifyFriendsAlarm: true,
       emergencyContacts: { orderBy: { isPrimary: 'desc' } }
     }
   })
@@ -34,6 +35,9 @@ router.put('/', requireAuth, async (req: Request, res: Response) => {
       ...(req.body.privacyShowContacts !== undefined && { privacyShowContacts: req.body.privacyShowContacts }),
       ...(req.body.privacyShowGps !== undefined && { privacyShowGps: req.body.privacyShowGps }),
       ...(req.body.privacyShowNotes !== undefined && { privacyShowNotes: req.body.privacyShowNotes }),
+      ...(req.body.pushNotifyFriendsStart !== undefined && { pushNotifyFriendsStart: Boolean(req.body.pushNotifyFriendsStart) }),
+      ...(req.body.pushNotifyFriendsEnd !== undefined && { pushNotifyFriendsEnd: Boolean(req.body.pushNotifyFriendsEnd) }),
+      ...(req.body.pushNotifyFriendsAlarm !== undefined && { pushNotifyFriendsAlarm: Boolean(req.body.pushNotifyFriendsAlarm) }),
     }
   })
   res.json(user)

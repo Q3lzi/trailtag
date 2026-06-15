@@ -90,6 +90,9 @@ export default function ProfileScreen() {
   const [privacyShowContacts, setPrivacyShowContacts] = useState(true);
   const [privacyShowGps, setPrivacyShowGps] = useState(false);
   const [privacyShowNotes, setPrivacyShowNotes] = useState(false);
+  const [pushNotifyFriendsStart, setPushNotifyFriendsStart] = useState(true);
+  const [pushNotifyFriendsEnd, setPushNotifyFriendsEnd] = useState(true);
+  const [pushNotifyFriendsAlarm, setPushNotifyFriendsAlarm] = useState(true);
   const [trackingMode, setTrackingModeState] = useState<TrackingMode>('balanced');
 
   // Contacts
@@ -140,6 +143,9 @@ export default function ProfileScreen() {
       if (data.privacyShowContacts !== undefined) setPrivacyShowContacts(data.privacyShowContacts);
       if (data.privacyShowGps !== undefined) setPrivacyShowGps(data.privacyShowGps);
       if (data.privacyShowNotes !== undefined) setPrivacyShowNotes(data.privacyShowNotes);
+      if (data.pushNotifyFriendsStart !== undefined) setPushNotifyFriendsStart(data.pushNotifyFriendsStart);
+      if (data.pushNotifyFriendsEnd !== undefined) setPushNotifyFriendsEnd(data.pushNotifyFriendsEnd);
+      if (data.pushNotifyFriendsAlarm !== undefined) setPushNotifyFriendsAlarm(data.pushNotifyFriendsAlarm);
       setFriends(friendData.friends ?? []);
       setPending(friendData.pending ?? []);
       setGroups(friendData.groups ?? []);
@@ -784,6 +790,24 @@ export default function ProfileScreen() {
                 </View>
               ))}
               <Text style={{fontSize:11,color:'#2c694e',marginTop:10,fontStyle:'italic'}}>Im Alarmfall sind immer alle Daten sichtbar</Text>
+            </View>
+
+            <Text style={[styles.sectionLabel,{marginTop:20}]}>BENACHRICHTIGUNGEN AN FREUNDE</Text>
+            <Text style={styles.hint}>Wann sollen deine Freunde eine Push-Benachrichtigung erhalten?</Text>
+            <View style={styles.card}>
+              {([
+                {key:'pushNotifyFriendsStart', label:'Tour gestartet', sub:'Freunde informieren wenn du losgehst', val:pushNotifyFriendsStart, set:setPushNotifyFriendsStart},
+                {key:'pushNotifyFriendsEnd', label:'Sicher zurück', sub:'Freunde informieren wenn du auschcheckst', val:pushNotifyFriendsEnd, set:setPushNotifyFriendsEnd},
+                {key:'pushNotifyFriendsAlarm', label:'Alarm', sub:'Freunde bei Überfälligkeit benachrichtigen', val:pushNotifyFriendsAlarm, set:setPushNotifyFriendsAlarm},
+              ] as any[]).map(({key,label,sub,val,set},i,arr) => (
+                <View key={key} style={{flexDirection:'row',alignItems:'center',paddingVertical:13,borderBottomWidth:i<arr.length-1?1:0,borderBottomColor:'#f3f4f5'}}>
+                  <View style={{flex:1,paddingRight:12}}>
+                    <Text style={{fontSize:14,fontWeight:'600',color:'#191c1d'}}>{label}</Text>
+                    <Text style={{fontSize:11,color:'#c3c8bf',marginTop:1}}>{sub}</Text>
+                  </View>
+                  <Switch value={val} onValueChange={(v) => { set(v); savePrivacy({ [key]: v }); }} trackColor={{false:'#e1e3e4',true:'#aeeecb'}} thumbColor={val?'#2c694e':'#fff'}/>
+                </View>
+              ))}
             </View>
 
             <Text style={[styles.sectionLabel,{marginTop:20}]}>KONTO</Text>

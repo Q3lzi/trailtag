@@ -29,6 +29,9 @@ model User {
   privacyShowContacts Boolean @default(true)
   privacyShowGps      Boolean @default(false)
   privacyShowNotes    Boolean @default(false)
+  pushNotifyFriendsStart Boolean @default(true)
+  pushNotifyFriendsEnd   Boolean @default(true)
+  pushNotifyFriendsAlarm Boolean @default(true)
   tours              Tour[]
   friendsInitiated   Friend[]       @relation("FriendInitiator")
   friendsReceived    Friend[]       @relation("FriendReceiver")

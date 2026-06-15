@@ -1,18 +1,10 @@
+import { sendExpoPush, sendPushToFriends } from '../lib/push'
 import 'dotenv/config'
 import cron from 'node-cron'
 import { prisma } from '../lib/prisma'
 import { sendSms } from '../lib/twilio'
 
-async function sendExpoPush(token: string, title: string, body: string) {
-  if (!token?.startsWith('ExponentPushToken')) return
-  try {
-    await fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: token, title, body, sound: 'default', priority: 'high' })
-    })
-  } catch {}
-}
+
 
 async function triggerStage(tourId: string, stage: number, action: () => Promise<void>) {
   const existing = await prisma.alarmEvent.findFirst({ where: { tourId, stage } })
@@ -52,6 +44,11 @@ export function startAlarmEngine() {
           try {
             const u = await (prisma.user as any).findUnique({ where: { id: tour.userId }, select: { expoPushToken: true } })
             if (u?.expoPushToken) await sendExpoPush(u.expoPushToken, '⚠️ Safety-Timer abgelaufen', 'Du bist noch nicht zurückgekehrt. Bitte jetzt einchecken!')
+            // Notify friends
+            const uFull = await (prisma.user as any).findUnique({ where: { id: tour.userId }, select: { name: true, pushNotifyFriendsAlarm: true } })
+            if (uFull?.pushNotifyFriendsAlarm !== false) {
+              await sendPushToFriends(prisma, tour.userId, '🚨 Trailtag Alarm', `${uFull?.name ?? 'Dein Freund'} ist überfällig!`, { tourId: tour.id })
+            }
           } catch {}
         })
       }
