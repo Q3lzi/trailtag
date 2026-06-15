@@ -314,7 +314,7 @@ export default function DashboardScreen() {
                   const isAlarm = f.activeTour?.status === 'ALARM';
                   const etaStr = eta ? eta.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit'}) + ' ' + eta.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) : '—';
                   return (
-                    <View key={f.friendshipId} style={{width:'47%',backgroundColor:isAlarm?'#fff8f8':'#fff',borderRadius:10,borderWidth:1,borderColor:isAlarm?'#ffdad6':'#e1e3e4',padding:10}}>
+                    <TouchableOpacity key={f.friendshipId} style={{width:'47%',backgroundColor:isAlarm?'#fff8f8':'#fff',borderRadius:10,borderWidth:1,borderColor:isAlarm?'#ffdad6':'#e1e3e4',padding:10}} onPress={()=>router.push({pathname:'/friend-profile',params:{friendshipId:f.friendshipId,name:f.name}})}>
                       <View style={{flexDirection:'row',alignItems:'center',gap:6,marginBottom:4}}>
                         <View style={{width:28,height:28,borderRadius:14,backgroundColor:isAlarm?'#ffdad6':'#f0faf4',alignItems:'center',justifyContent:'center'}}>
                           <Mountain size={13} color={isAlarm?'#ba1a1a':'#2c694e'} strokeWidth={2}/>
@@ -324,7 +324,7 @@ export default function DashboardScreen() {
                       <Text style={{fontSize:13,fontWeight:'700',color:'#061907'}} numberOfLines={1}>{f.name}</Text>
                       <Text style={{fontSize:10,color:'#747871',marginTop:1}} numberOfLines={1}>{f.activeTour?.activity ?? 'Tour'}</Text>
                       <Text style={{fontSize:10,color:isAlarm?'#ba1a1a':'#2c694e',fontWeight:'600',marginTop:2}}>↩ {etaStr}</Text>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>

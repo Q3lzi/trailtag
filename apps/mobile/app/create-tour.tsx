@@ -318,15 +318,17 @@ export default function CreateTourScreen() {
     async function load() {
       try {
         const token = await getToken();
-        const [v,p] = await Promise.all([
+        const [v,p,fr] = await Promise.all([
           apiFetch('/vehicles',{},token??undefined),
           apiFetch('/profile',{},token??undefined),
+          apiFetch('/friends',{},token??undefined).catch(()=>({friends:[]})),
         ]);
         setVehicles(v);
         if (v.length>0) setVehicleId(v[0].id);
         const contacts = p.emergencyContacts ?? [];
         setProfileContacts(contacts);
         setSelectedContacts(contacts.filter((c:any)=>c.isPrimary).map((c:any)=>c.id));
+        setProfileFriends((fr.friends??[]).filter((f:any)=>f.name));
       } catch {}
     }
     load();

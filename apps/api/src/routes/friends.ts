@@ -34,7 +34,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       const isMine = f.initiatorId === userId
       const other = isMine ? f.receiver : f.initiator
       const activeTour = activeTours.find((t: any) => t.userId === other.id) ?? null
-      return { friendshipId: f.id, groupId: f.groupId, group: f.group, activeTour, ...other }
+      return { friendshipId: f.id, groupId: f.groupId, group: f.group, ...other, activeTour }
     })
     res.json({ friends, pending, groups })
   } catch {
@@ -177,6 +177,51 @@ router.delete('/groups/:id', requireAuth, async (req: Request, res: Response) =>
   try {
     await (prisma as any).friendGroup.deleteMany({ where: { id, userId } })
     res.json({ ok: true })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /friends/:id/profile — mini profile with privacy
+router.get('/:id/profile', requireAuth, async (req: Request, res: Response) => {
+  const userId = req.userId as string
+  const friendshipId = req.params['id'] as string
+  try {
+    // Verify friendship
+    const friendship = await (prisma.friend as any).findFirst({
+      where: { id: friendshipId, status: 'ACCEPTED', OR: [{ initiatorId: userId }, { receiverId: userId }] }
+    })
+    if (!friendship) return res.status(403).json({ error: 'Nicht befreundet' })
+
+    const friendId = friendship.initiatorId === userId ? friendship.receiverId : friendship.initiatorId
+
+    const friend = await (prisma.user as any).findUnique({
+      where: { id: friendId },
+      select: {
+        id: true, name: true, phone: true, birthYear: true,
+        privacyShowPhone: true, privacyShowGps: true,
+        qrCode: true,
+      }
+    })
+    if (!friend) return res.status(404).json({ error: 'Freund nicht gefunden' })
+
+    // Get active tour
+    const activeTour = await prisma.tour.findFirst({
+      where: { userId: friendId, status: { in: ['ACTIVE', 'ALARM'] } },
+      select: { id: true, activity: true, eta: true, status: true, startedAt: true, lastLat: true, lastLng: true }
+    })
+
+    // Build QR portal URL if alarm
+    const qrUrl = activeTour?.status === 'ALARM' && friend.qrCode
+      ? `${process.env.FRONTEND_URL ?? 'https://trailtag-production.up.railway.app'}/qr/${friend.qrCode}`
+      : null
+
+    res.json({
+      name: friend.name,
+      birthYear: friend.birthYear,
+      phone: friend.privacyShowPhone ? friend.phone : null,
+      activeTour: activeTour ? { ...activeTour, qrUrl } : null,
+    })
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }
