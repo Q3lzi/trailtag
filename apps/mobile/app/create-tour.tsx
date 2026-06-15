@@ -81,15 +81,22 @@ function MapPicker({ lat, lng, onSelect, mapKey }: { lat:string; lng:string; onS
         const zoom = lat ? 13 : 7;
         const map = L.default.map(container).setView([initLat, initLng], zoom);
         L.default.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{attribution:'© OSM © CARTO'}).addTo(map);
+        // Show GPX route if available
+        const gpxEl = (window as any).__trailtag_gpx;
+        if (gpxEl?.points?.length > 1) {
+          const pts = gpxEl.points.map((p:any) => [p.lat, p.lng]);
+          L.default.polyline(pts, { color:'#2c694e', weight:3, opacity:0.7 }).addTo(map);
+          map.fitBounds(L.default.latLngBounds(pts), { padding:[20,20], maxZoom:15 });
+        }
         // Show existing marker if coords present
         if (lat && lng) {
-          markerRef.current = L.default.circleMarker([initLat,initLng],{radius:10,fillColor:'#2c694e',color:'#fff',weight:3,fillOpacity:1})
+          markerRef.current = L.default.circleMarker([initLat,initLng],{radius:8,fillColor:'#2c694e',color:'#fff',weight:2,fillOpacity:1})
             .bindPopup('Ausgewählt').addTo(map);
         }
         map.on('click',(e:any) => {
           const {lat:clat,lng:clng} = e.latlng;
           if (markerRef.current) { map.removeLayer(markerRef.current); }
-          markerRef.current = L.default.circleMarker([clat,clng],{radius:10,fillColor:'#2c694e',color:'#fff',weight:3,fillOpacity:1})
+          markerRef.current = L.default.circleMarker([clat,clng],{radius:8,fillColor:'#2c694e',color:'#fff',weight:2,fillOpacity:1})
             .bindPopup(`${clat.toFixed(4)}, ${clng.toFixed(4)}`).addTo(map).openPopup();
           onSelect(clat.toFixed(6), clng.toFixed(6));
         });
@@ -400,6 +407,7 @@ export default function CreateTourScreen() {
       const token = await getToken();
       const data = await apiFetch('/gpx/parse',{method:'POST',body:JSON.stringify({gpxContent:text})},token??undefined);
 setGpxData(data);
+      if (Platform.OS === 'web') { (window as any).__trailtag_gpx = data; }
 if (data.distanceKm) setDistanceKm(String(data.distanceKm));
 if (data.elevationUp) setElevationUp(String(data.elevationUp));
 // NEU: Routenname aus GPX übernehmen wenn Feld leer
