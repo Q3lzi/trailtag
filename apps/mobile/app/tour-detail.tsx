@@ -252,9 +252,9 @@ export default function TourDetailScreen() {
           if (tourData.overnightStops?.length > 0) {
             tourData.overnightStops.forEach((stop: any) => {
               if (stop.lat && stop.lng) {
-                L.default.circleMarker([stop.lat, stop.lng] as [number, number], {
-                  radius: 7, fillColor: '#1a2e1a', color: '#fff', weight: 2, fillOpacity: 1
-                }).bindPopup(`<b>Nacht ${stop.night}</b>${stop.name ? '<br>' + stop.name : ''}${stop.address ? '<br>' + stop.address : ''}`)
+                const moonIcon = L.default.divIcon({ html: '<div style="font-size:14px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4))">🌙</div>', iconSize:[16,16], iconAnchor:[8,8], className:'' });
+                L.default.marker([stop.lat, stop.lng] as [number, number], { icon: moonIcon })
+                  .bindPopup(`<b>Nacht ${stop.night}</b>${stop.name ? '<br>' + stop.name : ''}${stop.address ? '<br>' + stop.address : ''}`)
                   .addTo(map);
               }
             });

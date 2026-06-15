@@ -463,7 +463,7 @@ if (data.startLat) {
         method:'POST',
         body:JSON.stringify({
           activity, routeName:routeName||null, difficulty:diffLabel,
-          persons:persons.length > 0 ? persons.length : 1, distanceKm:distanceKm?parseFloat(distanceKm):null,
+          persons:persons.length + 1, // total = me + companions distanceKm:distanceKm?parseFloat(distanceKm):null,
           elevationUp:elevationUp?parseInt(elevationUp):null,
           parkingLocation:parkingLocation||null, notes:allNotes||null,
           overnightStops:overnightStops.length>0?overnightStops:null,
@@ -909,8 +909,8 @@ if (data.startLat) {
               <Text style={styles.cBtnTxt}>−</Text>
             </TouchableOpacity>
             <View style={{alignItems:'center',minWidth:80}}>
-              <Text style={styles.cVal}>{persons.length}</Text>
-              <Text style={{fontSize:10,color:'#747871'}}>{persons.length===0?'Solo':persons.length===1?'Person':'Personen'}</Text>
+              <Text style={styles.cVal}>{persons.length===0?'Solo':`${persons.length+1}`}</Text>
+              <Text style={{fontSize:10,color:'#747871'}}>{persons.length===0?'Solo':persons.length===1?'+ 1 Begl.':'+ '+persons.length+' Begl.'}</Text>
             </View>
             <TouchableOpacity style={styles.cBtn} onPress={()=>setPersons(p=>[...p,{name:'',age:'',notes:''}])}>
               <Text style={styles.cBtnTxt}>+</Text>
@@ -1051,7 +1051,7 @@ if (data.startLat) {
     if (distanceKm) rows.push(['Distanz',`${distanceKm} km`]);
     if (elevationUp) rows.push(['Höhenmeter',`+${elevationUp} m`]);
     if (diffLabel) rows.push(['Schwierigkeit',diffLabel]);
-    rows.push(['Personen', persons.length===0?'Solo':`${persons.length}`]);
+    rows.push(['Personen', persons.length===0?'Solo':`${persons.length + 1} (ich + ${persons.length} Begleit${persons.length===1?'person':'personen'})`]);
     if (allWps.length>0) rows.push(['Wegpunkte',allWps.join(' → ')]);
     if (parkingLocation) rows.push(['Parkplatz',parkingLocation]);
     if (vehicleId) rows.push(['Fahrzeug',vehicles.find(v=>v.id===vehicleId)?.plate??'']);
