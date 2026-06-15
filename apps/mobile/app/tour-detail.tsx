@@ -829,11 +829,18 @@ export default function TourDetailScreen() {
           <View style={styles.card}>
             {tour.companions?.length > 0 ? (
               tour.companions.map((c: any, i: number) => (
-                <View key={i} style={[styles.detailRow, i > 0 && { borderTopWidth: 1, borderTopColor: '#f3f4f5' }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#061907' }}>{c.name || `Person ${i + 1}`}</Text>
-                    {c.age ? <Text style={{ fontSize: 12, color: '#747871', marginTop: 2 }}>Jahrgang {c.age}</Text> : null}
-                    {c.notes ? <Text style={{ fontSize: 12, color: '#434841', marginTop: 2 }}>{c.notes}</Text> : null}
+                <View key={i} style={{ flexDirection:'row', alignItems:'center', gap:12, paddingVertical:12, borderBottomWidth: i < tour.companions.length-1 ? 1 : 0, borderBottomColor:'#f3f4f5' }}>
+                  <View style={{ width:36, height:36, borderRadius:18, backgroundColor:'#f0faf4', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <Text style={{ fontSize:15, fontWeight:'800', color:'#2c694e' }}>{(c.name||'?')[0].toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex:1 }}>
+                    <Text style={{ fontSize:14, fontWeight:'700', color:'#061907' }}>{c.name || `Person ${i + 1}`}</Text>
+                    <View style={{ flexDirection:'row', gap:8, marginTop:3, flexWrap:'wrap' }}>
+                      {c.age ? <Text style={{ fontSize:11, color:'#747871' }}>Jg. {c.age}</Text> : null}
+                      {(c as any).phone ? <Text style={{ fontSize:11, color:'#2c694e', fontWeight:'600' }}>{(c as any).phone}</Text> : null}
+                      {(c as any).role ? <Text style={{ fontSize:11, color:'#434841' }}>{(c as any).role}</Text> : null}
+                    </View>
+                    {c.notes ? <Text style={{ fontSize:11, color:'#747871', marginTop:2 }}>{c.notes}</Text> : null}
                   </View>
                 </View>
               ))

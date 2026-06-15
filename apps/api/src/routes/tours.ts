@@ -92,6 +92,12 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
     }
   })
 
+  // Push notifications
+  try {
+    const u = await (prisma.user as any).findUnique({ where: { id: req.userId as string }, select: { name: true, expoPushToken: true } })
+    if (u?.expoPushToken) await sendExpoPush(u.expoPushToken, '🏔 Tour gestartet', 'Safety-Timer läuft. Komm sicher zurück!')
+    await sendPushToFriends(prisma, req.userId as string, '🏔 Tour gestartet', `${u?.name ?? 'Dein Freund'} ist auf Wanderung`, { tourId: started.id }, 'start')
+  } catch {}
   res.json({ message: 'Tour gestartet — Timer läuft', tour: started })
 })
 
@@ -186,6 +192,12 @@ router.post('/:id/checkout', requireAuth, async (req: Request, res: Response) =>
     data: { status: 'COMPLETED', checkedOutAt: new Date(), alarmStage: 0 }
   })
 
+  // Push notifications
+  try {
+    const u = await (prisma.user as any).findUnique({ where: { id: req.userId as string }, select: { name: true, expoPushToken: true } })
+    if (u?.expoPushToken) await sendExpoPush(u.expoPushToken, '✅ Sicher zurück', 'Du hast erfolgreich ausgecheckt.')
+    await sendPushToFriends(prisma, req.userId as string, '✅ Sicher zurück', `${u?.name ?? 'Dein Freund'} ist sicher zurückgekehrt`, undefined, 'end')
+  } catch {}
   res.json({ message: '✅ Sicher zurück!', tour: completed })
 })
 

@@ -302,6 +302,7 @@ export default function CreateTourScreen() {
   const [persons, setPersons] = useState<PersonInfo[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [profileContacts, setProfileContacts] = useState<any[]>([]);
+  const [profileFriends, setProfileFriends] = useState<any[]>([]);
   const [showAddContact, setShowAddContact] = useState(false);
   const [newContact, setNewContact] = useState<NewContact>({name:'',phone:'',relation:''});
   const [vehicleId, setVehicleId] = useState<string|null>(null);
@@ -926,10 +927,31 @@ if (data.startLat) {
         </View>
         {persons.map((p,i) => (
           <View key={i} style={[styles.card,{marginTop:12}]}>
-            <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:10}}>
-              <User size={15} color="#2c694e" strokeWidth={2}/>
-              <Text style={{fontSize:14,fontWeight:'800',color:'#061907'}}>Person {i+1}</Text>
+            <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+              <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
+                <User size={15} color="#2c694e" strokeWidth={2}/>
+                <Text style={{fontSize:14,fontWeight:'800',color:'#061907'}}>Begleitperson {i+1}</Text>
+              </View>
+              <TouchableOpacity onPress={()=>setPersons(prev=>prev.filter((_,j)=>j!==i))} style={{padding:4}}>
+                <X size={14} color="#ba1a1a" strokeWidth={2}/>
+              </TouchableOpacity>
             </View>
+            {profileFriends.length > 0 && (
+              <View style={{marginBottom:10}}>
+                <Text style={styles.inputLabel}>Aus Freundesliste</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginTop:4}}>
+                  {profileFriends.map((f:any) => (
+                    <TouchableOpacity key={f.friendshipId}
+                      style={{paddingHorizontal:12,paddingVertical:6,borderRadius:100,borderWidth:1,marginRight:8,
+                        backgroundColor: persons[i].name===f.name?'#aeeecb':'#f8f9fa',
+                        borderColor: persons[i].name===f.name?'#2c694e':'#e1e3e4'}}
+                      onPress={()=>setPersons(prev=>prev.map((x,j)=>j===i?{...x,name:f.name,phone:f.phone??x.phone??''}:x))}>
+                      <Text style={{fontSize:12,fontWeight:'700',color:persons[i].name===f.name?'#2c694e':'#434841'}}>{f.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
             <Text style={styles.inputLabel}>Name</Text>
             <TextInput style={styles.input} placeholder="Vor- und Nachname" placeholderTextColor="#bbb"
               value={p.name} onChangeText={v=>setPersons(prev=>prev.map((x,j)=>j===i?{...x,name:v}:x))}/>
@@ -949,6 +971,24 @@ if (data.startLat) {
         ))}
         <View style={[styles.card,{marginTop:12}]}>
           <Text style={styles.fieldLabel}>NOTFALLKONTAKTE</Text>
+          {profileFriends.length > 0 && (
+            <View style={{marginBottom:10}}>
+              <Text style={styles.inputLabel}>Aus Freundesliste</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginTop:4}}>
+                {profileFriends.map((f:any) => {
+                  const isSel = selectedContacts.includes('friend-'+f.friendshipId);
+                  return (
+                    <TouchableOpacity key={f.friendshipId}
+                      style={{paddingHorizontal:12,paddingVertical:6,borderRadius:100,borderWidth:1,marginRight:8,
+                        backgroundColor:isSel?'#aeeecb':'#f8f9fa',borderColor:isSel?'#2c694e':'#e1e3e4'}}
+                      onPress={()=>setSelectedContacts(prev=>isSel?prev.filter(id=>id!=='friend-'+f.friendshipId):[...prev,'friend-'+f.friendshipId])}>
+                      <Text style={{fontSize:12,fontWeight:'700',color:isSel?'#2c694e':'#434841'}}>{f.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
           {profileContacts.length>0 ? (
             <View>
               <Text style={styles.inputLabel}>Aus Profil wählen</Text>

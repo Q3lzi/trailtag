@@ -14,24 +14,34 @@ export async function sendExpoPush(token: string, title: string, body: string, d
 }
 
 // Send push to all accepted friends of a user
-export async function sendPushToFriends(prisma: any, userId: string, title: string, body: string, data?: any) {
+// eventType: 'start' | 'end' | 'alarm'
+export async function sendPushToFriends(prisma: any, userId: string, title: string, body: string, data?: any, eventType?: string) {
   try {
-    const friends = await prisma.friend.findMany({
-      where: {
-        status: 'ACCEPTED',
-        OR: [{ initiatorId: userId }, { receiverId: userId }]
-      },
+    // Get user's push group preferences
+    const user = await (prisma.user as any).findUnique({
+      where: { id: userId },
+      select: { pushNotifyFriendsStart: true, pushNotifyFriendsEnd: true, pushNotifyFriendsAlarm: true }
+    })
+    // Check if this event type is enabled
+    if (eventType === 'start' && user?.pushNotifyFriendsStart === false) return
+    if (eventType === 'end' && user?.pushNotifyFriendsEnd === false) return
+    if (eventType === 'alarm' && user?.pushNotifyFriendsAlarm === false) return
+
+    const friends = await (prisma.friend as any).findMany({
+      where: { status: 'ACCEPTED', OR: [{ initiatorId: userId }, { receiverId: userId }] },
       include: {
         initiator: { select: { id: true, expoPushToken: true } },
         receiver: { select: { id: true, expoPushToken: true } }
       }
     })
+    let sent = 0
     for (const f of friends) {
       const friendUser = f.initiatorId === userId ? f.receiver : f.initiator
       if (friendUser?.expoPushToken) {
         await sendExpoPush(friendUser.expoPushToken, title, body, data)
+        sent++
       }
     }
-    console.log(`📲 Push gesendet an ${friends.length} Freunde`)
+    console.log(`📲 Push (${eventType}) gesendet an ${sent} Freunde`)
   } catch (err) { console.error('Push to friends error:', err) }
 }
