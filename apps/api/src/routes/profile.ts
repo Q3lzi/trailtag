@@ -11,6 +11,8 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     select: {
       id: true, email: true, name: true, phone: true, birthYear: true,
       bloodType: true, allergies: true, medications: true, medicalNotes: true,
+      privacyShowName: true, privacyShowPhone: true, privacyShowMedical: true,
+      privacyShowContacts: true, privacyShowGps: true, privacyShowNotes: true,
       emergencyContacts: { orderBy: { isPrimary: 'desc' } }
     }
   })
@@ -23,7 +25,16 @@ router.put('/', requireAuth, async (req: Request, res: Response) => {
   const { name, phone, birthYear, bloodType, allergies, medications, medicalNotes } = req.body
   const user = await prisma.user.update({
     where: { id: req.userId as string },
-    data: { name, phone, birthYear: birthYear ? Number(birthYear) : null, bloodType, allergies, medications, medicalNotes }
+    data: {
+      name, phone, birthYear: birthYear ? Number(birthYear) : null,
+      bloodType, allergies, medications, medicalNotes,
+      ...(req.body.privacyShowName !== undefined && { privacyShowName: req.body.privacyShowName }),
+      ...(req.body.privacyShowPhone !== undefined && { privacyShowPhone: req.body.privacyShowPhone }),
+      ...(req.body.privacyShowMedical !== undefined && { privacyShowMedical: req.body.privacyShowMedical }),
+      ...(req.body.privacyShowContacts !== undefined && { privacyShowContacts: req.body.privacyShowContacts }),
+      ...(req.body.privacyShowGps !== undefined && { privacyShowGps: req.body.privacyShowGps }),
+      ...(req.body.privacyShowNotes !== undefined && { privacyShowNotes: req.body.privacyShowNotes }),
+    }
   })
   res.json(user)
 })
