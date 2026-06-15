@@ -794,16 +794,21 @@ export default function TourDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Fahrzeug</Text>
           <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 16 }]}>
-            {/* Schweizer Kennzeichen — wie Portal */}
-            <View style={{display:'flex',flexDirection:'row',alignItems:'stretch',borderWidth:1.5,borderColor:'#bbb',borderRadius:4,overflow:'hidden',shadowColor:'#000',shadowOpacity:0.1,shadowRadius:2}}>
-              <View style={{backgroundColor:'#D52B1E',width:28,flexDirection:'column',alignItems:'center',justifyContent:'center',paddingVertical:4,gap:2}}>
-                <View style={{backgroundColor:'#fff',width:16,height:16,borderRadius:2,alignItems:'center',justifyContent:'center'}}>
-                  <View style={{position:'absolute',width:12,height:3,backgroundColor:'#D52B1E',borderRadius:1}}/>
-                  <View style={{position:'absolute',width:3,height:12,backgroundColor:'#D52B1E',borderRadius:1}}/>
+            {/* CH Kennzeichen — 1:1 Ersthelfer-Portal */}
+            <View style={{flexDirection:'row',alignItems:'stretch',borderWidth:1,borderColor:'#bbb',borderRadius:5,overflow:'hidden',shadowColor:'#000',shadowOpacity:0.1,shadowRadius:3,elevation:2}}>
+              {/* Wappen links — weisser Hintergrund, dünne rechte Border */}
+              <View style={{backgroundColor:'#fff',borderRightWidth:1,borderRightColor:'#bbb',paddingHorizontal:6,paddingVertical:5,alignItems:'center',justifyContent:'center'}}>
+                {/* SVG: 22x22 rotes Quadrat mit weissem Kreuz */}
+                <View style={{width:22,height:22,borderRadius:2,backgroundColor:'#D52B1E',alignItems:'center',justifyContent:'center'}}>
+                  {/* Vertikaler Balken */}
+                  <View style={{position:'absolute',width:4,height:16,backgroundColor:'#fff',borderRadius:1}}/>
+                  {/* Horizontaler Balken */}
+                  <View style={{position:'absolute',width:16,height:4,backgroundColor:'#fff',borderRadius:1}}/>
                 </View>
               </View>
-              <View style={{backgroundColor:'#fff',paddingHorizontal:10,paddingVertical:5,justifyContent:'center'}}>
-                <Text style={{fontSize:15,fontWeight:'900',color:'#111',letterSpacing:2.5,fontFamily:'monospace'}}>{tour.vehicle.plate}</Text>
+              {/* Kennzeichen Text rechts */}
+              <View style={{backgroundColor:'#fff',paddingHorizontal:14,paddingVertical:5,justifyContent:'center'}}>
+                <Text style={{fontSize:17,fontWeight:'900',letterSpacing:3,color:'#111',fontFamily:'monospace'}}>{tour.vehicle.plate}</Text>
               </View>
             </View>
             {/* Details rechts */}
