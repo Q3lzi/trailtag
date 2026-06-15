@@ -27,7 +27,7 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "^15.15.5",
     "react-native-web": "^0.21.2",
-    "expo-battery": "~7.0.1"
+    "expo-battery": "~56.0.4"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.21",
