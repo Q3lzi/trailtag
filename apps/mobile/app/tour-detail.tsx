@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Linking
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import * as Battery from 'expo-battery';
+
 import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/storage';
 import { showAlert, showConfirm } from '../lib/alert';
@@ -137,6 +137,7 @@ export default function TourDetailScreen() {
     // Load battery level on mount, update periodically
     const loadBattery = async () => {
       try {
+        const Battery = require('expo-battery');
         const level = await Battery.getBatteryLevelAsync();
         if (level >= 0) setBatteryLevel(Math.round(level * 100));
       } catch {}
