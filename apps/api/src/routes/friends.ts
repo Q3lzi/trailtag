@@ -216,7 +216,7 @@ router.get('/:id/profile', requireAuth, async (req: Request, res: Response) => {
     const vehicleId = (activeTour as any)?.vehicleId
     const veh = vehicleId
       ? await prisma.vehicle.findUnique({ where: { id: vehicleId }, select: { qrToken: true } })
-      : await prisma.vehicle.findFirst({ where: { userId: friendId }, orderBy: { createdAt: 'asc' }, select: { qrToken: true } })
+      : await prisma.vehicle.findFirst({ where: { userId: friendId }, select: { qrToken: true } })
     if (veh?.qrToken) {
       const base = process.env.FRONTEND_URL ?? 'https://trailtag-production.up.railway.app'
       qrUrl = base + '/r/' + veh.qrToken
