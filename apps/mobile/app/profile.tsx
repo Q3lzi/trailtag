@@ -12,6 +12,19 @@ import {
   Shield, Heart, Bell, LogOut
 } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
+// ── Tracking Modes (inline to avoid web import issues) ───────────────────────
+type TrackingMode = 'precise' | 'balanced' | 'battery';
+const TRACKING_MODES: Record<TrackingMode, {label:string;sub:string}> = {
+  precise:  { label:'Präzise',       sub:'GPS max. ~3–5m · Akku ↓↓' },
+  balanced: { label:'Ausgewogen',    sub:'GPS gut ~10–30m · Akku ↓' },
+  battery:  { label:'Akkuschonend',  sub:'GPS reduziert ~50–100m · Akku ↔' },
+};
+async function setTrackingMode(mode: TrackingMode) {
+  if (Platform.OS === 'web') return;
+  try { const S = require('expo-secure-store'); await S.setItemAsync('trailtag-tracking-mode', mode); } catch {}
+}
+
+
 
 import { Platform as RNPlatform } from 'react-native';
 let CameraView: any = null;
