@@ -163,6 +163,19 @@ function buildWandererCard(user: any, isAlarm: boolean, priv?: any) {
   </div>`
 }
 
+function buildCompanions(companions: any[]): string {
+  if (!companions?.length) return ''
+  return `<div style="padding:12px 16px;border-top:1px solid #f3f4f5;">
+    <p style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Begleitpersonen</p>
+    ${companions.map((c: any, i: number) => `
+    <div style="padding:6px 0;${i > 0 ? 'border-top:1px solid #f3f4f5;' : ''}">
+      <p style="font-size:13px;font-weight:700;color:#061907;">${e(c.name || 'Person ' + (i+1))}</p>
+      ${c.age ? `<p style="font-size:11px;color:#747871;">Jg. ${e(c.age)}</p>` : ''}
+      ${c.notes ? `<p style="font-size:11px;color:#434841;">${e(c.notes)}</p>` : ''}
+    </div>`).join('')}
+  </div>`
+}
+
 function buildTourCard(tour: any, compact: boolean, isAlarm = false, priv?: any) {
   const stops: any[] = Array.isArray(tour.overnightStops) ? tour.overnightStops : (tour.overnightStops ? [tour.overnightStops] : [])
   const gpx: any = tour.gpxTrack || null

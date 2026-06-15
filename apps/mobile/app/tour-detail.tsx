@@ -825,11 +825,22 @@ export default function TourDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Begleitpersonen</Text>
           <View style={styles.card}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailKey}>Begleitpersonen</Text>
-              <Text style={styles.detailVal}>{(tour.persons ?? 1) - 1} Person{(tour.persons ?? 1) - 1 !== 1 ? 'en' : ''}</Text>
-            </View>
-            <Text style={{ fontSize: 12, color: '#c3c8bf', marginTop: 6 }}>Namen werden beim Erstellen der Tour erfasst (nächste Version)</Text>
+            {tour.companions?.length > 0 ? (
+              tour.companions.map((c: any, i: number) => (
+                <View key={i} style={[styles.detailRow, i > 0 && { borderTopWidth: 1, borderTopColor: '#f3f4f5' }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#061907' }}>{c.name || `Person ${i + 1}`}</Text>
+                    {c.age ? <Text style={{ fontSize: 12, color: '#747871', marginTop: 2 }}>Jahrgang {c.age}</Text> : null}
+                    {c.notes ? <Text style={{ fontSize: 12, color: '#434841', marginTop: 2 }}>{c.notes}</Text> : null}
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailKey}>Begleitpersonen</Text>
+                <Text style={styles.detailVal}>{(tour.persons ?? 1) - 1} Person{(tour.persons ?? 1) - 1 !== 1 ? 'en' : ''}</Text>
+              </View>
+            )}
           </View>
         </View>
       )}
