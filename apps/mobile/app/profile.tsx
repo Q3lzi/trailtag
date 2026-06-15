@@ -101,6 +101,7 @@ export default function ProfileScreen() {
   const [privacyShowContacts, setPrivacyShowContacts] = useState(true);
   const [privacyShowGps, setPrivacyShowGps] = useState(false);
   const [privacyShowNotes, setPrivacyShowNotes] = useState(false);
+  const [trackingMode, setTrackingModeState] = useState<TrackingMode>('balanced');
 
   // Contacts
   const [newCName, setNewCName] = useState('');
@@ -160,6 +161,14 @@ export default function ProfileScreen() {
       setPending(friendData.pending ?? []);
       setGroups(friendData.groups ?? []);
       setMyQrCode(qrData.qrCode ?? null);
+      // Load tracking mode
+      if (Platform.OS !== 'web') {
+        try {
+          const SecureStore = require('expo-secure-store');
+          const m = await SecureStore.getItemAsync('trailtag-tracking-mode');
+          if (m && m in TRACKING_MODES) setTrackingModeState(m as TrackingMode);
+        } catch {}
+      }
       setTimeout(() => setLoaded(true), 100); // delay to prevent immediate save
     } catch (err) { console.log('Ladefehler:', err); }
   }
@@ -701,7 +710,29 @@ export default function ProfileScreen() {
         {/* ══ EINSTELLUNGEN ══ */}
         {tab === 'einstellungen' && (
           <View>
-            <Text style={styles.sectionLabel}>DATENSCHUTZ — ERSTHELFER-PORTAL</Text>
+            <Text style={styles.sectionLabel}>GPS-TRACKING MODUS</Text>
+            <Text style={styles.hint}>Beeinflusst Genauigkeit und Akkuverbrauch während einer Tour.</Text>
+            <View style={styles.card}>
+              {(Object.entries(TRACKING_MODES) as [TrackingMode, typeof TRACKING_MODES[TrackingMode]][]).map(([key, m], i, arr) => (
+                <TouchableOpacity
+                  key={key}
+                  style={{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:13,borderBottomWidth:i<arr.length-1?1:0,borderBottomColor:'#f3f4f5'}}
+                  onPress={async () => {
+                    setTrackingModeState(key);
+                    await setTrackingMode(key);
+                  }}>
+                  <View style={{width:22,height:22,borderRadius:11,borderWidth:2,borderColor:trackingMode===key?'#2c694e':'#e1e3e4',backgroundColor:trackingMode===key?'#2c694e':'transparent',alignItems:'center',justifyContent:'center'}}>
+                    {trackingMode===key && <View style={{width:8,height:8,borderRadius:4,backgroundColor:'#fff'}}/>}
+                  </View>
+                  <View style={{flex:1}}>
+                    <Text style={{fontSize:14,fontWeight:'700',color:trackingMode===key?'#061907':'#434841'}}>{m.label}</Text>
+                    <Text style={{fontSize:11,color:'#c3c8bf',marginTop:1}}>{m.sub}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[styles.sectionLabel,{marginTop:16}]}>DATENSCHUTZ — ERSTHELFER-PORTAL</Text>
             <Text style={styles.hint}>Was Ersthelfer bei aktiver Tour im Portal sehen dürfen. Im Alarmfall ist immer alles sichtbar.</Text>
             <View style={styles.card}>
               {([
