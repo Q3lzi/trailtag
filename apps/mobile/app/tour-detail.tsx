@@ -198,7 +198,7 @@ export default function TourDetailScreen() {
     if (Platform.OS !== 'web') return;
     // Use retry mechanism — map container might not be ready yet
     let attempts = 0;
-    const tryInit = () => {
+    const tryInit = async () => {
       attempts++;
       const container = document.getElementById('tour-map');
       if (!container || !container.parentElement) {
@@ -252,8 +252,13 @@ export default function TourDetailScreen() {
           if (tourData.overnightStops?.length > 0) {
             tourData.overnightStops.forEach((stop: any) => {
               if (stop.lat && stop.lng) {
-                const icon = L.default.divIcon({ html: '<div style="font-size:18px;line-height:1">🌙</div>', iconSize: [24, 24], iconAnchor: [12, 12], className: '' });
-                L.default.marker([stop.lat, stop.lng] as [number, number], { icon }).bindPopup(`Nacht ${stop.night}${stop.name ? ': ' + stop.name : ''}`).addTo(map);
+                const moonIcon = L.default.divIcon({
+                  html: `<div style="background:#1a2e1a;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;font-size:13px;line-height:1;">🌙</div>`,
+                  iconSize: [26, 26], iconAnchor: [13, 13], className: ''
+                });
+                L.default.marker([stop.lat, stop.lng] as [number, number], { icon: moonIcon })
+                  .bindPopup(`<b>Nacht ${stop.night}</b>${stop.name ? '<br>' + stop.name : ''}${stop.address ? '<br>' + stop.address : ''}`)
+                  .addTo(map);
               }
             });
           }
