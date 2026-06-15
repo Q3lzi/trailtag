@@ -208,18 +208,24 @@ router.get('/:id/profile', requireAuth, async (req: Request, res: Response) => {
     // Get active tour
     const activeTour = await prisma.tour.findFirst({
       where: { userId: friendId, status: { in: ['ACTIVE', 'ALARM'] } },
-      select: { id: true, activity: true, eta: true, status: true, startedAt: true, lastLat: true, lastLng: true }
+      select: { id: true, activity: true, eta: true, status: true, startedAt: true, vehicleId: true }
     })
 
-    // Build QR portal URL if alarm
-    const qrUrl = activeTour?.status === 'ALARM' && friend.qrCode
-      ? `${process.env.FRONTEND_URL ?? 'https://trailtag-production.up.railway.app'}/qr/${friend.qrCode}`
-      : null
+    // Get portal URL via vehicle qrToken
+    let qrUrl: string | null = null
+    const vehicleId = (activeTour as any)?.vehicleId
+    const veh = vehicleId
+      ? await prisma.vehicle.findUnique({ where: { id: vehicleId }, select: { qrToken: true } })
+      : await prisma.vehicle.findFirst({ where: { userId: friendId }, orderBy: { createdAt: 'asc' }, select: { qrToken: true } })
+    if (veh?.qrToken) {
+      const base = process.env.FRONTEND_URL ?? 'https://trailtag-production.up.railway.app'
+      qrUrl = base + '/r/' + veh.qrToken
+    }
 
     res.json({
       name: friend.name,
       birthYear: friend.birthYear,
-      phone: friend.privacyShowPhone ? friend.phone : null,
+      phone: friend.privacyShowPhone !== false ? friend.phone : null,
       activeTour: activeTour ? { ...activeTour, qrUrl } : null,
     })
   } catch (err: any) {

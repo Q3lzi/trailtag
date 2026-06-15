@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/storage';
-import { ArrowLeft, Phone, AlertTriangle, Shield, Mountain, ExternalLink, Eye, EyeOff } from 'lucide-react-native';
+import { ArrowLeft, Phone, AlertTriangle, Shield, Mountain, ExternalLink } from 'lucide-react-native';
 
 export default function FriendProfileScreen() {
   const { friendshipId, name } = useLocalSearchParams<{ friendshipId: string; name: string }>();
@@ -109,36 +109,6 @@ export default function FriendProfileScreen() {
               <Text style={{ fontSize:13, color:'#747871', marginTop:8 }}>Keine aktive Tour</Text>
             </View>
           )}
-
-          {/* Datenschutz-Einstellungen des Freundes */}
-          <Text style={styles.sectionLabel}>SICHTBARE INFORMATIONEN</Text>
-          <View style={styles.card}>
-            {[
-              { key:'showName',     label:'Name' },
-              { key:'showPhone',    label:'Telefonnummer' },
-              { key:'showMedical',  label:'Medizinische Daten' },
-              { key:'showContacts', label:'Notfallkontakte' },
-              { key:'showGps',      label:'GPS-Standort' },
-              { key:'showNotes',    label:'Notizen' },
-            ].map(({ key, label }, i, arr) => {
-              const visible = priv[key] !== false;
-              return (
-                <View key={key} style={{ flexDirection:'row', alignItems:'center', gap:10, paddingVertical:10, borderBottomWidth: i < arr.length-1 ? 1:0, borderBottomColor:'#f3f4f5' }}>
-                  {visible
-                    ? <Eye size={14} color="#2c694e" strokeWidth={2}/>
-                    : <EyeOff size={14} color="#c3c8bf" strokeWidth={2}/>
-                  }
-                  <Text style={{ flex:1, fontSize:13, color: visible ? '#061907' : '#c3c8bf' }}>{label}</Text>
-                  <Text style={{ fontSize:11, fontWeight:'600', color: visible ? '#2c694e' : '#c3c8bf' }}>
-                    {visible ? 'Sichtbar' : 'Verborgen'}
-                  </Text>
-                </View>
-              );
-            })}
-            <Text style={{ fontSize:11, color:'#c3c8bf', marginTop:8, fontStyle:'italic' }}>
-              Im Alarmfall sind immer alle Daten sichtbar
-            </Text>
-          </View>
 
           <Text style={styles.privacyNote}>
             {name} entscheidet welche Informationen im Portal sichtbar sind.

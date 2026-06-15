@@ -416,20 +416,6 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {qrUrl && (
-            <TouchableOpacity style={styles.rescueCard} onPress={() => Platform.OS === 'web' ? window.open(qrUrl!, '_blank') : Linking.openURL(qrUrl!)}>
-              <View style={styles.rescueTop}>
-                <AlertTriangle size={28} color="#93000a" strokeWidth={2} />
-                <View style={styles.rescueBadge}><Text style={styles.rescueBadgeText}>KRITISCH</Text></View>
-              </View>
-              <Text style={styles.rescueTitle}>Erstretter-Portal</Text>
-              <Text style={styles.rescueSub}>{vehicle?.plate} · {vehicle?.make} {vehicle?.model}</Text>
-              <View style={styles.rescueBtn}>
-                <Link size={14} color="#ba1a1a" />
-                <Text style={styles.rescueBtnText}>Portal öffnen</Text>
-              </View>
-            </TouchableOpacity>
-          )}
     </ScrollView>
   );
 }
