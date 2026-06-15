@@ -37,31 +37,7 @@ const BLOOD_TYPES = ['A+','A-','B+','B-','AB+','AB-','0+','0-'];
 const GROUP_COLORS = ['#2c694e','#1d4ed8','#dc2626','#ea580c','#7c3aed','#0891b2','#374151'];
 
 // ── Auto-save hook ─────────────────────────────────────────────────────────────
-function useAutoSave(data: any, enabled: boolean) {
-  const timerRef = useRef<any>(null);
-  const dataRef = useRef(data);
-  const [status, setStatus] = useState<'idle'|'saving'|'saved'>('idle');
 
-  // Keep ref current so the timer callback always uses latest data
-  dataRef.current = data;
-
-  useEffect(() => {
-    if (!enabled) return;
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      setStatus('saving');
-      try {
-        const token = await getToken();
-        await apiFetch('/profile', { method: 'PUT', body: JSON.stringify(dataRef.current) }, token ?? undefined);
-        setStatus('saved');
-        setTimeout(() => setStatus('idle'), 2000);
-      } catch { setStatus('idle'); }
-    }, 1200);
-    return () => clearTimeout(timerRef.current);
-  }, [JSON.stringify(data), enabled]);
-
-  return status;
-}
 
 // ── Group Picker Modal ─────────────────────────────────────────────────────────
 function GroupPicker({ visible, groups, onSelect, onClose }: { visible: boolean; groups: any[]; onSelect: (id: string|null) => void; onClose: () => void }) {
@@ -95,7 +71,7 @@ function GroupPicker({ visible, groups, onSelect, onClose }: { visible: boolean;
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<'profil'|'notfall'|'freunde'|'einstellungen'>('profil');
-  const [loaded, setLoaded] = useState(false);
+
 
   // Profile fields
   const [profile, setProfile] = useState<any>(null);
@@ -141,12 +117,7 @@ export default function ProfileScreen() {
   const [groupPickerFriend, setGroupPickerFriend] = useState<any>(null);
 
   // Auto-save
-  // Auto-save: only profile fields (NOT privacy — those are saved immediately via savePrivacy)
-  const saveData = {
-    name, phone, birthYear: birthYear ? parseInt(birthYear) : null,
-    bloodType, allergies, medications, medicalNotes,
-  };
-  const saveStatus = useAutoSave(saveData, loaded);
+  const [saveStatus, setSaveStatus] = useState<'idle'|'saving'|'saved'>('idle');
 
   useEffect(() => { loadAll(); }, []);
 
@@ -181,7 +152,7 @@ export default function ProfileScreen() {
           if (m && m in TRACKING_MODES) setTrackingModeState(m as TrackingMode);
         } catch {}
       }
-      setTimeout(() => setLoaded(true), 100); // delay to prevent immediate save
+
     } catch (err) { console.log('Ladefehler:', err); }
   }
 
@@ -332,6 +303,22 @@ export default function ProfileScreen() {
     } catch (err: any) { showAlert('Fehler', err.message); }
   }
 
+  async function saveProfile() {
+    setSaveStatus('saving');
+    try {
+      const token = await getToken();
+      await apiFetch('/profile', { method: 'PUT', body: JSON.stringify({
+        name, phone, birthYear: birthYear ? parseInt(birthYear) : null,
+        bloodType, allergies, medications, medicalNotes,
+      }) }, token ?? undefined);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (err: any) {
+      setSaveStatus('idle');
+      showAlert('Fehler', err.message);
+    }
+  }
+
   async function savePrivacy(updates: Record<string, boolean>) {
     try {
       const token = await getToken();
@@ -412,8 +399,7 @@ export default function ProfileScreen() {
           <Mountain size={20} color="#061907" strokeWidth={2.5}/>
           <Text style={styles.headerTitle}>Trailtag</Text>
         </View>
-        {saveStatus === 'saving' && <ActivityIndicator size="small" color="#2c694e"/>}
-        {saveStatus === 'saved' && <Text style={{fontSize:11,color:'#2c694e',fontWeight:'700'}}>✓ Gespeichert</Text>}
+
       </View>
 
       {/* Profile strip */}
@@ -452,7 +438,13 @@ export default function ProfileScreen() {
         {/* ══ PROFIL ══ */}
         {tab === 'profil' && (
           <View>
-            <Text style={styles.hint}>Änderungen werden automatisch gespeichert.</Text>
+            <TouchableOpacity
+              style={[styles.primaryBtn, saveStatus==='saving'&&{opacity:0.6}]}
+              onPress={saveProfile}
+              disabled={saveStatus==='saving'}>
+              {saveStatus==='saving' ? <ActivityIndicator size="small" color="#fff"/> : null}
+              <Text style={styles.primaryBtnTxt}>{saveStatus==='saved' ? '✓ Gespeichert' : saveStatus==='saving' ? 'Speichert...' : 'Profil speichern'}</Text>
+            </TouchableOpacity>
             <View style={styles.card}>
               {[
                 {label:'Name', val:name, set:setName, placeholder:'Dein Name', type:'default'},
