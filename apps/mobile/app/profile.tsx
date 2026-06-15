@@ -444,13 +444,7 @@ export default function ProfileScreen() {
         {/* ══ PROFIL ══ */}
         {tab === 'profil' && (
           <View>
-            <TouchableOpacity
-              style={[styles.primaryBtn, saveStatus==='saving'&&{opacity:0.6}]}
-              onPress={saveProfile}
-              disabled={saveStatus==='saving'}>
-              {saveStatus==='saving' ? <ActivityIndicator size="small" color="#fff"/> : null}
-              <Text style={styles.primaryBtnTxt}>{saveStatus==='saved' ? '✓ Gespeichert' : saveStatus==='saving' ? 'Speichert...' : 'Profil speichern'}</Text>
-            </TouchableOpacity>
+
             <View style={styles.card}>
               {[
                 {label:'Name', val:name, set:setName, placeholder:'Dein Name', type:'default'},
@@ -470,6 +464,13 @@ export default function ProfileScreen() {
                 </View>
               ))}
             </View>
+          <TouchableOpacity
+              style={[styles.primaryBtn, {marginTop:8}, saveStatus==='saving'&&{opacity:0.6}]}
+              onPress={saveProfile}
+              disabled={saveStatus==='saving'}>
+              {saveStatus==='saving' ? <ActivityIndicator size="small" color="#fff"/> : null}
+              <Text style={styles.primaryBtnTxt}>{saveStatus==='saved' ? '✓ Gespeichert' : saveStatus==='saving' ? 'Speichert...' : 'Speichern'}</Text>
+            </TouchableOpacity>
           </View>
         )}
 
