@@ -385,7 +385,8 @@ function render(vehicle: any, tour: any, state: 'active'|'alarm') {
 
   let body = ''
   if (isAlarm) {
-    body = overdue + callBtns + buildWandererCard(user, true) + buildVehicleCard(vehicle, false) + buildGpsCard(locs, lastLoc) + buildTourCard(tour, false, true) + buildMedCard(user) + buildContactsCard(contacts)
+    const companionsBlock = (tour.companions?.length > 0) ? buildCompanions(tour.companions) : ''
+    body = overdue + callBtns + buildWandererCard(user, true) + companionsBlock + buildVehicleCard(vehicle, false) + buildGpsCard(locs, lastLoc) + buildTourCard(tour, false, true) + buildMedCard(user) + buildContactsCard(contacts)
   } else {
     // Apply user privacy settings for active tour
     const priv = {

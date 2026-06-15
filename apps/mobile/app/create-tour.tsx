@@ -463,12 +463,14 @@ if (data.startLat) {
         method:'POST',
         body:JSON.stringify({
           activity, routeName:routeName||null, difficulty:diffLabel,
-          persons:persons.length + 1, // total = me + companions distanceKm:distanceKm?parseFloat(distanceKm):null,
-          elevationUp:elevationUp?parseInt(elevationUp):null,
-          parkingLocation:parkingLocation||null, notes:allNotes||null,
-          overnightStops:overnightStops.length>0?overnightStops:null,
-          startLat:startLat?parseFloat(startLat):null, startLng:startLng?parseFloat(startLng):null,
-          vehicleId:vehicleId??null,
+          persons: persons.length + 1,
+          companions: persons.length > 0 ? persons.map(p => ({ name: p.name.trim(), age: p.age.trim(), notes: p.notes.trim() })).filter(p => p.name || p.age || p.notes) : null,
+          distanceKm: distanceKm ? parseFloat(distanceKm) : null,
+          elevationUp: elevationUp ? parseInt(elevationUp) : null,
+          parkingLocation: parkingLocation||null, notes: allNotes||null,
+          overnightStops: overnightStops.length>0 ? overnightStops : null,
+          startLat: startLat ? parseFloat(startLat) : null, startLng: startLng ? parseFloat(startLng) : null,
+          vehicleId: vehicleId??null,
         }),
       },token??undefined);
 
