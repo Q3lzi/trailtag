@@ -86,7 +86,7 @@ if (Platform.OS !== 'web') {
         if (!tourId) return;
         await apiFetch(`/tours/${tourId}/location`, {
           method: 'POST',
-          body: JSON.stringify({ lat: latitude, lng: longitude, ele: altitude }),
+          body: JSON.stringify({ lat: latitude, lng: longitude, ele: altitude, accuracy }),
         }, token);
         console.log(`📍 Sent: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} ±${Math.round(accuracy)}m`);
       } catch (err) {
@@ -104,13 +104,13 @@ function calcDistance(lat1: number, lng1: number, lat2: number, lng2: number) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-async function sendLocation(lat: number, lng: number, ele: number | null, tourId: string) {
+async function sendLocation(lat: number, lng: number, ele: number | null, tourId: string, accuracy?: number | null) {
   try {
     const token = await getToken();
     if (!token) return;
     await apiFetch(`/tours/${tourId}/location`, {
       method: 'POST',
-      body: JSON.stringify({ lat, lng, ele }),
+      body: JSON.stringify({ lat, lng, ele, accuracy }),
     }, token);
   } catch (err) {
     console.log('Send location error:', err);
@@ -127,7 +127,7 @@ export async function startLocationTracking(tourId: string) {
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.altitude, tourId);
+        sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.altitude, tourId, pos.coords.accuracy);
         lastWebLat = pos.coords.latitude; lastWebLng = pos.coords.longitude;
         webLastSent = Date.now();
       },
@@ -143,7 +143,7 @@ export async function startLocationTracking(tourId: string) {
         const timePassed = now - webLastSent > 30000;
         const moved = lastWebLat === null || calcDistance(lastWebLat, lastWebLng!, latitude, longitude) >= 10;
         if (timePassed || moved) {
-          sendLocation(latitude, longitude, altitude, webActiveTourId);
+          sendLocation(latitude, longitude, altitude, webActiveTourId, pos.coords.accuracy);
           lastWebLat = latitude; lastWebLng = longitude; webLastSent = now;
         }
       },
@@ -181,7 +181,8 @@ export async function startLocationTracking(tourId: string) {
       current.coords.latitude,
       current.coords.longitude,
       current.coords.altitude,
-      tourId
+      tourId,
+      current.coords.accuracy
     );
     console.log(`📍 Initial fix: ${current.coords.latitude.toFixed(5)}, ${current.coords.longitude.toFixed(5)} ±${Math.round(current.coords.accuracy)}m`);
 

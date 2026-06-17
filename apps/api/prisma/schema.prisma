@@ -91,6 +91,7 @@ model TourLocation {
   lat       Float
   lng       Float
   ele       Float?
+  accuracy  Float?
   timestamp DateTime @default(now())
 }
 

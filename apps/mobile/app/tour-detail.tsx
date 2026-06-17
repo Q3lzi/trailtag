@@ -148,6 +148,7 @@ export default function TourDetailScreen() {
   }, []);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, time: string} | null>(null);
   const leafletMapRef = useRef<any>(null);
+  const nativeMapRef = useRef<any>(null);
   const mapSectionRef = useRef<any>(null);
   const scrollViewRef = useRef<any>(null);
   const { timeLeft, isOverdue, progress } = useCountdown(tour?.eta ?? null);
@@ -278,6 +279,17 @@ export default function TourDetailScreen() {
         } else {
           map.setView([lat, lng], 17);  // Close zoom when only one point
           L.default.circleMarker([lat, lng] as [number, number], { radius: 10, fillColor: '#dc2626', color: '#fff', weight: 3, fillOpacity: 1 }).bindPopup('Letzter Standort').addTo(map);
+          // Still show individual GPS points even without a polyline
+          if (tourData.locations?.length > 0) {
+            const locs = [...tourData.locations].reverse();
+            locs.forEach((loc: any, i: number) => {
+              L.default.circleMarker([loc.lat, loc.lng] as [number, number], {
+                radius: i === locs.length - 1 ? 8 : 4,
+                fillColor: i === locs.length - 1 ? '#dc2626' : '#f59e0b',
+                color: '#fff', weight: 1.5, fillOpacity: 0.9,
+              }).bindPopup(new Date(loc.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })).addTo(map);
+            });
+          }
         }
         setTimeout(() => { try { map.invalidateSize(); } catch {} }, 150);
       });
@@ -349,6 +361,20 @@ export default function TourDetailScreen() {
             mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
         }, 100);
+      } else {
+        // Scroll to map section and animate native map
+        if (scrollViewRef.current && mapSectionRef.current) {
+          mapSectionRef.current.measureLayout(
+            scrollViewRef.current,
+            (_x: number, y: number) => { scrollViewRef.current?.scrollTo({ y: y - 20, animated: true }); },
+            () => {}
+          );
+        }
+        setTimeout(() => {
+          nativeMapRef.current?.animateToRegion({
+            latitude: loc.lat, longitude: loc.lng, latitudeDelta: 0.01, longitudeDelta: 0.01,
+          }, 500);
+        }, 300);
       }
     }
 
@@ -598,16 +624,31 @@ export default function TourDetailScreen() {
               if (!lat || !lng) return <View style={{height:300,backgroundColor:'#f3f4f5',alignItems:'center',justifyContent:'center'}}><Text style={{color:'#747871',fontSize:13}}>Kein Standort</Text></View>;
               try {
                 const M = require('react-native-maps');
-                const NM = M.default; const NP = M.Polyline; const NK = M.Marker;
+                const NM = M.default; const NP = M.Polyline; const NK = M.Marker; const NC = M.Circle;
                 const gc = tour.gpxTrack?.points?.map((p:any)=>({latitude:p.lat,longitude:p.lng}))??[];
                 const tc = tour.locations?.map((l:any)=>({latitude:l.lat,longitude:l.lng}))??[];
                 const wc = tour.gpxTrack?.waypoints?.filter((w:any)=>w.lat&&w.lng)??[];
-                return (<NM style={{width:'100%',height:300}} initialRegion={{latitude:lat,longitude:lng,latitudeDelta:0.05,longitudeDelta:0.05}} mapType="terrain">
+                const region = selectedLocation
+                  ? { latitude: selectedLocation.lat, longitude: selectedLocation.lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+                  : { latitude: lat, longitude: lng, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+                return (<NM
+                  ref={nativeMapRef}
+                  style={{width:'100%',height:300}}
+                  initialRegion={region}
+                  region={selectedLocation ? region : undefined}
+                  mapType="terrain">
                   {gc.length>1&&<NP coordinates={gc} strokeColor="#2c694e" strokeWidth={3}/>}
                   {tc.length>1&&<NP coordinates={tc} strokeColor="#f59e0b" strokeWidth={2} lineDashPattern={[5,5]}/>}
                   {tour.startLat&&<NK coordinate={{latitude:tour.startLat,longitude:tour.startLng}} pinColor="#2c694e" title="Start"/>}
                   <NK coordinate={{latitude:lat,longitude:lng}} pinColor="#dc2626" title="Letzter Standort"/>
                   {wc.map((w:any,i:number)=><NK key={i} coordinate={{latitude:w.lat,longitude:w.lng}} pinColor="#f59e0b" title={w.name??'Wegpunkt'}/>)}
+                  {/* Individual GPS tracking points */}
+                  {(tour.locations??[]).map((l:any,i:number)=>(
+                    <NC key={l.id??i} center={{latitude:l.lat,longitude:l.lng}} radius={3} strokeColor="#fff" strokeWidth={1} fillColor="#f59e0b"/>
+                  ))}
+                  {selectedLocation && (
+                    <NK coordinate={{latitude:selectedLocation.lat,longitude:selectedLocation.lng}} pinColor="#f59e0b" title={selectedLocation.time}/>
+                  )}
                 </NM>);
               } catch { return <View style={{height:300,backgroundColor:'#f3f4f5',alignItems:'center',justifyContent:'center'}}><Text style={{color:'#747871',fontSize:13}}>Karte nicht verfügbar</Text></View>; }
             })()}
@@ -653,7 +694,7 @@ export default function TourDetailScreen() {
             const token = await getToken();
             await apiFetch(`/tours/${tour.id}/location`, {
               method: 'POST',
-              body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, ele: pos.coords.altitude }),
+              body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, ele: pos.coords.altitude, accuracy: pos.coords.accuracy }),
             }, token ?? undefined);
             loadTour();
           }, undefined, { enableHighAccuracy: true });
@@ -662,11 +703,14 @@ export default function TourDetailScreen() {
           const Location = require('expo-location');
           const { status } = await Location.requestForegroundPermissionsAsync();
           if (status !== 'granted') { showAlert('Fehler', 'Standortberechtigung fehlt'); return; }
-          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.BestForNavigation });
+          if (pos.coords.accuracy && pos.coords.accuracy > 100) {
+            showAlert('Ungenaue Position', `GPS-Genauigkeit nur ±${Math.round(pos.coords.accuracy)}m. Versuche es im Freien mit klarer Sicht zum Himmel erneut.`);
+          }
           const token = await getToken();
           await apiFetch(`/tours/${tour.id}/location`, {
             method: 'POST',
-            body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, ele: pos.coords.altitude }),
+            body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, ele: pos.coords.altitude, accuracy: pos.coords.accuracy }),
           }, token ?? undefined);
           loadTour();
         }
@@ -731,6 +775,7 @@ export default function TourDetailScreen() {
                     <View style={{ flexDirection: 'row', gap: 8, marginTop: 2 }}>
                       {loc.ele ? <Text style={styles.tlDesc}>⛰ {Math.round(loc.ele)} m</Text> : null}
                       <Text style={[styles.tlDesc, { color: '#c3c8bf' }]}>{loc.lat?.toFixed(4)}, {loc.lng?.toFixed(4)}</Text>
+                      {loc.accuracy ? <Text style={[styles.tlDesc, { color: loc.accuracy > 100 ? '#dc2626' : '#2c694e' }]}>±{Math.round(loc.accuracy)}m</Text> : null}
                     </View>
                     <Text style={styles.tlLink}>↗ Auf Karte zeigen</Text>
                   </View>

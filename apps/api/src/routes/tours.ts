@@ -131,7 +131,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 // GPS Standort updaten
 router.post('/:id/location', requireAuth, async (req: Request, res: Response) => {
   const id = req.params.id as string
-  const { lat, lng, ele } = req.body
+  const { lat, lng, ele, accuracy } = req.body
   if (!lat || !lng) return res.status(400).json({ error: 'lat und lng fehlen' })
   const tour = await prisma.tour.findFirst({
     where: { id, userId: req.userId as string }
@@ -155,6 +155,7 @@ router.post('/:id/location', requireAuth, async (req: Request, res: Response) =>
         lat: Number(lat),
         lng: Number(lng),
         ele: ele ? Number(ele) : null,
+        accuracy: accuracy ? Number(accuracy) : null,
       }
     })
   ])
