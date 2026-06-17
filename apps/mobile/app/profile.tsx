@@ -12,6 +12,7 @@ import {
   Shield, Heart, Bell, LogOut
 } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { isBiometricAvailable, isBiometricEnabled, setBiometricEnabled, getBiometricType, authenticateWithBiometric } from '../lib/biometric';
 // ── Tracking Modes (inline to avoid web import issues) ───────────────────────
 type TrackingMode = 'precise' | 'balanced' | 'battery';
 const TRACKING_MODES: Record<TrackingMode, {label:string;sub:string}> = {
