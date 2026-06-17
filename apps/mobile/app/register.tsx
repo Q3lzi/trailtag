@@ -2,6 +2,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { apiFetch } from '../lib/api';
+import { setToken } from '../lib/storage';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -16,11 +17,12 @@ export default function RegisterScreen() {
     if (password.length < 8) { setError('Passwort muss mindestens 8 Zeichen haben.'); return; }
     setLoading(true);
     try {
-      await apiFetch('/auth/register', {
+      const data = await apiFetch('/auth/register', {
         method: 'POST',
         body: JSON.stringify({ name, email, password }),
       });
-      router.replace('/login');
+      await setToken(data.token);
+      router.replace('/verify-email');
     } catch (err: any) {
       setError(err.message ?? 'Registrierung fehlgeschlagen');
     } finally {

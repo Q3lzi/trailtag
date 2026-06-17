@@ -16,6 +16,10 @@ model User {
   birthYear     Int?
   phone         String?
   emailVerified Boolean   @default(false)
+  verifyCode    String?
+  verifyCodeExpiresAt DateTime?
+  resetCode     String?
+  resetCodeExpiresAt DateTime?
   createdAt     DateTime  @default(now())
   bloodType     String?
   allergies     String?

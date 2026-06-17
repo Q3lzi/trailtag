@@ -93,6 +93,9 @@ export default function ProfileScreen() {
   const [pushNotifyFriendsStart, setPushNotifyFriendsStart] = useState(true);
   const [pushNotifyFriendsEnd, setPushNotifyFriendsEnd] = useState(true);
   const [pushNotifyFriendsAlarm, setPushNotifyFriendsAlarm] = useState(true);
+  const [bioAvailable, setBioAvailable] = useState(false);
+  const [bioEnabled, setBioEnabled] = useState(false);
+  const [bioType, setBioType] = useState<'face'|'fingerprint'|null>(null);
   const [trackingMode, setTrackingModeState] = useState<TrackingMode>('balanced');
 
   // Contacts
@@ -122,7 +125,25 @@ export default function ProfileScreen() {
   // Auto-save
   const [saveStatus, setSaveStatus] = useState<'idle'|'saving'|'saved'>('idle');
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => { loadAll(); loadBiometric(); }, []);
+
+  async function loadBiometric() {
+    const avail = await isBiometricAvailable();
+    setBioAvailable(avail);
+    if (avail) {
+      setBioType(await getBiometricType());
+      setBioEnabled(await isBiometricEnabled());
+    }
+  }
+
+  async function toggleBiometric(value: boolean) {
+    if (value) {
+      const ok = await authenticateWithBiometric('Bestätige um Face ID / Touch ID zu aktivieren');
+      if (!ok) return;
+    }
+    await setBiometricEnabled(value);
+    setBioEnabled(value);
+  }
 
   async function loadAll() {
     try {
@@ -810,6 +831,25 @@ export default function ProfileScreen() {
                 </View>
               ))}
             </View>
+
+            {bioAvailable && (
+              <>
+                <Text style={[styles.sectionLabel,{marginTop:20}]}>SICHERHEIT</Text>
+                <View style={styles.card}>
+                  <View style={{flexDirection:'row',alignItems:'center',paddingVertical:4}}>
+                    <View style={{flex:1,paddingRight:12}}>
+                      <Text style={{fontSize:14,fontWeight:'600',color:'#191c1d'}}>
+                        {bioType === 'face' ? 'Face ID' : 'Touch ID'} zum Entsperren
+                      </Text>
+                      <Text style={{fontSize:11,color:'#c3c8bf',marginTop:1}}>
+                        Schnellerer und sicherer Zugriff auf die App
+                      </Text>
+                    </View>
+                    <Switch value={bioEnabled} onValueChange={toggleBiometric} trackColor={{false:'#e1e3e4',true:'#aeeecb'}} thumbColor={bioEnabled?'#2c694e':'#fff'}/>
+                  </View>
+                </View>
+              </>
+            )}
 
             <Text style={[styles.sectionLabel,{marginTop:20}]}>KONTO</Text>
             <TouchableOpacity style={[styles.listRow,{marginBottom:8}]} onPress={async () => {

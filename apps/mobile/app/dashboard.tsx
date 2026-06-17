@@ -147,6 +147,12 @@ export default function DashboardScreen() {
 </TouchableOpacity>
       </View>
 
+      {user && user.emailVerified === false && (
+        <TouchableOpacity style={styles.verifyBanner} onPress={() => router.push('/verify-email')}>
+          <Text style={styles.verifyBannerTxt}>✉️ E-Mail nicht bestätigt — jetzt bestätigen</Text>
+        </TouchableOpacity>
+      )}
+
       {activeTour ? (
         <>
           {/* Status Banner — clickable to tour detail */}
@@ -425,6 +431,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   content: { paddingBottom: 50 },
 
+  verifyBanner: { backgroundColor: '#fff3cd', paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#ffe69c' },
+  verifyBannerTxt: { color: '#856404', fontSize: 12, fontWeight: '700' },
   topNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#edeeef' },
   topNavLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logoText: { fontSize: 20, fontWeight: '800', color: '#061907', letterSpacing: -0.5 },

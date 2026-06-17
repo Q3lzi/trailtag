@@ -43,6 +43,8 @@ function Layout() {
         <Stack.Screen name="vehicle" />
         <Stack.Screen name="tour-detail" />
         <Stack.Screen name="friend-profile" />
+        <Stack.Screen name="forgot-password" />
+        <Stack.Screen name="verify-email" />
       </Stack>
       {!hideNav && <BottomNav />}
     </View>

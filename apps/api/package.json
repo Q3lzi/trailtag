@@ -16,7 +16,8 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "latest",
     "node-cron": "latest",
-    "twilio": "latest"
+    "twilio": "latest",
+    "resend": "^4.0.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "latest",

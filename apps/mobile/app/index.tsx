@@ -1,7 +1,48 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
+import { getToken } from '../lib/storage';
+import { apiFetch } from '../lib/api';
+import { isBiometricEnabled, authenticateWithBiometric } from '../lib/biometric';
+import { Platform } from 'react-native';
 
 export default function HomeScreen() {
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    checkAutoLogin();
+  }, []);
+
+  async function checkAutoLogin() {
+    try {
+      const token = await getToken();
+      if (!token) { setChecking(false); return; }
+      // Verify token is still valid
+      await apiFetch('/auth/me', {}, token);
+
+      // If biometric lock is enabled, require Face ID / Touch ID before entering
+      if (Platform.OS !== 'web') {
+        const bioEnabled = await isBiometricEnabled();
+        if (bioEnabled) {
+          const success = await authenticateWithBiometric('Trailtag entsperren');
+          if (!success) { setChecking(false); return; }
+        }
+      }
+      router.replace('/dashboard');
+    } catch {
+      // Token invalid/expired — show login screen
+      setChecking(false);
+    }
+  }
+
+  if (checking) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center' }]}>
+        <ActivityIndicator color="#fff" size="large" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.bg} />
