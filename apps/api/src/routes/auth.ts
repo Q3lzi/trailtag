@@ -45,6 +45,8 @@ router.post('/register', async (req: Request, res: Response) => {
     message: 'Registrierung erfolgreich',
     token,
     user: { id: user.id, name: user.name, email: user.email },
+    // Dev fallback: if email isn't configured, expose the code so testing works
+    devCode: process.env.RESEND_API_KEY ? undefined : verifyCode,
   })
 })
 
@@ -93,7 +95,7 @@ router.post('/resend-verification', requireAuth, async (req: Request, res: Respo
   const verifyCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000)
   await (prisma.user as any).update({ where: { id: req.userId }, data: { verifyCode, verifyCodeExpiresAt } })
   await sendVerificationEmail(user.email, user.name, verifyCode)
-  res.json({ message: 'Code erneut gesendet' })
+  res.json({ message: 'Code erneut gesendet', devCode: process.env.RESEND_API_KEY ? undefined : verifyCode })
 })
 
 // POST /auth/forgot-password

@@ -9,7 +9,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: req.userId as string },
     select: {
-      id: true, email: true, name: true, phone: true, birthYear: true,
+      id: true, email: true, name: true, phone: true, birthYear: true, emailVerified: true,
       bloodType: true, allergies: true, medications: true, medicalNotes: true,
       privacyShowName: true, privacyShowPhone: true, privacyShowMedical: true,
       privacyShowContacts: true, privacyShowGps: true, privacyShowNotes: true,

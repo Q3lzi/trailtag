@@ -22,6 +22,10 @@ export default function RegisterScreen() {
         body: JSON.stringify({ name, email, password }),
       });
       await setToken(data.token);
+      if (data.devCode) {
+        const { showAlert } = require('../lib/alert');
+        showAlert('Dev-Modus: Bestätigungscode', `E-Mail-Versand nicht konfiguriert.\n\nDein Code: ${data.devCode}`);
+      }
       router.replace('/verify-email');
     } catch (err: any) {
       setError(err.message ?? 'Registrierung fehlgeschlagen');

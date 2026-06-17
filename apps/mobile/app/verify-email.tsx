@@ -28,8 +28,12 @@ export default function VerifyEmailScreen() {
     setResending(true);
     try {
       const token = await getToken();
-      await apiFetch('/auth/resend-verification', { method: 'POST' }, token ?? undefined);
-      showAlert('Code gesendet', 'Ein neuer Code wurde an deine E-Mail gesendet.');
+      const data = await apiFetch('/auth/resend-verification', { method: 'POST' }, token ?? undefined);
+      if (data.devCode) {
+        showAlert('Dev-Modus: Bestätigungscode', `E-Mail-Versand nicht konfiguriert.\n\nDein Code: ${data.devCode}`);
+      } else {
+        showAlert('Code gesendet', 'Ein neuer Code wurde an deine E-Mail gesendet.');
+      }
     } catch (err: any) {
       showAlert('Fehler', err.message);
     } finally { setResending(false); }

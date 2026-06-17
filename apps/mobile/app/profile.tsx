@@ -853,6 +853,12 @@ export default function ProfileScreen() {
             )}
 
             <Text style={[styles.sectionLabel,{marginTop:20}]}>KONTO</Text>
+            {profile?.emailVerified === false && (
+              <TouchableOpacity style={[styles.listRow,{marginBottom:8}]} onPress={() => router.push('/verify-email')}>
+                <View style={[styles.rowIcon,{backgroundColor:'#fff3cd'}]}><Text style={{fontSize:14}}>✉️</Text></View>
+                <Text style={{flex:1,fontSize:14,fontWeight:'600',color:'#856404'}}>E-Mail bestätigen</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={[styles.listRow,{marginBottom:8}]} onPress={async () => {
               const ok = await showConfirm('Abmelden?');
               if (ok) { const { removeToken } = require('../lib/storage'); await removeToken(); router.replace('/login'); }
