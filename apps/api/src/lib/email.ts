@@ -5,8 +5,9 @@ const FROM = process.env.EMAIL_FROM ?? 'Trailtag <noreply@trailtag.ch>'
 
 export async function sendVerificationEmail(to: string, name: string, code: string) {
   if (!resend) { console.log(`[DEV] Verification code for ${to}: ${code}`); return }
+  console.log(`[EMAIL] Sending verification email to ${to} from ${FROM}...`)
   try {
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: FROM,
       to,
       subject: 'Bestätige deine Trailtag E-Mail-Adresse',
@@ -21,13 +22,19 @@ export async function sendVerificationEmail(to: string, name: string, code: stri
         </div>
       `
     })
-  } catch (err) { console.error('Email send error:', err) }
+    if (result.error) {
+      console.error('[EMAIL] Resend API error:', JSON.stringify(result.error))
+    } else {
+      console.log('[EMAIL] Sent successfully, id:', result.data?.id)
+    }
+  } catch (err: any) { console.error('[EMAIL] Exception:', err.message, err) }
 }
 
 export async function sendPasswordResetEmail(to: string, name: string, resetCode: string) {
   if (!resend) { console.log(`[DEV] Password reset code for ${to}: ${resetCode}`); return }
+  console.log(`[EMAIL] Sending reset email to ${to} from ${FROM}...`)
   try {
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: FROM,
       to,
       subject: 'Trailtag Passwort zurücksetzen',
@@ -42,5 +49,10 @@ export async function sendPasswordResetEmail(to: string, name: string, resetCode
         </div>
       `
     })
-  } catch (err) { console.error('Email send error:', err) }
+    if (result.error) {
+      console.error('[EMAIL] Resend API error:', JSON.stringify(result.error))
+    } else {
+      console.log('[EMAIL] Sent successfully, id:', result.data?.id)
+    }
+  } catch (err: any) { console.error('[EMAIL] Exception:', err.message, err) }
 }
