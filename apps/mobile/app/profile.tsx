@@ -855,7 +855,7 @@ export default function ProfileScreen() {
             <Text style={[styles.sectionLabel,{marginTop:20}]}>KONTO</Text>
             <TouchableOpacity style={[styles.listRow,{marginBottom:8}]} onPress={async () => {
               const ok = await showConfirm('Abmelden?');
-              if (ok) { const { deleteToken } = require('../lib/storage'); await deleteToken(); router.replace('/login'); }
+              if (ok) { const { removeToken } = require('../lib/storage'); await removeToken(); router.replace('/login'); }
             }}>
               <View style={[styles.rowIcon,{backgroundColor:'#ffdad6'}]}><LogOut size={14} color="#ba1a1a" strokeWidth={2}/></View>
               <Text style={{flex:1,fontSize:14,fontWeight:'600',color:'#ba1a1a'}}>Abmelden</Text>
