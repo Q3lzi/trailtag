@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
+import { sendToSpecificUser, broadcastToFriends } from '../lib/realtime'
 import { requireAuth } from '../middleware/auth'
 
 const router = express.Router()
@@ -93,6 +94,8 @@ router.post('/add', requireAuth, async (req: Request, res: Response) => {
     const friend = await (prisma as any).friend.create({
       data: { initiatorId: userId, receiverId: target.id, status: 'PENDING' }
     })
+    const me = await (prisma as any).user.findUnique({ where: { id: userId }, select: { name: true } })
+    sendToSpecificUser(target.id, { type: 'friend_request', fromUserId: userId, fromName: me?.name ?? 'Jemand', friendshipId: friend.id })
     res.json({ friend, target })
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'Fehler beim Hinzufügen' })
@@ -107,6 +110,9 @@ router.post('/:id/accept', requireAuth, async (req: Request, res: Response) => {
     const f = await (prisma as any).friend.findFirst({ where: { id, receiverId: userId, status: 'PENDING' } })
     if (!f) return res.status(404).json({ error: 'Anfrage nicht gefunden' })
     const updated = await (prisma as any).friend.update({ where: { id }, data: { status: 'ACCEPTED' } })
+    const me = await (prisma as any).user.findUnique({ where: { id: userId }, select: { name: true } })
+    const otherId = updated.initiatorId === userId ? updated.receiverId : updated.initiatorId
+    sendToSpecificUser(otherId, { type: 'friend_request_accepted', friendshipId: updated.id, byName: me?.name ?? 'Jemand' })
     res.json(updated)
   } catch (err: any) {
     res.status(500).json({ error: err.message })
@@ -242,6 +248,7 @@ router.get('/:id/profile', requireAuth, async (req: Request, res: Response) => {
     const favActivity = Object.entries(activities).sort((a,b) => b[1]-a[1])[0]?.[0] ?? null
 
     res.json({
+      userId: friend.id,
       name: friend.name,
       birthYear: friend.birthYear,
       phone: friend.privacyShowPhone !== false ? friend.phone : null,

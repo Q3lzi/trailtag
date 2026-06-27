@@ -7,6 +7,7 @@ import { showAlert, showConfirm } from '../lib/alert';
 import { getToken, removeToken } from '../lib/storage';
 import { cancelAllNotifications } from '../lib/notifications';
 import { startLocationTracking, stopLocationTracking } from '../lib/tracking';
+import { useRealtimeConnection } from '../lib/realtime';
 import { Home, Mountain, BookOpen, User, MapPin, Clock, Car, AlertTriangle, CheckCircle, Activity, Navigation, Thermometer, Wind, Link, MessageCircle, ChevronRight } from 'lucide-react-native';
 const WMO_CODES: Record<number, { text: string; icon: string }> = {
   0: { text: 'Klar', icon: '☀️' }, 1: { text: 'Überwiegend klar', icon: '🌤️' },
@@ -62,6 +63,38 @@ export default function DashboardScreen() {
   const [activeTour, setActiveTour] = useState<any>(null);
   const [vehicle, setVehicle] = useState<any>(null);
   const [friendsOnTour, setFriendsOnTour] = useState<any[]>([]);
+
+  useRealtimeConnection((event) => {
+    if (event.type === 'location_update') {
+      setFriendsOnTour((prev) => prev.map((f) =>
+        f.id === event.friendId
+          ? { ...f, activeTour: f.activeTour ? { ...f.activeTour, lastLat: event.lat, lastLng: event.lng } : f.activeTour }
+          : f
+      ));
+    }
+    if (event.type === 'tour_status_change') {
+      if (event.status === 'COMPLETED') {
+        setFriendsOnTour((prev) => prev.filter((f) => f.id !== event.friendId));
+      } else {
+        setFriendsOnTour((prev) => prev.map((f) =>
+          f.id === event.friendId
+            ? { ...f, activeTour: { ...(f.activeTour ?? {}), status: event.status, activity: event.activity ?? f.activeTour?.activity, eta: event.eta ?? f.activeTour?.eta } }
+            : f
+        ));
+        // If a friend just started a tour and wasn't in the list, refresh fully
+        if (event.status === 'ACTIVE' && !friendsOnTour.some((f) => f.id === event.friendId)) {
+          loadData();
+        }
+      }
+    }
+    if (event.type === 'friend_request') {
+      showAlert('Neue Freundschaftsanfrage', `${event.fromName} möchte sich mit dir verbinden.`);
+    }
+    if (event.type === 'friend_request_accepted') {
+      showAlert('Freundschaftsanfrage angenommen', `${event.byName} hat deine Anfrage angenommen.`);
+      loadData();
+    }
+  });
   
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);

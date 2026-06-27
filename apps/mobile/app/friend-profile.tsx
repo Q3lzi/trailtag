@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/storage';
 import { ArrowLeft, Phone, Mountain, ExternalLink, MapPin, TrendingUp, Award, Calendar } from 'lucide-react-native';
+import { useRealtimeConnection } from '../lib/realtime';
 
 const ACTIVITY_EMOJI: Record<string, string> = {
   Wandern: '🥾', Bergsteigen: '⛰️', Klettern: '🧗', Skitouren: '⛷️',
@@ -18,6 +19,23 @@ export default function FriendProfileScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { load(); }, []);
+
+  useRealtimeConnection((event) => {
+    if (!profile?.userId) return;
+    if (event.type === 'location_update' && event.friendId === profile.userId) {
+      // GPS moved — could refresh stats but position itself isn't shown on this screen yet
+    }
+    if (event.type === 'tour_status_change' && event.friendId === profile.userId) {
+      if (event.status === 'COMPLETED') {
+        load(); // refresh fully to get updated stats/recent tours
+      } else {
+        setProfile((prev: any) => prev ? {
+          ...prev,
+          activeTour: { ...(prev.activeTour ?? {}), status: event.status, activity: event.activity ?? prev.activeTour?.activity, eta: event.eta ?? prev.activeTour?.eta }
+        } : prev);
+      }
+    }
+  });
 
   async function load() {
     try {

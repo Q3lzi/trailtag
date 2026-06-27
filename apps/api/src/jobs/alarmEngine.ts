@@ -1,4 +1,5 @@
 import { sendExpoPush, sendPushToFriends } from '../lib/push'
+import { broadcastToFriends } from '../lib/realtime'
 import 'dotenv/config'
 import cron from 'node-cron'
 import { prisma } from '../lib/prisma'
@@ -49,6 +50,7 @@ export function startAlarmEngine() {
             if (uFull?.pushNotifyFriendsAlarm !== false) {
               await sendPushToFriends(prisma, tour.userId, '🚨 Trailtag Alarm', `${uFull?.name ?? 'Dein Freund'} ist überfällig!`, { tourId: tour.id })
             }
+            broadcastToFriends(tour.userId, { type: 'tour_status_change', friendId: tour.userId, tourId: tour.id, status: 'ALARM' })
           } catch {}
         })
       }

@@ -1,4 +1,5 @@
 import { sendExpoPush, sendPushToFriends } from '../lib/push'
+import { broadcastToFriends } from '../lib/realtime'
 import express, { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 import { requireAuth } from '../middleware/auth'
@@ -97,6 +98,7 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
     const u = await (prisma.user as any).findUnique({ where: { id: req.userId as string }, select: { name: true, expoPushToken: true } })
     if (u?.expoPushToken) await sendExpoPush(u.expoPushToken, '🏔 Tour gestartet', 'Safety-Timer läuft. Komm sicher zurück!')
     await sendPushToFriends(prisma, req.userId as string, '🏔 Tour gestartet', `${u?.name ?? 'Dein Freund'} ist auf Wanderung`, { tourId: started.id }, 'start')
+    broadcastToFriends(req.userId as string, { type: 'tour_status_change', friendId: req.userId as string, tourId: started.id, status: 'ACTIVE', activity: started.activity ?? undefined, eta: started.eta?.toISOString() ?? null })
   } catch {}
   res.json({ message: 'Tour gestartet — Timer läuft', tour: started })
 })
@@ -160,6 +162,16 @@ router.post('/:id/location', requireAuth, async (req: Request, res: Response) =>
     })
   ])
 
+  // Realtime: notify friends of new location
+  broadcastToFriends(req.userId as string, {
+    type: 'location_update',
+    friendId: req.userId as string,
+    tourId: id,
+    lat: Number(lat),
+    lng: Number(lng),
+    timestamp: new Date().toISOString(),
+  })
+
   res.json({ message: 'Standort aktualisiert', tour: updated })
 })
 
@@ -198,6 +210,7 @@ router.post('/:id/checkout', requireAuth, async (req: Request, res: Response) =>
     const u = await (prisma.user as any).findUnique({ where: { id: req.userId as string }, select: { name: true, expoPushToken: true } })
     if (u?.expoPushToken) await sendExpoPush(u.expoPushToken, '✅ Sicher zurück', 'Du hast erfolgreich ausgecheckt.')
     await sendPushToFriends(prisma, req.userId as string, '✅ Sicher zurück', `${u?.name ?? 'Dein Freund'} ist sicher zurückgekehrt`, undefined, 'end')
+    broadcastToFriends(req.userId as string, { type: 'tour_status_change', friendId: req.userId as string, tourId: completed.id, status: 'COMPLETED' })
   } catch {}
   res.json({ message: '✅ Sicher zurück!', tour: completed })
 })
