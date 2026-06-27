@@ -10,6 +10,7 @@ import qrRouter from './routes/qr'
 import gpxRouter from './routes/gpx'
 import profileRouter from './routes/profile'
 import friendsRouter from './routes/friends'
+import { setupRealtimeServer } from './lib/realtime'
 
 const app = express()
 
@@ -45,7 +46,9 @@ app.get('/health', (req: Request, res: Response) => {
 
 const PORT = process.env.PORT || 3000
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Trailtag API läuft auf Port ${PORT}`)
   startAlarmEngine()
 })
+
+setupRealtimeServer(server)

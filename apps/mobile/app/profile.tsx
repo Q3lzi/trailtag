@@ -7,11 +7,10 @@ import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/storage';
 import { showAlert, showConfirm } from '../lib/alert';
 import {
-  Mountain, User, Phone, Users, Plus, Trash2, Edit3,
+  Mountain, User, Phone, Users, Plus, Trash2, Pencil,
   QrCode, UserPlus, Check, X, Share2, Scan, ChevronDown,
   Shield, Heart, Bell, LogOut
 } from 'lucide-react-native';
-import QRCode from 'react-native-qrcode-svg';
 import { isBiometricAvailable, isBiometricEnabled, setBiometricEnabled, getBiometricType, authenticateWithBiometric } from '../lib/biometric';
 // ── Tracking Modes (inline to avoid web import issues) ───────────────────────
 type TrackingMode = 'precise' | 'balanced' | 'battery';
@@ -28,6 +27,22 @@ async function setTrackingMode(mode: TrackingMode) {
 
 
 import { Platform as RNPlatform } from 'react-native';
+
+// Lazy-load react-native-qrcode-svg so a missing/incompatible native module
+// only affects the Freunde tab (where it's rendered), not the whole Profile screen mount.
+function LazyQRCode({ value, size, color, backgroundColor }: { value: string; size: number; color: string; backgroundColor: string }) {
+  try {
+    const QRCodeLib = require('react-native-qrcode-svg').default;
+    return <QRCodeLib value={value} size={size} color={color} backgroundColor={backgroundColor} />;
+  } catch (err) {
+    console.log('QRCode render error:', err);
+    return (
+      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: 11, color: '#c3c8bf', textAlign: 'center' }}>QR-Code{'\n'}nicht verfügbar</Text>
+      </View>
+    );
+  }
+}
 let CameraView: any = null;
 let useCameraPermissions: any = () => [{ granted: false }, async () => ({ granted: false })];
 if (RNPlatform.OS !== 'web') {
@@ -540,7 +555,7 @@ export default function ProfileScreen() {
                   <Text style={styles.rowSub}>{c.relation ? `${c.relation} · ` : ''}{c.phone}</Text>
                 </View>
                 <TouchableOpacity style={styles.iconBtn} onPress={() => { setEditingC(c); setNewCName(c.name); setNewCPhone(c.phone); setNewCRelation(c.relation??''); setShowAddC(true); }}>
-                  <Edit3 size={13} color="#2c694e" strokeWidth={2}/>
+                  <Pencil size={13} color="#2c694e" strokeWidth={2}/>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.iconBtn,{backgroundColor:'#ffdad6',marginLeft:4}]} onPress={() => handleDeleteContact(c.id)}>
                   <Trash2 size={13} color="#ba1a1a" strokeWidth={2}/>
@@ -582,7 +597,7 @@ export default function ProfileScreen() {
               <Text style={[styles.sectionLabel, {marginBottom:0}]}>MEIN TRAILTAG-CODE</Text>
               {myQrCode ? (
                 <View style={{padding:14, backgroundColor:'#fff', borderRadius:14, borderWidth:1, borderColor:'#e1e3e4', shadowColor:'#000', shadowOpacity:0.06, shadowRadius:8, elevation:2}}>
-                  <QRCode value={"trailtag://friend/" + shortCode} size={160} color="#061907" backgroundColor="#fff"/>
+                  <LazyQRCode value={"trailtag://friend/" + shortCode} size={160} color="#061907" backgroundColor="#fff"/>
                 </View>
               ) : (
                 <View style={{width:160,height:160,backgroundColor:'#f3f4f5',borderRadius:14,alignItems:'center',justifyContent:'center'}}>
@@ -732,7 +747,7 @@ export default function ProfileScreen() {
                   <Text style={styles.rowSub}>{friends.filter((f:any)=>f.groupId===g.id).length} Mitglieder</Text>
                 </View>
                 <TouchableOpacity style={styles.iconBtn} onPress={() => { setEditingGroup(g); setNewGroupName(g.name); setNewGroupColor(g.color); setShowNewGroup(true); }}>
-                  <Edit3 size={13} color="#2c694e" strokeWidth={2}/>
+                  <Pencil size={13} color="#2c694e" strokeWidth={2}/>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.iconBtn, {backgroundColor:'#ffdad6', marginLeft:4}]} onPress={() => handleDeleteGroup(g.id)}>
                   <Trash2 size={13} color="#ba1a1a" strokeWidth={2}/>
