@@ -52,6 +52,7 @@ model EmergencyContact {
   phone     String
   relation  String?
   isPrimary Boolean  @default(false)
+  priority  Int      @default(0)
   createdAt DateTime @default(now())
 }
 
@@ -80,6 +81,9 @@ model Tour {
   gpxTrack        Json?
   overnightStops  Json?
   parkingLocation String?
+  parkingLat      Float?
+  parkingLng      Float?
+  waypoints       Json?
   notes           String?
   status          TourStatus   @default(PLANNED)
   alarmStage      Int          @default(0)
@@ -159,9 +163,9 @@ model Vehicle {
   userId   String
   user     User    @relation(fields: [userId], references: [id])
   plate    String
-  make     String
-  model    String
-  color    String
+  make     String?
+  model    String?
+  color    String?
   qrToken  String  @unique @default(uuid())
   tours    Tour[]
 }

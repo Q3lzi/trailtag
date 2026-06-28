@@ -10,6 +10,7 @@ import qrRouter from './routes/qr'
 import gpxRouter from './routes/gpx'
 import profileRouter from './routes/profile'
 import friendsRouter from './routes/friends'
+import weatherRouter from './routes/weather'
 import { setupRealtimeServer } from './lib/realtime'
 
 const app = express()
@@ -35,6 +36,7 @@ app.use('/r', qrRouter)
 app.use('/gpx', gpxRouter)
 app.use('/profile', profileRouter)
 app.use('/friends', friendsRouter)
+app.use('/weather', weatherRouter)
 
 app.get('/health', (req: Request, res: Response) => {
   res.json({

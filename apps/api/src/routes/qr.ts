@@ -22,7 +22,7 @@ router.get('/:token', async (req: Request, res: Response) => {
   const inc = {
     locations: { orderBy: { timestamp: 'desc' as const }, take: 500 },
     user: {
-      include: { emergencyContacts: { orderBy: { isPrimary: 'desc' as const } } },
+      include: { emergencyContacts: { orderBy: [{ isPrimary: 'desc' as const }, { priority: 'asc' as const }] } },
       // privacy settings loaded with user
     }
   }
@@ -47,15 +47,15 @@ const fmt  = (d: any) => d ? new Date(d).toLocaleString('de-CH',{day:'2-digit',m
 const fmtT = (d: any) => d ? new Date(d).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'}) : '—'
 
 // Swiss plate — Wappen (SVG) left, white bg, black border
-const plate = (text: string) => `<span style="display:inline-flex;align-items:stretch;border:1px solid #bbb;border-radius:5px;overflow:hidden;font-family:Arial,sans-serif;box-shadow:0 1px 3px rgba(0,0,0,.1);">
-  <span style="background:#fff;border-right:1px solid #bbb;display:flex;align-items:center;justify-content:center;padding:4px 8px;">
-    <svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
-      <rect width="22" height="22" rx="2" fill="#D52B1E"/>
+const plate = (text: string) => `<span style="display:inline-flex;align-items:stretch;border:1.5px solid #061907;border-radius:7px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;box-shadow:0 2px 6px rgba(6,25,7,.12),inset 0 1px 0 rgba(255,255,255,.5);background:#fff;">
+  <span style="background:#fff;display:flex;align-items:center;justify-content:center;padding:6px 9px;">
+    <svg width="20" height="20" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
+      <rect width="22" height="22" rx="3" fill="#D52B1E"/>
       <rect x="9" y="3" width="4" height="16" fill="#fff"/>
       <rect x="3" y="9" width="16" height="4" fill="#fff"/>
     </svg>
   </span>
-  <span style="background:#fff;padding:5px 14px;font-size:17px;font-weight:900;letter-spacing:3px;color:#111;">${e(text)}</span>
+  <span style="background:#fff;padding:6px 16px;font-size:18px;font-weight:800;letter-spacing:2.5px;color:#061907;">${e(text)}</span>
 </span>`
 
 // Consistent row helper
@@ -64,8 +64,8 @@ const row = (label: string, val: string, red = false) =>
 
 // Consistent card
 const card = (title: string, content: string, opts: {accent?: string; nopad?: boolean} = {}) =>
-  `<div style="background:#fff;border-radius:12px;border:1px solid #e1e3e4;${opts.accent?`border-left:5px solid ${opts.accent};`:''}overflow:hidden;margin-bottom:12px;">
-    ${title?`<div style="padding:12px 16px;border-bottom:1px solid #e1e3e4;display:flex;align-items:center;gap:8px;">${title}</div>`:''}
+  `<div style="background:#fff;border-radius:14px;border:1px solid #e1e3e4;${opts.accent?`border-left:5px solid ${opts.accent};`:''}overflow:hidden;margin-bottom:12px;box-shadow:0 1px 2px rgba(6,25,7,.04);">
+    ${title?`<div style="padding:12px 16px;border-bottom:1px solid #f3f4f5;display:flex;align-items:center;gap:8px;">${title}</div>`:''}
     ${opts.nopad?content:`<div style="padding:4px 0;">${content}</div>`}
   </div>`
 
@@ -179,7 +179,10 @@ function buildCompanions(companions: any[]): string {
 function buildTourCard(tour: any, compact: boolean, isAlarm = false, priv?: any) {
   const stops: any[] = Array.isArray(tour.overnightStops) ? tour.overnightStops : (tour.overnightStops ? [tour.overnightStops] : [])
   const gpx: any = tour.gpxTrack || null
-  const manualWPs: any[] = gpx?.waypoints || []
+  // Combine waypoints from two sources: ones extracted from an uploaded GPX
+  // file (gpx.waypoints) and ones the user placed by hand on the planning
+  // map (tour.waypoints) — both need to reach a rescuer, neither alone is complete.
+  const manualWPs: any[] = [...(gpx?.waypoints || []), ...(Array.isArray(tour.waypoints) ? tour.waypoints : [])]
 
   const stopTypeLabel: Record<string,string> = {
     huette:'SAC-Hütte', zelt:'Zelt/Biwak', camping:'Camping',
@@ -202,7 +205,8 @@ function buildTourCard(tour: any, compact: boolean, isAlarm = false, priv?: any)
         ${tour.distanceKm?row('Distanz', tour.distanceKm+' km'):''}
         ${tour.elevationUp?row('Höhenmeter', '+'+tour.elevationUp+' m'):''}
         ${tour.persons>1?row('Personen', tour.persons+' Personen'):''}
-        ${tour.parkingLocation?row('Parkplatz / Start', e(tour.parkingLocation)):''}
+        ${tour.parkingLocation?row('Parkplatz / Start', e(tour.parkingLocation) + (tour.parkingLat&&tour.parkingLng?` <a href="https://maps.google.com/?q=${tour.parkingLat},${tour.parkingLng}" target="_blank" style="color:#2c694e;font-weight:700;">↗</a>`:'')):
+          (tour.parkingLat&&tour.parkingLng?row('Parkplatz / Start', `<a href="https://maps.google.com/?q=${tour.parkingLat},${tour.parkingLng}" target="_blank" style="color:#2c694e;font-weight:700;">${Number(tour.parkingLat).toFixed(5)}, ${Number(tour.parkingLng).toFixed(5)} ↗</a>`):'')}
       </tbody></table>
       ${(isAlarm || (priv&&priv.notes))&&tour.notes?`<div style="padding:12px 16px;border-top:1px solid #f3f4f5;">
         <p style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">Notizen für Rettungskräfte</p>

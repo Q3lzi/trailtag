@@ -14,7 +14,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       privacyShowName: true, privacyShowPhone: true, privacyShowMedical: true,
       privacyShowContacts: true, privacyShowGps: true, privacyShowNotes: true,
       pushNotifyFriendsStart: true, pushNotifyFriendsEnd: true, pushNotifyFriendsAlarm: true,
-      emergencyContacts: { orderBy: { isPrimary: 'desc' } }
+      emergencyContacts: { orderBy: [{ isPrimary: 'desc' }, { priority: 'asc' }] }
     }
   })
   if (!user) return res.status(404).json({ error: 'User nicht gefunden' })
@@ -51,6 +51,37 @@ router.post('/emergency-contacts', requireAuth, async (req: Request, res: Respon
     data: { userId: req.userId as string, name, phone, relation: relation || null, isPrimary: isPrimary ?? false }
   })
   res.json(contact)
+})
+
+// PUT /profile/emergency-contacts/reorder
+// Body: { orderedIds: string[] } — first id becomes the primary contact,
+// the rest become the fallback chain in the given order. This is the only
+// way isPrimary/priority change, so there is always exactly one primary
+// contact (or none, if the list is empty).
+router.put('/emergency-contacts/reorder', requireAuth, async (req: Request, res: Response) => {
+  const { orderedIds } = req.body as { orderedIds: string[] }
+  if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds muss ein Array sein' })
+
+  const contacts = await prisma.emergencyContact.findMany({ where: { userId: req.userId as string } })
+  const ownIds = new Set(contacts.map((c: any) => c.id))
+  if (!orderedIds.every((id) => ownIds.has(id))) {
+    return res.status(400).json({ error: 'Ungültige Kontakt-ID in der Reihenfolge' })
+  }
+
+  await prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.emergencyContact.update({
+        where: { id },
+        data: { isPrimary: index === 0, priority: index },
+      })
+    )
+  )
+
+  const updated = await prisma.emergencyContact.findMany({
+    where: { userId: req.userId as string },
+    orderBy: [{ isPrimary: 'desc' }, { priority: 'asc' }],
+  })
+  res.json(updated)
 })
 
 // PUT /profile/emergency-contacts/:id

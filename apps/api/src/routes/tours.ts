@@ -18,8 +18,11 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     elevationUp,
     bufferMinutes,
     parkingLocation,
+    parkingLat,
+    parkingLng,
     notes,
     overnightStops,
+    waypoints,
     startLat,
     startLng,
     vehicleId,
@@ -48,8 +51,11 @@ await prisma.tour.updateMany({
       elevationUp: elevationUp ? Number(elevationUp) : null,
       bufferMinutes: bufferMinutes ? Number(bufferMinutes) : 15,
       parkingLocation: parkingLocation || null,
+      parkingLat: parkingLat != null ? Number(parkingLat) : null,
+      parkingLng: parkingLng != null ? Number(parkingLng) : null,
       notes: notes || null,
       overnightStops: overnightStops ?? null,
+      waypoints: waypoints ?? null,
       startLat: startLat ? Number(startLat) : null,
       startLng: startLng ? Number(startLng) : null,
       lastLat: startLat ? Number(startLat) : null,
@@ -60,6 +66,47 @@ await prisma.tour.updateMany({
   })
 
   res.status(201).json(tour)
+})
+
+// Tour bearbeiten (nur solange sie noch nicht gestartet wurde)
+router.put('/:id', requireAuth, async (req: Request, res: Response) => {
+  const id = req.params.id as string
+  const existing = await prisma.tour.findFirst({ where: { id, userId: req.userId as string } })
+  if (!existing) return res.status(404).json({ error: 'Tour nicht gefunden' })
+  if (existing.status !== 'PLANNED') {
+    return res.status(400).json({ error: 'Nur geplante Touren können bearbeitet werden' })
+  }
+
+  const {
+    activity, routeName, difficulty, persons, companions, distanceKm, elevationUp,
+    bufferMinutes, parkingLocation, parkingLat, parkingLng, notes, overnightStops,
+    startLat, startLng, vehicleId, waypoints,
+  } = req.body
+
+  const updated = await prisma.tour.update({
+    where: { id },
+    data: {
+      ...(activity !== undefined && { activity }),
+      ...(routeName !== undefined && { routeName: routeName || null }),
+      ...(difficulty !== undefined && { difficulty: difficulty || null }),
+      ...(persons !== undefined && { persons: Number(persons) }),
+      ...(companions !== undefined && { companions: companions ?? null }),
+      ...(distanceKm !== undefined && { distanceKm: distanceKm ? Number(distanceKm) : null }),
+      ...(elevationUp !== undefined && { elevationUp: elevationUp ? Number(elevationUp) : null }),
+      ...(bufferMinutes !== undefined && { bufferMinutes: Number(bufferMinutes) }),
+      ...(parkingLocation !== undefined && { parkingLocation: parkingLocation || null }),
+      ...(parkingLat !== undefined && { parkingLat: parkingLat != null ? Number(parkingLat) : null }),
+      ...(parkingLng !== undefined && { parkingLng: parkingLng != null ? Number(parkingLng) : null }),
+      ...(notes !== undefined && { notes: notes || null }),
+      ...(overnightStops !== undefined && { overnightStops: overnightStops ?? null }),
+      ...(waypoints !== undefined && { waypoints: waypoints ?? null }),
+      ...(startLat !== undefined && { startLat: startLat != null ? Number(startLat) : null, lastLat: startLat != null ? Number(startLat) : null }),
+      ...(startLng !== undefined && { startLng: startLng != null ? Number(startLng) : null, lastLng: startLng != null ? Number(startLng) : null }),
+      ...(vehicleId !== undefined && { vehicleId: vehicleId || null }),
+    }
+  })
+
+  res.json(updated)
 })
 
 // Tour starten
