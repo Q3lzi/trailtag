@@ -10,6 +10,16 @@ export type WeatherData = {
     cloud_cover: number;
     uv_index: number;
   };
+  minutely_15: {
+    time: string[];
+    temperature_2m: number[];
+    precipitation: number[];
+    weather_code: number[];
+    wind_speed_10m: number[];
+    wind_gusts_10m: number[];
+    uv_index: number[];
+    cape: number[];
+  };
   hourly: {
     time: string[];
     temperature_2m: number[];
@@ -74,12 +84,21 @@ export function thunderstormRisk(cape: number): { level: "low" | "moderate" | "h
   return { level: "low", label: "Geringes Gewitterrisiko" };
 }
 
-export function uvRiskLabel(uv: number): { label: string; advice: string } {
-  if (uv >= 11) return { label: "Extrem", advice: "Sonnenschutz unbedingt nötig" };
-  if (uv >= 8) return { label: "Sehr hoch", advice: "Sonnenschutz nötig" };
-  if (uv >= 6) return { label: "Hoch", advice: "Sonnenschutz empfohlen" };
-  if (uv >= 3) return { label: "Mässig", advice: "Sonnenschutz bei längerer Exposition" };
-  return { label: "Gering", advice: "Sonnenschutz meist nicht nötig" };
+export function uvRiskLabel(uv: number): { label: string; advice: string; isWarning: boolean } {
+  if (uv >= 11) return { label: "Extrem", advice: "Sonnenschutz unbedingt nötig", isWarning: true };
+  if (uv >= 8) return { label: "Sehr hoch", advice: "Sonnenschutz nötig", isWarning: true };
+  // Threshold for an active warning starts at "Hoch" (6+), not just "Sehr
+  // hoch" — at alpine altitude, UV 6-7 combined with several hours of sun
+  // exposure during a tour is already worth flagging, not just noting.
+  if (uv >= 6) return { label: "Hoch", advice: "Sonnenschutz empfohlen", isWarning: true };
+  if (uv >= 3) return { label: "Mässig", advice: "Sonnenschutz bei längerer Exposition", isWarning: false };
+  return { label: "Gering", advice: "Sonnenschutz meist nicht nötig", isWarning: false };
+}
+
+export function heatRiskLabel(tempMax: number): { label: string; isWarning: boolean } | null {
+  if (tempMax >= 33) return { label: "Starke Hitze", isWarning: true };
+  if (tempMax >= 30) return { label: "Hitze", isWarning: true };
+  return null;
 }
 
 export const AVALANCHE_LABELS: Record<number, { label: string; color: string }> = {
@@ -89,3 +108,14 @@ export const AVALANCHE_LABELS: Record<number, { label: string; color: string }> 
   4: { label: "Gross", color: "#dc2626" },
   5: { label: "Sehr gross", color: "#7f1d1d" },
 };
+
+// Standard international UV-index colour scale (WHO), used to give the UV
+// metric its own visual weight rather than just a number among others —
+// UV exposure compounds over hours outdoors and is easy to underestimate.
+export function uvIndexColor(uv: number): string {
+  if (uv >= 11) return "#7c3aed"; // violet — extreme
+  if (uv >= 8) return "#dc2626"; // red — very high
+  if (uv >= 6) return "#f97316"; // orange — high
+  if (uv >= 3) return "#eab308"; // yellow — moderate
+  return "#16a34a"; // green — low
+}

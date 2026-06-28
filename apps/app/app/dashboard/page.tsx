@@ -10,7 +10,7 @@ import { relativeTimeFromNow, timeUntil, elapsedSince } from "@/lib/timeFormat";
 import Sidebar from "@/components/Sidebar";
 import LicensePlate from "@/components/LicensePlate";
 import SituationMap from "@/components/SituationMap";
-import WeatherPanel from "@/components/weather/WeatherPanel";
+import WeatherSummaryCard from "@/components/weather/WeatherSummaryCard";
 import {
   Mountain, Clock, TrendingUp, MapPin, ArrowUpRight, Plus, Phone,
   Car, Users, ExternalLink, Radio, AlertTriangle,
@@ -210,13 +210,6 @@ export default function DashboardPage() {
                 </div>
                 <ArrowUpRight className="w-4 h-4 text-forest-950/30" />
               </div>
-
-              {/* Weather + thunderstorm + UV + avalanche context at the
-                  live position — exactly what someone watching from home
-                  needs to judge whether conditions are turning risky. */}
-              {hasLocation && (
-                <WeatherPanel lat={activeTour.lastLat} lng={activeTour.lastLng} activity={activeTour.activity} />
-              )}
             </div>
 
             {/* ── Right column: countdown, contact, stats — what matters while watching ── */}
@@ -268,7 +261,9 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {/* Quick stats, compact */}
+              {/* Quick stats, compact — weather sits inline with the other
+                  small stat tiles instead of as an oversized standalone
+                  block; tapping it opens the full weather detail page. */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-2xl bg-white border border-forest-950/[0.06] shadow-card p-4">
                   <div className="flex items-center gap-1.5 text-[11px] text-stone mb-1">
@@ -282,6 +277,16 @@ export default function DashboardPage() {
                   </div>
                   <p className="font-display text-lg font-semibold text-forest-950">{activeTour.elevationUp ?? "—"} hm</p>
                 </div>
+                {hasLocation && (
+                  <div className="col-span-2">
+                    <WeatherSummaryCard
+                      lat={activeTour.lastLat}
+                      lng={activeTour.lastLng}
+                      activity={activeTour.activity}
+                      detailHref={`/dashboard/touren/${activeTour.id}/wetter`}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -76,6 +76,16 @@ async function fetchOpenMeteo(lat: number, lng: number) {
       'temperature_2m', 'apparent_temperature', 'precipitation', 'weather_code',
       'wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m', 'cloud_cover', 'uv_index',
     ].join(','),
+    // 15-minutely data — real (not interpolated) for Central Europe via
+    // DWD ICON-D2 / Météo-France AROME, which covers Switzerland. Limited
+    // to the next 6 hours (24 steps of 15min) since that's the window where
+    // sub-hourly resolution actually matters for a fast-changing alpine
+    // situation; beyond that, hourly is plenty.
+    minutely_15: [
+      'temperature_2m', 'precipitation', 'weather_code', 'wind_speed_10m',
+      'wind_gusts_10m', 'uv_index', 'cape',
+    ].join(','),
+    forecast_minutely_15: '24',
     hourly: [
       'temperature_2m', 'precipitation_probability', 'precipitation', 'weather_code',
       'wind_speed_10m', 'wind_gusts_10m', 'cloud_cover', 'visibility', 'uv_index', 'cape',

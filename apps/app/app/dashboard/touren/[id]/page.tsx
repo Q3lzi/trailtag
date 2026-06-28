@@ -11,7 +11,7 @@ import LicensePlate from "@/components/LicensePlate";
 import RouteMap, { RouteMapHandle } from "@/components/RouteMap";
 import ElevationChart from "@/components/ElevationChart";
 import TrackingTimeline from "@/components/TrackingTimeline";
-import WeatherPanel from "@/components/weather/WeatherPanel";
+import WeatherSummaryCard from "@/components/weather/WeatherSummaryCard";
 import { ArrowLeft, Clock, MapPin, TrendingUp, TrendingDown, Car, CheckCircle2, Radio, ParkingSquare, Users, FileText, Moon, ExternalLink } from "lucide-react";
 
 const ACTIVITY_EMOJI: Record<string, string> = {
@@ -197,19 +197,6 @@ export default function TourDetailPage() {
         </div>
 
 
-        {/* Weather context at the current/last known position — this is
-            live safety information, so it sits right after the map, before
-            the more historical/planning-oriented sections below. */}
-        {(tour.lastLat ?? tour.startLat) && (
-          <div className="mb-6">
-            <WeatherPanel
-              lat={tour.lastLat ?? tour.startLat}
-              lng={tour.lastLng ?? tour.startLng}
-              activity={tour.activity}
-            />
-          </div>
-        )}
-
         {/* Elevation profile from the uploaded GPX track */}
         {gpxPoints.length > 1 && (
           <div className="mb-6">
@@ -222,8 +209,17 @@ export default function TourDetailPage() {
           <TrackingTimeline tour={tour} onJumpToMap={showOnMap} />
         </div>
 
-        {/* Stats row */}
+        {/* Stats row — weather sits inline here as one more compact tile,
+            matching the others; tapping it opens the full weather page. */}
         <div className="grid grid-cols-4 gap-4 mb-6">
+          {(tour.lastLat ?? tour.startLat) && (
+            <WeatherSummaryCard
+              lat={tour.lastLat ?? tour.startLat}
+              lng={tour.lastLng ?? tour.startLng}
+              activity={tour.activity}
+              detailHref={`/dashboard/touren/${tour.id}/wetter`}
+            />
+          )}
           {tour.distanceKm && (
             <div className="bg-white rounded-xl border border-forest-950/[0.06] shadow-card p-4">
               <div className="flex items-center gap-1.5 text-xs text-stone mb-1.5">

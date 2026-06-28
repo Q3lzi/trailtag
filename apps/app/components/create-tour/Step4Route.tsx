@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { TourFormState, Waypoint, OvernightStop, OVERNIGHT_TYPES } from "./types";
 import { Upload, MapPin, Plus, Trash2, CheckCircle2, X, TrendingDown, TrendingUp, Clock, ParkingSquare, Moon, Flag, Navigation } from "lucide-react";
 import InteractivePlanningMap from "@/components/InteractivePlanningMap";
-import WeatherPanel from "@/components/weather/WeatherPanel";
+import WeatherSummaryCard from "@/components/weather/WeatherSummaryCard";
 
 type Mode = "parking" | "overnight" | "waypoint" | null;
 
@@ -291,17 +291,18 @@ export default function Step4Route({
         </div>
       )}
 
-      {/* Weather + thunderstorm + UV + (seasonal) avalanche context for the
-          planned start point — this is the moment someone decides whether
-          the tour is actually a good idea, so it belongs right where the
-          route is being finalized, not buried later. */}
+      {/* Weather context for the planned start point — this is the moment
+          someone decides whether the tour is actually a good idea, so it
+          belongs right where the route is being finalized. Compact tile
+          here too (no tour id exists yet to link a tour-specific page to),
+          linking to the generic weather detail route instead. */}
       {(form.startLat || form.gpxData?.startLat) && (
         <div className="mb-7">
-          <WeatherPanel
+          <WeatherSummaryCard
             lat={form.startLat ? Number(form.startLat) : form.gpxData?.startLat}
             lng={form.startLng ? Number(form.startLng) : form.gpxData?.startLng}
             activity={form.activity}
-            compact
+            detailHref={`/dashboard/wetter?lat=${form.startLat || form.gpxData?.startLat}&lng=${form.startLng || form.gpxData?.startLng}&activity=${form.activity}&label=${encodeURIComponent(form.routeName || "Geplante Tour")}&back=${encodeURIComponent("/dashboard/touren/neu")}`}
           />
         </div>
       )}
