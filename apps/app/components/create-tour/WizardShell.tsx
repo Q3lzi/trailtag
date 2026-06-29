@@ -2,7 +2,7 @@
 
 import { Check } from "lucide-react";
 
-const STEPS = ["Aktivität", "Zeit & Fahrzeug", "Notfall & Begleitung", "Route", "Details", "Übersicht"];
+const STEPS = ["Tour-Art", "Zeit & Fahrzeug", "Notfall & Begleitung", "Route", "Details", "Übersicht"];
 
 export default function WizardShell({
   step,

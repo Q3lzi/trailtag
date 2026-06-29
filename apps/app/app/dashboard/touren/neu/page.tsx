@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthGuard } from "@/lib/useAuth";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -14,7 +14,7 @@ import Step4Route from "@/components/create-tour/Step4Route";
 import Step5Details from "@/components/create-tour/Step5Details";
 import Step6Summary from "@/components/create-tour/Step6Summary";
 import { TourFormState, defaultFormState, formStateFromTour } from "@/components/create-tour/types";
-import { ArrowLeft, ArrowRight, Loader2, Play, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Play, Save, Trash2, Users } from "lucide-react";
 
 export default function NewTourPage() {
   const { user, loading: authLoading, logout } = useAuthGuard();
@@ -23,10 +23,15 @@ export default function NewTourPage() {
   // /dashboard/touren/neu?edit=<tourId> reopens a saved draft (status PLANNED)
   // for continued editing instead of starting from a blank wizard.
   const editTourId = searchParams.get("edit");
+  // /dashboard/touren/neu?joinGroup=<groupId> pre-fills activity/route from
+  // an accepted shared-hike invitation — the user still sets their own ETA
+  // and confirms their own emergency contacts, just with a head start.
+  const joinGroupId = searchParams.get("joinGroup");
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<TourFormState>(defaultFormState());
   const [draftTourId, setDraftTourId] = useState<string | null>(null);
+  const [joinGroupInfo, setJoinGroupInfo] = useState<any>(null);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [emergencyContacts, setEmergencyContacts] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
@@ -37,22 +42,29 @@ export default function NewTourPage() {
   const [error, setError] = useState("");
   const [newVehiclePlate, setNewVehiclePlate] = useState("");
   const [showAddVehicle, setShowAddVehicle] = useState(false);
+  // Tracks a TourGroup created during this wizard session, so re-saving a
+  // draft (save → edit → save again) never creates a second group for the
+  // same set of invites.
+  const createdGroupIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && user) loadData();
-  }, [authLoading, user, editTourId]);
+  }, [authLoading, user, editTourId, joinGroupId]);
 
-  async function loadData() {
+async function loadData() {
     try {
       const token = getToken();
+      console.log("loadData called, token:", token ? "present" : "MISSING");
       const [vehiclesData, profileData, friendsData] = await Promise.all([
         apiFetch("/vehicles", {}, token ?? undefined).catch(() => []),
         apiFetch("/profile", {}, token ?? undefined).catch(() => ({})),
-        apiFetch("/friends", {}, token ?? undefined).catch(() => ({ friends: [] })),
+        apiFetch("/friends", {}, token ?? undefined).catch((e) => { console.log("friends fetch failed:", e); return { friends: [] }; }),
       ]);
+      console.log("friendsData received:", friendsData);
       setVehicles(vehiclesData);
       setEmergencyContacts(profileData.emergencyContacts ?? []);
       setFriends(friendsData.friends ?? []);
+      console.log("setFriends called with:", friendsData.friends ?? []);
 
       if (editTourId) {
         const existing = await apiFetch(`/tours/${editTourId}`, {}, token ?? undefined);
@@ -62,9 +74,18 @@ export default function NewTourPage() {
           setForm(formStateFromTour(existing));
           setDraftTourId(existing.id);
         }
+      } else if (joinGroupId) {
+        const group = await apiFetch(`/tour-groups/${joinGroupId}`, {}, token ?? undefined);
+        setJoinGroupInfo(group);
+        setForm((prev) => ({
+          ...prev,
+          activity: group.activity || prev.activity,
+          routeName: group.routeName || prev.routeName,
+        }));
       }
     } catch {
       if (editTourId) setError("Entwurf konnte nicht geladen werden.");
+      if (joinGroupId) setError("Die gemeinsame Tour konnte nicht geladen werden.");
     } finally {
       setDataLoading(false);
     }
@@ -131,14 +152,37 @@ export default function NewTourPage() {
   // draft" and "start tour" so editing a previously-saved draft never
   // accidentally creates a duplicate.
   async function persistTour(token: string | null) {
+    let tour;
     if (draftTourId) {
-      const updated = await apiFetch(`/tours/${draftTourId}`, { method: "PUT", body: JSON.stringify(buildTourBody()) }, token ?? undefined);
+      tour = await apiFetch(`/tours/${draftTourId}`, { method: "PUT", body: JSON.stringify(buildTourBody()) }, token ?? undefined);
       await attachGpxIfAny(draftTourId, token);
-      return updated;
+    } else {
+      tour = await apiFetch("/tours", { method: "POST", body: JSON.stringify(buildTourBody()) }, token ?? undefined);
+      await attachGpxIfAny(tour.id, token);
     }
-    const created = await apiFetch("/tours", { method: "POST", body: JSON.stringify(buildTourBody()) }, token ?? undefined);
-    await attachGpxIfAny(created.id, token);
-    return created;
+
+    // Joining an existing shared hike (came in via an accepted invite) —
+    // attach this tour to that group, keeping its own ETA/contacts intact.
+    if (joinGroupId && !tour.groupId) {
+      await apiFetch(`/tour-groups/${joinGroupId}/join`, { method: "POST", body: JSON.stringify({ tourId: tour.id }) }, token ?? undefined).catch(() => {});
+    }
+
+    // Inviting friends to a NEW shared hike — create the group now (once,
+    // tracked via createdGroupId so re-saving a draft doesn't create a
+    // second group) and send invites.
+    if (form.groupInviteFriendIds.length > 0 && !tour.groupId && !createdGroupIdRef.current) {
+      const group = await apiFetch(
+        "/tour-groups",
+        { method: "POST", body: JSON.stringify({ routeName: form.routeName, activity: form.activity, inviteeIds: form.groupInviteFriendIds }) },
+        token ?? undefined
+      ).catch(() => null);
+      if (group) {
+        createdGroupIdRef.current = group.id;
+        await apiFetch(`/tour-groups/${group.id}/join`, { method: "POST", body: JSON.stringify({ tourId: tour.id }) }, token ?? undefined).catch(() => {});
+      }
+    }
+
+    return tour;
   }
 
   async function handleSaveDraft() {
@@ -175,6 +219,15 @@ export default function NewTourPage() {
   }
 
   async function handleSubmit() {
+    const today = new Date();
+    const isToday =
+      form.startDateTime.getFullYear() === today.getFullYear() &&
+      form.startDateTime.getMonth() === today.getMonth() &&
+      form.startDateTime.getDate() === today.getDate();
+    if (!isToday) {
+      setError("Eine Tour mit zukünftigem Startdatum kann nur als Entwurf gespeichert werden.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -196,6 +249,14 @@ export default function NewTourPage() {
   }
 
   const isLastStep = step === 5;
+  // "Start tour" begins the safety timer right now — that's only coherent
+  // if the planned start date is actually today. A future-dated tour can
+  // only be saved as a draft and started for real on the day itself.
+  const today = new Date();
+  const isStartDateToday =
+    form.startDateTime.getFullYear() === today.getFullYear() &&
+    form.startDateTime.getMonth() === today.getMonth() &&
+    form.startDateTime.getDate() === today.getDate();
 
   return (
     <div className="flex min-h-screen bg-snow">
@@ -230,7 +291,15 @@ export default function NewTourPage() {
         </div>
 
         <WizardShell step={step}>
-          {step === 0 && <Step1Activity form={form} update={update} />}
+          {joinGroupInfo && step === 0 && (
+            <div className="mb-5 flex items-center gap-2.5 rounded-xl border border-forest-700/20 bg-forest-100/60 px-4 py-3">
+              <Users className="w-4 h-4 text-forest-700 shrink-0" />
+              <p className="text-sm text-forest-950/80">
+                Du trittst der gemeinsamen Tour von <strong>{joinGroupInfo.organizer?.name}</strong> bei. Aktivität und Routenname wurden vorausgefüllt — Rückkehrzeit und Notfallkontakte sind weiterhin deine eigenen.
+              </p>
+            </div>
+          )}
+          {step === 0 && <Step1Activity form={form} update={update} friends={friends} />}
           {step === 1 && (
             <Step2TimeVehicle
               form={form}
@@ -275,15 +344,23 @@ export default function NewTourPage() {
             </button>
 
             {isLastStep ? (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="flex items-center gap-2 bg-forest-700 text-white rounded-xl px-6 py-2.5 text-sm font-semibold hover:bg-forest-600 transition-colors disabled:opacity-60"
-              >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                {submitting ? "Wird gestartet…" : "Tour starten"}
-              </button>
+              <div className="flex flex-col items-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={submitting || !isStartDateToday}
+                  title={!isStartDateToday ? "Nur am geplanten Starttag selbst startbar — bis dahin als Entwurf speichern" : undefined}
+                  className="flex items-center gap-2 bg-forest-700 text-white rounded-xl px-6 py-2.5 text-sm font-semibold hover:bg-forest-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                  {submitting ? "Wird gestartet…" : "Tour starten"}
+                </button>
+                {!isStartDateToday && (
+                  <p className="text-[11px] text-amber-700">
+                    Start ist erst am {form.startDateTime.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit" })} möglich — speichere als Entwurf.
+                  </p>
+                )}
+              </div>
             ) : (
               <button
                 type="button"

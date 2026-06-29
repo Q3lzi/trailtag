@@ -166,6 +166,15 @@ export default function TourDetailPage() {
           )}
         </div>
 
+        {tour.groupId && (
+          <button
+            onClick={() => router.push(`/dashboard/gruppen/${tour.groupId}`)}
+            className="flex items-center gap-2 rounded-xl border border-forest-700/20 bg-forest-100/50 px-4 py-2.5 text-sm font-medium text-forest-700 hover:bg-forest-100 transition-colors mb-6"
+          >
+            <Users className="w-4 h-4" /> Teil einer gemeinsamen Tour — alle Teilnehmer anzeigen
+          </button>
+        )}
+
         {error && (
           <div className="bg-alarm-50 border border-alarm-100 text-alarm text-sm rounded-xl px-4 py-3 mb-6">
             {error}

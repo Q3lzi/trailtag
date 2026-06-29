@@ -25,6 +25,8 @@ export type TourFormState = {
 
   // Step 3 — Emergency + Companions
   selectedContactIds: string[];
+  groupInviteFriendIds: string[];
+  isSharedTour: boolean;
   companions: Companion[];
 
   // Step 4 — Route
@@ -90,8 +92,12 @@ export const OVERNIGHT_TYPES = [
 ];
 
 export function defaultFormState(): TourFormState {
-  const start = new Date(); start.setHours(8, 0, 0, 0);
-  const eta = new Date(); eta.setHours(17, 0, 0, 0);
+  // Default to "right now" rounded to the next quarter hour, with a 6-hour
+  // planning horizon for the return — fixed 8:00/17:00 defaults made no
+  // sense for someone planning a spontaneous afternoon tour at 2pm.
+  const start = new Date();
+  start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0);
+  const eta = new Date(start.getTime() + 6 * 60 * 60 * 1000);
   return {
     activity: "",
     startDateTime: start,
@@ -100,6 +106,8 @@ export function defaultFormState(): TourFormState {
     returnDays: 2,
     vehicleId: null,
     selectedContactIds: [],
+    groupInviteFriendIds: [],
+    isSharedTour: false,
     companions: [],
     routeName: "",
     startLat: "",

@@ -9,6 +9,7 @@ import Sidebar from "@/components/Sidebar";
 import EmptyState from "@/components/EmptyState";
 import AddFriendCard from "@/components/friends/AddFriendCard";
 import PendingRequests from "@/components/friends/PendingRequests";
+import PendingTourGroupInvites from "@/components/friends/PendingTourGroupInvites";
 import { Users, Phone, ChevronRight, Plus, FolderPlus, MoreVertical, Trash2 } from "lucide-react";
 
 const GROUP_COLORS = ["#2c694e", "#1d4ed8", "#dc2626", "#ea580c", "#7c3aed", "#0891b2", "#374151"];
@@ -19,6 +20,7 @@ export default function FreundePage() {
   const [friends, setFriends] = useState<any[]>([]);
   const [pending, setPending] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
+  const [pendingTourGroups, setPendingTourGroups] = useState<any[]>([]);
   const [myCode, setMyCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showNewGroup, setShowNewGroup] = useState(false);
@@ -33,14 +35,21 @@ export default function FreundePage() {
   async function load() {
     try {
       const token = getToken();
-      const [friendsData, qrData] = await Promise.all([
+      const [friendsData, qrData, tourGroupsData] = await Promise.all([
         apiFetch("/friends", {}, token ?? undefined).catch(() => ({ friends: [], pending: [], groups: [] })),
         apiFetch("/friends/qr", {}, token ?? undefined).catch(() => ({})),
+        apiFetch("/tour-groups", {}, token ?? undefined).catch(() => []),
       ]);
       setFriends(friendsData.friends ?? []);
       setPending(friendsData.pending ?? []);
       setGroups(friendsData.groups ?? []);
       setMyCode(qrData.qrCode ? String(qrData.qrCode).slice(0, 8).toUpperCase() : null);
+      // Only groups where the CURRENT user (not anyone) still has a
+      // PENDING invite — already-joined or declined groups, or someone
+      // else's pending invite within a group, don't belong in this list.
+      setPendingTourGroups(
+        (tourGroupsData ?? []).filter((g: any) => g.invites?.some((i: any) => i.status === "PENDING" && i.inviteeId === user?.id))
+      );
     } finally {
       setLoading(false);
     }
@@ -185,6 +194,7 @@ export default function FreundePage() {
 
         {!loading && (
           <div className="space-y-5 mb-7">
+            <PendingTourGroupInvites groups={pendingTourGroups} onDeclined={load} />
             <PendingRequests pending={pending} onResolved={load} />
             <AddFriendCard myCode={myCode} onAdded={load} />
           </div>

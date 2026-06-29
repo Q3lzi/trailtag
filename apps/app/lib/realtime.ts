@@ -10,7 +10,8 @@ export type RealtimeEvent =
   | { type: "location_update"; friendId: string; tourId: string; lat: number; lng: number; timestamp: string }
   | { type: "tour_status_change"; friendId: string; tourId: string; status: string; activity?: string; eta?: string | null }
   | { type: "friend_request"; fromUserId: string; fromName: string; friendshipId: string }
-  | { type: "friend_request_accepted"; friendshipId: string; byName: string };
+  | { type: "friend_request_accepted"; friendshipId: string; byName: string }
+  | { type: "tour_group_invite"; groupId: string; fromUserId: string };
 
 /**
  * Mirrors the mobile app's useRealtimeConnection hook: opens a WebSocket to
