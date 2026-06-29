@@ -42,6 +42,8 @@ model User {
   friendGroups       FriendGroup[]
   vehicles           Vehicle[]
   emergencyContacts  EmergencyContact[]
+  organizedTourGroups TourGroup[]
+  tourGroupInvites    TourGroupInvite[]
 }
 
 model EmergencyContact {
@@ -85,6 +87,8 @@ model Tour {
   parkingLng      Float?
   waypoints       Json?
   notes           String?
+  groupId         String?
+  group           TourGroup?   @relation(fields: [groupId], references: [id])
   status          TourStatus   @default(PLANNED)
   alarmStage      Int          @default(0)
   createdAt       DateTime     @default(now())
@@ -108,6 +112,37 @@ enum TourStatus {
   ACTIVE
   COMPLETED
   ALARM
+}
+
+// A shared hike/tour that multiple people do together. Each participant
+// still has their own Tour row (own ETA, own emergency contacts, own
+// alarm escalation) — a missed return time must never be masked by other
+// group members being fine. The group only ties the individual tours
+// together for shared route context and mutual live visibility.
+model TourGroup {
+  id           String              @id @default(uuid())
+  organizerId  String
+  organizer    User                @relation(fields: [organizerId], references: [id])
+  routeName    String?
+  activity     ActivityType?
+  createdAt    DateTime            @default(now())
+  tours        Tour[]
+  invites      TourGroupInvite[]
+}
+
+// Pending/accepted/declined invitations to join a TourGroup — separate
+// from the Tour itself because someone can be invited before they've
+// created their own individual Tour entry for the shared hike.
+model TourGroupInvite {
+  id          String    @id @default(uuid())
+  groupId     String
+  group       TourGroup @relation(fields: [groupId], references: [id])
+  inviteeId   String
+  invitee     User      @relation(fields: [inviteeId], references: [id])
+  status      String    @default("PENDING") // PENDING | ACCEPTED | DECLINED
+  createdAt   DateTime  @default(now())
+
+  @@unique([groupId, inviteeId])
 }
 
 enum ActivityType {

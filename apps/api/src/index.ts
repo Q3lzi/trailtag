@@ -11,6 +11,7 @@ import gpxRouter from './routes/gpx'
 import profileRouter from './routes/profile'
 import friendsRouter from './routes/friends'
 import weatherRouter from './routes/weather'
+import tourGroupsRouter from './routes/tourGroups'
 import { setupRealtimeServer } from './lib/realtime'
 
 const app = express()
@@ -37,6 +38,7 @@ app.use('/gpx', gpxRouter)
 app.use('/profile', profileRouter)
 app.use('/friends', friendsRouter)
 app.use('/weather', weatherRouter)
+app.use('/tour-groups', tourGroupsRouter)
 
 app.get('/health', (req: Request, res: Response) => {
   res.json({

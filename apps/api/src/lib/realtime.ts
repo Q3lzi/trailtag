@@ -11,6 +11,7 @@ type RealtimeEvent =
   | { type: 'tour_status_change'; friendId: string; tourId: string; status: string; activity?: string; eta?: string | null }
   | { type: 'friend_request'; fromUserId: string; fromName: string; friendshipId: string }
   | { type: 'friend_request_accepted'; friendshipId: string; byName: string }
+  | { type: 'tour_group_invite'; groupId: string; fromUserId: string }
 
 function addConnection(userId: string, ws: WebSocket) {
   if (!connections.has(userId)) connections.set(userId, new Set())
@@ -43,6 +44,26 @@ export async function broadcastToFriends(userId: string, event: RealtimeEvent) {
       sendToUser(friendId, event)
     }
   } catch (err) { console.error('[Realtime] broadcastToFriends error:', err) }
+}
+
+// Broadcast an event to every other participant of the same TourGroup,
+// independent of friendship status — a shared-hike participant must see
+// live updates from the others even if they aren't (or are no longer)
+// connected as friends, since group membership is the actual basis for
+// "doing this tour together", not the friend graph.
+export async function broadcastToTourGroup(groupId: string, excludeUserId: string, event: RealtimeEvent) {
+  try {
+    const tours = await (prisma.tour as any).findMany({
+      where: { groupId },
+      select: { userId: true }
+    })
+    const seen = new Set<string>()
+    for (const t of tours) {
+      if (t.userId === excludeUserId || seen.has(t.userId)) continue
+      seen.add(t.userId)
+      sendToUser(t.userId, event)
+    }
+  } catch (err) { console.error('[Realtime] broadcastToTourGroup error:', err) }
 }
 
 // Send an event directly to one specific user (e.g. friend request)
