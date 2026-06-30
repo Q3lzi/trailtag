@@ -11,10 +11,12 @@ import InteractivePlanningMap from "@/components/InteractivePlanningMap";
 import GroupMap, { GroupParticipant } from "@/components/groups/GroupMap";
 import GroupMessageBoard from "@/components/groups/GroupMessageBoard";
 import GroupChecklist from "@/components/groups/GroupChecklist";
+import AddPointModal from "@/components/groups/AddPointModal";
+import GroupRoutePoints from "@/components/groups/GroupRoutePoints";
 import WeatherSummaryCard from "@/components/weather/WeatherSummaryCard";
 import {
   ArrowLeft, Users, Clock, UserPlus, Radio, Play, Loader2, MapPin, TrendingUp, Flag,
-  Calendar, ShieldCheck, AlertCircle, Car,
+  Calendar, ShieldCheck, AlertCircle, Car, Moon,
 } from "lucide-react";
 
 const ACTIVITY_EMOJI: Record<string, string> = {
@@ -56,7 +58,11 @@ export default function TourGroupPage() {
   const [joining, setJoining] = useState(false);
   const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState("");
-  const [waypointMode, setWaypointMode] = useState(false);
+  // "waypoint" or "overnight" placement mode, plus the pending click
+  // position waiting for the modal's name/type/notes before it's actually
+  // saved — a bare pin tells no one anything.
+  const [placementMode, setPlacementMode] = useState<"waypoint" | "overnight" | null>(null);
+  const [pendingPoint, setPendingPoint] = useState<{ lat: number; lng: number } | null>(null);
   // Editable only at the moment of actually starting — before that, the
   // group's suggested return time is shown as a fixed preview, not
   // something to fiddle with ahead of time.
@@ -168,16 +174,35 @@ export default function TourGroupPage() {
     }
   }
 
-  async function handleAddWaypoint(lat: number, lng: number) {
-    setWaypointMode(false);
+  // Map click captures the position and opens the modal — saving happens
+  // only once name/type/notes are filled in below.
+  function handleMapClick(lat: number, lng: number) {
+    setPendingPoint({ lat, lng });
+  }
+
+  async function handleSavePoint(data: { name: string; type: string; notes: string }) {
+    if (!pendingPoint || !placementMode) return;
+    const { lat, lng } = pendingPoint;
+    setPendingPoint(null);
+    setPlacementMode(null);
     try {
       const token = getToken();
-      const updated = await apiFetch(
-        `/tour-groups/${group.id}/waypoints`,
-        { method: "POST", body: JSON.stringify({ lat, lng }) },
-        token ?? undefined
-      );
-      setGroup((prev: any) => ({ ...prev, waypoints: updated.waypoints }));
+      if (placementMode === "waypoint") {
+        const updated = await apiFetch(
+          `/tour-groups/${group.id}/waypoints`,
+          { method: "POST", body: JSON.stringify({ lat, lng, name: data.name, type: data.type, notes: data.notes }) },
+          token ?? undefined
+        );
+        setGroup((prev: any) => ({ ...prev, waypoints: updated.waypoints }));
+      } else {
+        const night = (group.overnightStops?.length ?? 0) + 1;
+        const updated = await apiFetch(
+          `/tour-groups/${group.id}/overnight-stops`,
+          { method: "POST", body: JSON.stringify({ lat, lng, name: data.name, stopType: data.type, notes: data.notes, night }) },
+          token ?? undefined
+        );
+        setGroup((prev: any) => ({ ...prev, overnightStops: updated.overnightStops }));
+      }
     } catch {}
   }
 
@@ -272,14 +297,23 @@ export default function TourGroupPage() {
               <div className="flex items-center gap-2 mb-2.5">
                 <button
                   type="button"
-                  onClick={() => setWaypointMode(!waypointMode)}
+                  onClick={() => setPlacementMode(placementMode === "waypoint" ? null : "waypoint")}
                   className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-colors ${
-                    waypointMode ? "bg-forest-950 text-white border-forest-950" : "bg-white text-forest-950/70 border-forest-950/15 hover:border-forest-950/30"
+                    placementMode === "waypoint" ? "bg-forest-950 text-white border-forest-950" : "bg-white text-forest-950/70 border-forest-950/15 hover:border-forest-950/30"
                   }`}
                 >
                   <Flag className="w-3.5 h-3.5" /> Wegpunkt vorschlagen
                 </button>
-                {waypointMode && <p className="text-xs text-forest-700 font-medium">Klick auf die Karte, um einen Punkt vorzuschlagen.</p>}
+                <button
+                  type="button"
+                  onClick={() => setPlacementMode(placementMode === "overnight" ? null : "overnight")}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-colors ${
+                    placementMode === "overnight" ? "bg-forest-950 text-white border-forest-950" : "bg-white text-forest-950/70 border-forest-950/15 hover:border-forest-950/30"
+                  }`}
+                >
+                  <Moon className="w-3.5 h-3.5" /> Übernachtung setzen
+                </button>
+                {placementMode && <p className="text-xs text-forest-700 font-medium">Klick auf die Karte, um den Punkt zu setzen.</p>}
               </div>
               <div className="rounded-2xl overflow-hidden border border-forest-950/[0.07] shadow-card h-96">
                 {anyoneStarted ? (
@@ -292,14 +326,31 @@ export default function TourGroupPage() {
                     parking={{ lat: group.parkingLat, lng: group.parkingLng }}
                     overnightStops={group.overnightStops ?? []}
                     waypoints={groupWaypoints}
-                    activeMode={waypointMode ? "waypoint" : null}
+                    activeMode={placementMode}
                     onSetParking={() => {}}
-                    onAddOvernightAt={() => {}}
-                    onAddWaypointAt={handleAddWaypoint}
+                    onAddOvernightAt={handleMapClick}
+                    onAddWaypointAt={handleMapClick}
                   />
                 )}
               </div>
             </div>
+
+            {pendingPoint && placementMode && (
+              <AddPointModal
+                kind={placementMode}
+                onSave={handleSavePoint}
+                onCancel={() => { setPendingPoint(null); }}
+              />
+            )}
+
+            <GroupRoutePoints
+              groupId={group.id}
+              waypoints={groupWaypoints}
+              overnightStops={Array.isArray(group.overnightStops) ? group.overnightStops : []}
+              currentUserId={user?.id}
+              isOrganizer={isOrganizer}
+              onChange={(patch) => setGroup((prev: any) => ({ ...prev, ...patch }))}
+            />
 
             {group.distanceKm && (
               <div className="grid grid-cols-3 gap-3">

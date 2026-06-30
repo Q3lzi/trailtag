@@ -289,9 +289,14 @@ router.delete('/:id/checklist/:itemId', requireAuth, async (req: Request, res: R
 // POST /tour-groups/:id/waypoints — any participant can propose a waypoint
 // on the shared route (e.g. "let's meet at this junction", "water source
 // here") — visible to everyone immediately, not just organizer-controlled.
+// Waypoint types carry meaning a bare pin on a map doesn't — a rescuer or
+// fellow participant needs to know whether a marked point is a meeting
+// spot, a water source, a known hazard, or just a scenic stop.
+const WAYPOINT_TYPES = ['meeting', 'water', 'viewpoint', 'hazard', 'rest', 'other'] as const
+
 router.post('/:id/waypoints', requireAuth, async (req: Request, res: Response) => {
   const groupId = req.params.id as string
-  const { name, lat, lng } = req.body as { name?: string; lat: number; lng: number }
+  const { name, lat, lng, type, notes } = req.body as { name?: string; lat: number; lng: number; type?: string; notes?: string }
   if (lat == null || lng == null) return res.status(400).json({ error: 'lat/lng erforderlich' })
 
   const group = await prisma.tourGroup.findUnique({ where: { id: groupId } })
@@ -299,12 +304,90 @@ router.post('/:id/waypoints', requireAuth, async (req: Request, res: Response) =
 
   const author = await prisma.user.findUnique({ where: { id: req.userId as string }, select: { name: true } })
   const existing = Array.isArray(group.waypoints) ? group.waypoints as any[] : []
-  const next = [...existing, { name: name || `Vorschlag von ${author?.name ?? 'Teilnehmer'}`, lat, lng, addedBy: req.userId }]
+  const next = [...existing, {
+    id: `wp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    name: name || `Punkt von ${author?.name ?? 'Teilnehmer'}`,
+    type: WAYPOINT_TYPES.includes(type as any) ? type : 'other',
+    notes: notes || null,
+    lat, lng,
+    addedBy: req.userId,
+    addedByName: author?.name ?? null,
+  }]
 
   const updated = await prisma.tourGroup.update({
     where: { id: groupId },
     data: { waypoints: next as any }
   })
+  res.json(updated)
+})
+
+// DELETE /tour-groups/:id/waypoints/:waypointId — anyone can remove a
+// waypoint they added; the organizer can remove any (e.g. a duplicate or
+// no-longer-relevant suggestion).
+router.delete('/:id/waypoints/:waypointId', requireAuth, async (req: Request, res: Response) => {
+  const groupId = req.params.id as string
+  const waypointId = req.params.waypointId as string
+  const group = await prisma.tourGroup.findUnique({ where: { id: groupId } })
+  if (!group) return res.status(404).json({ error: 'Gruppe nicht gefunden' })
+
+  const existing = Array.isArray(group.waypoints) ? group.waypoints as any[] : []
+  const target = existing.find((w: any) => w.id === waypointId)
+  if (!target) return res.status(404).json({ error: 'Wegpunkt nicht gefunden' })
+  if (target.addedBy !== req.userId && group.organizerId !== req.userId) {
+    return res.status(403).json({ error: 'Keine Berechtigung' })
+  }
+
+  const next = existing.filter((w: any) => w.id !== waypointId)
+  const updated = await prisma.tourGroup.update({ where: { id: groupId }, data: { waypoints: next as any } })
+  res.json(updated)
+})
+
+// Overnight stops and rest stops use the same shared-list pattern as
+// waypoints — kept as a separate array on the group since they have
+// different fields (a planned night number, an explicit "rest" duration)
+// and are conceptually distinct from route waypoints in the UI.
+router.post('/:id/overnight-stops', requireAuth, async (req: Request, res: Response) => {
+  const groupId = req.params.id as string
+  const { name, lat, lng, night, stopType, notes } = req.body as {
+    name?: string; lat: number; lng: number; night?: number; stopType?: string; notes?: string;
+  }
+  if (lat == null || lng == null) return res.status(400).json({ error: 'lat/lng erforderlich' })
+
+  const group = await prisma.tourGroup.findUnique({ where: { id: groupId } })
+  if (!group) return res.status(404).json({ error: 'Gruppe nicht gefunden' })
+
+  const author = await prisma.user.findUnique({ where: { id: req.userId as string }, select: { name: true } })
+  const existing = Array.isArray(group.overnightStops) ? group.overnightStops as any[] : []
+  const next = [...existing, {
+    id: `os_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    name: name || 'Übernachtung',
+    night: night ?? existing.length + 1,
+    type: stopType || 'huette',
+    notes: notes || null,
+    lat, lng,
+    addedBy: req.userId,
+    addedByName: author?.name ?? null,
+  }]
+
+  const updated = await prisma.tourGroup.update({ where: { id: groupId }, data: { overnightStops: next as any } })
+  res.json(updated)
+})
+
+router.delete('/:id/overnight-stops/:stopId', requireAuth, async (req: Request, res: Response) => {
+  const groupId = req.params.id as string
+  const stopId = req.params.stopId as string
+  const group = await prisma.tourGroup.findUnique({ where: { id: groupId } })
+  if (!group) return res.status(404).json({ error: 'Gruppe nicht gefunden' })
+
+  const existing = Array.isArray(group.overnightStops) ? group.overnightStops as any[] : []
+  const target = existing.find((s: any) => s.id === stopId)
+  if (!target) return res.status(404).json({ error: 'Übernachtung nicht gefunden' })
+  if (target.addedBy !== req.userId && group.organizerId !== req.userId) {
+    return res.status(403).json({ error: 'Keine Berechtigung' })
+  }
+
+  const next = existing.filter((s: any) => s.id !== stopId)
+  const updated = await prisma.tourGroup.update({ where: { id: groupId }, data: { overnightStops: next as any } })
   res.json(updated)
 })
 
