@@ -9,8 +9,8 @@ import { useRealtimeConnection } from "@/lib/realtime";
 import Sidebar from "@/components/Sidebar";
 import RouteMap from "@/components/RouteMap";
 import GroupMap, { GroupParticipant } from "@/components/groups/GroupMap";
-import LicensePlate from "@/components/LicensePlate";
-import { ArrowLeft, Users, Clock, UserPlus, Radio, Play, Loader2, Car, Plus } from "lucide-react";
+import GroupMessageBoard from "@/components/groups/GroupMessageBoard";
+import { ArrowLeft, Users, Clock, UserPlus, Radio, Play, Loader2, Car } from "lucide-react";
 
 const ACTIVITY_EMOJI: Record<string, string> = {
   WANDERN: "🥾", BERGTOUR: "⛰️", KLETTERN: "🧗", KLETTERSTEIG: "🪢",
@@ -25,7 +25,7 @@ function statusLabel(status: string) {
   if (status === "ACTIVE") return { text: "Unterwegs", cls: "text-forest-700" };
   if (status === "ALARM") return { text: "Überfällig", cls: "text-alarm font-semibold" };
   if (status === "COMPLETED") return { text: "Zurück", cls: "text-stone" };
-  return { text: "Noch nicht gestartet", cls: "text-stone" };
+  return { text: "Bereit zum Start", cls: "text-stone" };
 }
 
 function toTimeInputValue(d: Date) {
@@ -41,15 +41,13 @@ export default function TourGroupPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // "Complete your details" form state — only what's genuinely individual
-  // (return time, vehicle); the route itself is inherited from the
-  // organizer's tour, never re-entered.
   const [returnTime, setReturnTime] = useState("17:00");
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [newVehiclePlate, setNewVehiclePlate] = useState("");
   const [joining, setJoining] = useState(false);
-  const [joinError, setJoinError] = useState("");
+  const [starting, setStarting] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     if (!authLoading && user) load();
@@ -86,6 +84,7 @@ export default function TourGroupPage() {
       setGroup(data);
       setVehicles(vehiclesData);
       if (vehiclesData.length > 0) setVehicleId(vehiclesData[0].id);
+      if (data.suggestedEta) setReturnTime(toTimeInputValue(new Date(data.suggestedEta)));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gruppe konnte nicht geladen werden");
     } finally {
@@ -105,13 +104,12 @@ export default function TourGroupPage() {
     } catch {}
   }
 
-  // Joining is a single step here, not a separate wizard: create a minimal
-  // tour pre-filled from the organizer's route, attach it to the group,
-  // and start it immediately — the route/GPX is inherited, never re-asked.
-  async function handleJoinAndStart() {
-    if (!organizerTour) return;
+  // Joining: creates the participant's own Tour pre-filled from the
+  // group's route — no route re-entry, just the genuinely individual
+  // fields (return time, vehicle).
+  async function handleJoin() {
     setJoining(true);
-    setJoinError("");
+    setActionError("");
     try {
       const token = getToken();
       const [h, m] = returnTime.split(":").map(Number);
@@ -119,28 +117,33 @@ export default function TourGroupPage() {
       eta.setHours(h, m, 0, 0);
       if (eta.getTime() < Date.now()) eta.setDate(eta.getDate() + 1);
 
-      const tourBody = {
-        activity: group.activity ?? organizerTour.activity,
-        routeName: group.routeName ?? organizerTour.routeName,
-        distanceKm: organizerTour.distanceKm ?? null,
-        elevationUp: organizerTour.elevationUp ?? null,
-        parkingLocation: organizerTour.parkingLocation ?? null,
-        parkingLat: organizerTour.parkingLat ?? null,
-        parkingLng: organizerTour.parkingLng ?? null,
-        startLat: organizerTour.startLat ?? null,
-        startLng: organizerTour.startLng ?? null,
-        waypoints: organizerTour.waypoints ?? null,
-        overnightStops: organizerTour.overnightStops ?? null,
-        vehicleId,
-      };
-      const tour = await apiFetch("/tours", { method: "POST", body: JSON.stringify(tourBody) }, token ?? undefined);
-      await apiFetch(`/tour-groups/${group.id}/join`, { method: "POST", body: JSON.stringify({ tourId: tour.id }) }, token ?? undefined);
-      await apiFetch(`/tours/${tour.id}/start`, { method: "POST", body: JSON.stringify({ eta: eta.toISOString() }) }, token ?? undefined);
-
-      router.push(`/dashboard/touren/${tour.id}`);
+      await apiFetch(
+        `/tour-groups/${group.id}/join`,
+        { method: "POST", body: JSON.stringify({ eta: eta.toISOString(), vehicleId }) },
+        token ?? undefined
+      );
+      await load();
     } catch (err) {
-      setJoinError(err instanceof ApiError ? err.message : "Beitreten fehlgeschlagen");
+      setActionError(err instanceof ApiError ? err.message : "Beitreten fehlgeschlagen");
+    } finally {
       setJoining(false);
+    }
+  }
+
+  // Starting: behaviour depends on the group's startMode — either starts
+  // only my own tour, or (if I'm the organizer with ORGANIZER_STARTS_ALL)
+  // starts everyone's at once.
+  async function handleStart() {
+    setStarting(true);
+    setActionError("");
+    try {
+      const token = getToken();
+      await apiFetch(`/tour-groups/${group.id}/start`, { method: "POST" }, token ?? undefined);
+      await load();
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Start fehlgeschlagen");
+    } finally {
+      setStarting(false);
     }
   }
 
@@ -163,18 +166,24 @@ export default function TourGroupPage() {
   }
 
   const myTour = group.tours.find((t: any) => t.userId === user?.id);
-  const organizerTour = group.tours.find((t: any) => t.userId === group.organizerId) ?? group.tours[0];
   const hasJoined = !!myTour;
+  const isOrganizer = group.organizerId === user?.id;
+  const anyoneStarted = group.tours.some((t: any) => t.status !== "PLANNED");
 
   const participants: GroupParticipant[] = group.tours.map((t: any) => ({
     userId: t.userId,
     name: t.user?.name ?? "?",
-    lat: t.lastLat ?? t.startLat ?? null,
-    lng: t.lastLng ?? t.startLng ?? null,
+    lat: t.lastLat ?? t.startLat ?? group.startLat ?? null,
+    lng: t.lastLng ?? t.startLng ?? group.startLng ?? null,
     status: t.status,
   }));
   const pendingInvites = group.invites?.filter((i: any) => i.status === "PENDING") ?? [];
-  const gpxPoints = organizerTour?.gpxTrack?.points ?? [];
+  const gpxPoints = group.gpxTrack?.points ?? [];
+
+  // What can I do right now?
+  const canStartMine = hasJoined && myTour.status === "PLANNED" &&
+    (group.startMode === "EACH_OWN" || (group.startMode === "ORGANIZER_STARTS_ALL" && isOrganizer));
+  const startButtonLabel = group.startMode === "ORGANIZER_STARTS_ALL" && isOrganizer ? "Tour für alle starten" : "Tour starten";
 
   return (
     <div className="flex min-h-screen bg-snow">
@@ -185,42 +194,71 @@ export default function TourGroupPage() {
           <ArrowLeft className="w-4 h-4" /> Zurück zu Touren
         </button>
 
-        <div className="mb-7">
-          <p className="text-xs font-semibold text-forest-700 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-            <Users className="w-3.5 h-3.5" /> Gemeinsame Tour
-          </p>
-          <h1 className="font-display text-3xl font-semibold text-forest-950 tracking-tight">
-            {ACTIVITY_EMOJI[group.activity] ?? "🏔️"} {group.routeName || "Gemeinsame Tour"}
-          </h1>
-          <p className="text-stone text-sm mt-1">Organisiert von {group.organizer?.name}</p>
+        <div className="flex items-start justify-between mb-7">
+          <div>
+            <p className="text-xs font-semibold text-forest-700 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5" /> Gemeinsame Tour
+            </p>
+            <h1 className="font-display text-3xl font-semibold text-forest-950 tracking-tight">
+              {ACTIVITY_EMOJI[group.activity] ?? "🏔️"} {group.routeName || "Gemeinsame Tour"}
+            </h1>
+            <p className="text-stone text-sm mt-1">Organisiert von {group.organizer?.name}</p>
+          </div>
+          {canStartMine && (
+            <button
+              onClick={handleStart}
+              disabled={starting}
+              className="flex items-center gap-2 bg-forest-700 text-white rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-forest-600 transition-colors disabled:opacity-60 shrink-0"
+            >
+              {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              {starting ? "Wird gestartet…" : startButtonLabel}
+            </button>
+          )}
         </div>
 
-        {/* Route map, inherited from the organizer — every participant
-            sees the same planned route, no one re-uploads a GPX file. */}
+        {/* Route map — always from the group itself, shows live positions
+            once anyone has started. */}
         <div className="rounded-2xl overflow-hidden border border-forest-950/[0.07] shadow-card h-80 mb-6">
-          {hasJoined || group.tours.length > 1 ? (
+          {anyoneStarted ? (
             <GroupMap participants={participants} />
           ) : (
             <RouteMap
               locations={[]}
-              startLat={organizerTour?.startLat}
-              startLng={organizerTour?.startLng}
+              startLat={group.startLat}
+              startLng={group.startLng}
               plannedRoute={gpxPoints}
-              waypoints={organizerTour?.waypoints}
-              overnightStops={organizerTour?.overnightStops}
-              parking={{ lat: organizerTour?.parkingLat, lng: organizerTour?.parkingLng, name: organizerTour?.parkingLocation }}
+              waypoints={group.waypoints}
+              overnightStops={group.overnightStops}
+              parking={{ lat: group.parkingLat, lng: group.parkingLng, name: group.parkingLocation }}
             />
           )}
         </div>
 
-        {/* Complete-your-details panel — shown only if I haven't joined
-            yet. One short form, right here, instead of a separate wizard
-            with re-entered route data. */}
+        {group.distanceKm && (
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
+              <p className="text-[11px] text-stone mb-0.5">Distanz</p>
+              <p className="font-display text-base font-semibold text-forest-950">{group.distanceKm} km</p>
+            </div>
+            <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
+              <p className="text-[11px] text-stone mb-0.5">Höhenmeter</p>
+              <p className="font-display text-base font-semibold text-forest-950">{group.elevationUp ?? "—"} hm</p>
+            </div>
+            <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
+              <p className="text-[11px] text-stone mb-0.5">Vorgeschlagene Rückkehr</p>
+              <p className="font-display text-base font-semibold text-forest-950">
+                {group.suggestedEta ? new Date(group.suggestedEta).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }) : "—"}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Join panel — only shown before I've joined. */}
         {!hasJoined && (
           <div className="rounded-2xl border border-forest-700/20 bg-forest-100/50 p-6 mb-6">
             <h3 className="font-display font-semibold text-forest-950 mb-1">Deine Angaben</h3>
             <p className="text-sm text-stone mb-5">
-              Route und Aktivität sind von {group.organizer?.name} übernommen — du brauchst nur deine eigene Rückkehrzeit und dein Fahrzeug.
+              Route und Aktivität sind von {group.organizer?.name} übernommen — nur deine Rückkehrzeit und dein Fahrzeug fehlen noch.
             </p>
 
             <div className="grid grid-cols-2 gap-4 mb-5">
@@ -263,23 +301,31 @@ export default function TourGroupPage() {
               </div>
             </div>
 
-            {joinError && (
-              <div className="bg-alarm-50 border border-alarm-100 text-alarm text-sm rounded-xl px-4 py-3 mb-4">{joinError}</div>
+            {actionError && (
+              <div className="bg-alarm-50 border border-alarm-100 text-alarm text-sm rounded-xl px-4 py-3 mb-4">{actionError}</div>
             )}
 
             <button
-              onClick={handleJoinAndStart}
+              onClick={handleJoin}
               disabled={joining}
               className="flex items-center gap-2 bg-forest-700 text-white rounded-xl px-6 py-2.5 text-sm font-semibold hover:bg-forest-600 transition-colors disabled:opacity-60"
             >
-              {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {joining ? "Wird gestartet…" : "Mitmachen & Tour starten"}
+              {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
+              {joining ? "Wird beigetreten…" : "Mitmachen"}
             </button>
+            <p className="text-xs text-stone mt-2.5">
+              {group.startMode === "ORGANIZER_STARTS_ALL"
+                ? `${group.organizer?.name} startet die Tour für alle gemeinsam.`
+                : "Du startest deine eigene Tour selbst, sobald du am Trailhead bist."}
+            </p>
           </div>
         )}
 
-        {/* Participants list, each with their own status — never a shared
-            group ETA, since each person's safety timer is independent. */}
+        {hasJoined && myTour.status === "PLANNED" && actionError && (
+          <div className="bg-alarm-50 border border-alarm-100 text-alarm text-sm rounded-xl px-4 py-3 mb-6">{actionError}</div>
+        )}
+
+        {/* Participants list — each with their own independent status. */}
         <div className="rounded-2xl bg-white border border-forest-950/[0.06] shadow-card p-6 mb-6">
           <h3 className="font-display font-semibold text-sm text-forest-950 mb-4">Teilnehmer · {group.tours.length}</h3>
           <div className="space-y-3">
@@ -301,6 +347,7 @@ export default function TourGroupPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-forest-950 truncate">
                       {t.user?.name}{t.userId === user?.id ? " (du)" : ""}
+                      {t.userId === group.organizerId && <span className="text-[10px] text-forest-700 font-bold ml-1.5">ORGANISATOR</span>}
                     </p>
                     <p className={`text-xs ${status.cls}`}>{status.text}</p>
                   </div>
@@ -322,6 +369,11 @@ export default function TourGroupPage() {
               {pendingInvites.map((i: any) => ` · ${i.invitee?.name}`).join("")}
             </div>
           )}
+        </div>
+
+        {/* Prep-phase coordination board */}
+        <div className="mb-6">
+          <GroupMessageBoard groupId={group.id} currentUserId={user?.id} />
         </div>
 
         <p className="text-xs text-stone flex items-center gap-1.5">

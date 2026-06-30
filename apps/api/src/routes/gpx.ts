@@ -50,4 +50,40 @@ router.post('/attach/:tourId', requireAuth, async (req: Request, res: Response) 
   }
 });
 
+// POST /gpx/attach-group/:groupId — same as /attach/:tourId but for a
+// TourGroup, used when an organizer uploads a route during shared-hike
+// creation, before any participant (including themselves) has a Tour yet.
+router.post('/attach-group/:groupId', requireAuth, async (req: Request, res: Response) => {
+  const groupId = req.params.groupId as string;
+  const { gpxContent } = req.body;
+
+  if (!gpxContent) return res.status(400).json({ error: 'GPX-Inhalt fehlt' });
+
+  const group = await prisma.tourGroup.findFirst({
+    where: { id: groupId, organizerId: req.userId as string }
+  });
+
+  if (!group) return res.status(404).json({ error: 'Gruppe nicht gefunden' });
+
+  try {
+    const data = parseGpx(gpxContent);
+
+    const updated = await prisma.tourGroup.update({
+      where: { id: groupId },
+      data: {
+        gpxTrack: data as any,
+        distanceKm: data.distanceKm,
+        elevationUp: data.elevationUp,
+        startLat: data.startLat,
+        startLng: data.startLng,
+        waypoints: data.waypoints as any,
+      }
+    });
+
+    res.json({ message: 'GPX gespeichert', group: updated, summary: data });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 export default router;
