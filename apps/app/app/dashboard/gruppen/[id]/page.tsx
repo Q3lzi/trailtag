@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuthGuard } from "@/lib/useAuth";
 import { apiFetch, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { useRealtimeConnection } from "@/lib/realtime";
 import Sidebar from "@/components/Sidebar";
-import RouteMap from "@/components/RouteMap";
 import InteractivePlanningMap from "@/components/InteractivePlanningMap";
 import GroupMap, { GroupParticipant } from "@/components/groups/GroupMap";
 import GroupMessageBoard from "@/components/groups/GroupMessageBoard";
@@ -15,6 +14,7 @@ import GroupChecklist from "@/components/groups/GroupChecklist";
 import WeatherSummaryCard from "@/components/weather/WeatherSummaryCard";
 import {
   ArrowLeft, Users, Clock, UserPlus, Radio, Play, Loader2, MapPin, TrendingUp, Flag,
+  Calendar, ShieldCheck, AlertCircle, Car,
 } from "lucide-react";
 
 const ACTIVITY_EMOJI: Record<string, string> = {
@@ -36,6 +36,9 @@ function statusLabel(status: string) {
 function toTimeInputValue(d: Date) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
+function fmtDateTime(d: string | Date) {
+  return new Date(d).toLocaleString("de-CH", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
 
 export default function TourGroupPage() {
   const { user, loading: authLoading, logout } = useAuthGuard();
@@ -43,10 +46,10 @@ export default function TourGroupPage() {
   const router = useRouter();
   const [group, setGroup] = useState<any>(null);
   const [vehicles, setVehicles] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [returnTime, setReturnTime] = useState("17:00");
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [newVehiclePlate, setNewVehiclePlate] = useState("");
@@ -54,10 +57,24 @@ export default function TourGroupPage() {
   const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState("");
   const [waypointMode, setWaypointMode] = useState(false);
+  // Editable only at the moment of actually starting — before that, the
+  // group's suggested return time is shown as a fixed preview, not
+  // something to fiddle with ahead of time.
+  const [startEta, setStartEta] = useState("17:00");
+
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!authLoading && user) load();
   }, [authLoading, user]);
+
+  // Poll for changes others make (new joins, checklist, waypoints) — the
+  // realtime socket only covers location/status events, not every kind of
+  // group edit, so this fills the gap without requiring a manual reload.
+  useEffect(() => {
+    pollRef.current = setInterval(() => load(true), 12000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [params.id]);
 
   useRealtimeConnection((event) => {
     if (event.type === "location_update") {
@@ -80,19 +97,21 @@ export default function TourGroupPage() {
     }
   });
 
-  async function load() {
+  async function load(silent = false) {
     try {
       const token = getToken();
-      const [data, vehiclesData] = await Promise.all([
+      const [data, vehiclesData, profileData] = await Promise.all([
         apiFetch(`/tour-groups/${params.id}`, {}, token ?? undefined),
         apiFetch("/vehicles", {}, token ?? undefined).catch(() => []),
+        apiFetch("/profile", {}, token ?? undefined).catch(() => null),
       ]);
       setGroup(data);
       setVehicles(vehiclesData);
-      if (vehiclesData.length > 0) setVehicleId(vehiclesData[0].id);
-      if (data.suggestedEta) setReturnTime(toTimeInputValue(new Date(data.suggestedEta)));
+      setProfile(profileData);
+      if (!silent && vehiclesData.length > 0 && !vehicleId) setVehicleId(vehiclesData[0].id);
+      if (data.suggestedEta) setStartEta(toTimeInputValue(new Date(data.suggestedEta)));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Gruppe konnte nicht geladen werden");
+      if (!silent) setError(err instanceof ApiError ? err.message : "Gruppe konnte nicht geladen werden");
     } finally {
       setLoading(false);
     }
@@ -110,19 +129,17 @@ export default function TourGroupPage() {
     } catch {}
   }
 
+  // Joining no longer asks for a return time — that's the group's
+  // suggestion, shown as a fixed preview. Only the vehicle (and, later at
+  // actual start, the real ETA) is genuinely individual right now.
   async function handleJoin() {
     setJoining(true);
     setActionError("");
     try {
       const token = getToken();
-      const [h, m] = returnTime.split(":").map(Number);
-      const eta = new Date();
-      eta.setHours(h, m, 0, 0);
-      if (eta.getTime() < Date.now()) eta.setDate(eta.getDate() + 1);
-
       await apiFetch(
         `/tour-groups/${group.id}/join`,
-        { method: "POST", body: JSON.stringify({ eta: eta.toISOString(), vehicleId }) },
+        { method: "POST", body: JSON.stringify({ eta: group.suggestedEta, vehicleId }) },
         token ?? undefined
       );
       await load();
@@ -138,7 +155,11 @@ export default function TourGroupPage() {
     setActionError("");
     try {
       const token = getToken();
-      await apiFetch(`/tour-groups/${group.id}/start`, { method: "POST" }, token ?? undefined);
+      const [h, m] = startEta.split(":").map(Number);
+      const eta = new Date();
+      eta.setHours(h, m, 0, 0);
+      if (eta.getTime() < Date.now()) eta.setDate(eta.getDate() + 1);
+      await apiFetch(`/tour-groups/${group.id}/start`, { method: "POST", body: JSON.stringify({ eta: eta.toISOString() }) }, token ?? undefined);
       await load();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Start fehlgeschlagen");
@@ -182,6 +203,7 @@ export default function TourGroupPage() {
   const hasJoined = !!myTour;
   const isOrganizer = group.organizerId === user?.id;
   const anyoneStarted = group.tours.some((t: any) => t.status !== "PLANNED");
+  const hasEmergencyContacts = (profile?.emergencyContacts?.length ?? 0) > 0;
 
   const participants: GroupParticipant[] = group.tours.map((t: any) => ({
     userId: t.userId,
@@ -217,24 +239,35 @@ export default function TourGroupPage() {
             </h1>
             <p className="text-stone text-sm mt-1">Organisiert von {group.organizer?.name}</p>
           </div>
-          {canStartMine && (
-            <button
-              onClick={handleStart}
-              disabled={starting}
-              className="flex items-center gap-2 bg-forest-700 text-white rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-forest-600 transition-colors disabled:opacity-60 shrink-0"
-            >
-              {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {starting ? "Wird gestartet…" : startButtonLabel}
-            </button>
-          )}
+        </div>
+
+        {/* Start / return overview — the thing that was completely missing:
+            when does this begin, how long does it take, what's the plan.
+            Shown as a fixed preview, never an input — that only happens
+            once, at the moment of actually starting below. */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="rounded-2xl bg-forest-950 p-5">
+            <p className="text-[11px] font-bold text-forest-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5" /> Geplanter Start
+            </p>
+            <p className="font-display text-lg font-semibold text-white">
+              {group.suggestedStartAt ? fmtDateTime(group.suggestedStartAt) : "Noch nicht festgelegt"}
+            </p>
+          </div>
+          <div className="rounded-2xl bg-forest-950 p-5">
+            <p className="text-[11px] font-bold text-forest-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" /> Vorgeschlagene Rückkehr
+            </p>
+            <p className="font-display text-lg font-semibold text-white">
+              {group.suggestedEta ? fmtDateTime(group.suggestedEta) : "Noch nicht festgelegt"}
+            </p>
+          </div>
         </div>
 
         {/* Two-column layout: left = map + planning tools (wide), right =
-            sticky status/participants/weather (narrow) — uses the full
-            width instead of a single narrow centered column. */}
+            sticky status/participants/weather (narrow). */}
         <div className="grid grid-cols-3 gap-5">
           <div className="col-span-2 flex flex-col gap-5">
-            {/* Route map with participant waypoint proposals */}
             <div>
               <div className="flex items-center gap-2 mb-2.5">
                 <button
@@ -268,7 +301,6 @@ export default function TourGroupPage() {
               </div>
             </div>
 
-            {/* Stats row */}
             {group.distanceKm && (
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
@@ -280,60 +312,58 @@ export default function TourGroupPage() {
                   <p className="font-display text-base font-semibold text-forest-950">{group.elevationUp ?? "—"} hm</p>
                 </div>
                 <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
-                  <p className="text-[11px] text-stone mb-0.5 flex items-center justify-center gap-1"><Clock className="w-3 h-3" /> Vorschlag Rückkehr</p>
-                  <p className="font-display text-base font-semibold text-forest-950">
-                    {group.suggestedEta ? new Date(group.suggestedEta).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }) : "—"}
-                  </p>
+                  <p className="text-[11px] text-stone mb-0.5 flex items-center justify-center gap-1"><Car className="w-3 h-3" /> Parkplatz</p>
+                  <p className="font-display text-sm font-semibold text-forest-950 truncate">{group.parkingLocation || "—"}</p>
                 </div>
               </div>
             )}
 
-            {/* Join panel — embedded here, in the main planning column */}
+            {/* Join panel — vehicle only; return time is shown above as a
+                fixed group preview, set for real at the moment of starting. */}
             {!hasJoined && (
               <div className="rounded-2xl border border-forest-700/20 bg-forest-100/50 p-6">
                 <h3 className="font-display font-semibold text-forest-950 mb-1">Deine Angaben</h3>
                 <p className="text-sm text-stone mb-5">
-                  Route und Aktivität sind von {group.organizer?.name} übernommen — nur deine Rückkehrzeit und dein Fahrzeug fehlen noch.
+                  Route, Aktivität und die vorgeschlagene Rückkehrzeit sind von {group.organizer?.name} übernommen — nur dein Fahrzeug fehlt noch. Die genaue Rückkehrzeit legst du beim tatsächlichen Start fest.
                 </p>
 
-                <div className="grid grid-cols-2 gap-4 mb-5">
-                  <div>
-                    <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Erwartete Rückkehr</label>
-                    <input
-                      type="time"
-                      value={returnTime}
-                      onChange={(e) => setReturnTime(e.target.value)}
-                      className="w-full rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-700/30 focus:border-forest-700"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Fahrzeug</label>
-                    {vehicles.length === 0 || showAddVehicle ? (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={newVehiclePlate}
-                          onChange={(e) => setNewVehiclePlate(e.target.value)}
-                          placeholder="Kennzeichen"
-                          className="flex-1 rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-700/30"
-                        />
-                        <button onClick={handleAddVehicle} className="rounded-xl bg-forest-700 text-white px-3.5 text-sm font-semibold hover:bg-forest-600 transition-colors">
-                          OK
-                        </button>
-                      </div>
-                    ) : (
-                      <select
-                        value={vehicleId ?? ""}
-                        onChange={(e) => (e.target.value === "_new" ? setShowAddVehicle(true) : setVehicleId(e.target.value))}
-                        className="w-full rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-700/30"
-                      >
-                        {vehicles.map((v) => (
-                          <option key={v.id} value={v.id}>{v.plate}</option>
-                        ))}
-                        <option value="_new">+ Neues Fahrzeug</option>
-                      </select>
-                    )}
-                  </div>
+                <div className="mb-5 max-w-xs">
+                  <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Fahrzeug</label>
+                  {vehicles.length === 0 || showAddVehicle ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newVehiclePlate}
+                        onChange={(e) => setNewVehiclePlate(e.target.value)}
+                        placeholder="Kennzeichen"
+                        className="flex-1 rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-700/30"
+                      />
+                      <button onClick={handleAddVehicle} className="rounded-xl bg-forest-700 text-white px-3.5 text-sm font-semibold hover:bg-forest-600 transition-colors">
+                        OK
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={vehicleId ?? ""}
+                      onChange={(e) => (e.target.value === "_new" ? setShowAddVehicle(true) : setVehicleId(e.target.value))}
+                      className="w-full rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-700/30"
+                    >
+                      {vehicles.map((v) => (
+                        <option key={v.id} value={v.id}>{v.plate}</option>
+                      ))}
+                      <option value="_new">+ Neues Fahrzeug</option>
+                    </select>
+                  )}
+                </div>
+
+                {/* Emergency contact confirmation — never shows anyone
+                    else's contacts (that's what the rescue portal is for),
+                    just confirms my own are on file. */}
+                <div className={`flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 mb-5 text-sm ${hasEmergencyContacts ? "bg-forest-100/70 text-forest-700" : "bg-amber-50 text-amber-800"}`}>
+                  {hasEmergencyContacts ? <ShieldCheck className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                  {hasEmergencyContacts
+                    ? "Deine Notfallkontakte sind hinterlegt."
+                    : <>Noch keine Notfallkontakte hinterlegt — <a href="/dashboard/profil" className="underline font-medium">jetzt im Profil ergänzen</a>.</>}
                 </div>
 
                 {actionError && (
@@ -348,19 +378,40 @@ export default function TourGroupPage() {
                   {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
                   {joining ? "Wird beigetreten…" : "Mitmachen"}
                 </button>
-                <p className="text-xs text-stone mt-2.5">
-                  {group.startMode === "ORGANIZER_STARTS_ALL"
-                    ? `${group.organizer?.name} startet die Tour für alle gemeinsam.`
-                    : "Du startest deine eigene Tour selbst, sobald du am Trailhead bist."}
-                </p>
               </div>
             )}
 
-            {hasJoined && myTour.status === "PLANNED" && actionError && (
-              <div className="bg-alarm-50 border border-alarm-100 text-alarm text-sm rounded-xl px-4 py-3">{actionError}</div>
+            {/* Start panel — the actual ETA gets set/confirmed right here,
+                at the moment it matters, not speculatively days earlier. */}
+            {canStartMine && (
+              <div className="rounded-2xl border border-forest-700/20 bg-forest-100/50 p-6">
+                <h3 className="font-display font-semibold text-forest-950 mb-1">Bereit loszugehen?</h3>
+                <p className="text-sm text-stone mb-4">Bestätige oder passe deine Rückkehrzeit an — das ist dein persönlicher Sicherheits-Timer.</p>
+                <div className="flex items-end gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Meine Rückkehrzeit</label>
+                    <input
+                      type="time"
+                      value={startEta}
+                      onChange={(e) => setStartEta(e.target.value)}
+                      className="rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-700/30"
+                    />
+                  </div>
+                  <button
+                    onClick={handleStart}
+                    disabled={starting}
+                    className="flex items-center gap-2 bg-forest-700 text-white rounded-xl px-6 py-2.5 text-sm font-semibold hover:bg-forest-600 transition-colors disabled:opacity-60"
+                  >
+                    {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                    {starting ? "Wird gestartet…" : startButtonLabel}
+                  </button>
+                </div>
+                {actionError && (
+                  <div className="bg-alarm-50 border border-alarm-100 text-alarm text-sm rounded-xl px-4 py-3 mt-4">{actionError}</div>
+                )}
+              </div>
             )}
 
-            {/* Planning tools: checklist + message board side by side */}
             <div className="grid grid-cols-2 gap-5">
               <GroupChecklist groupId={group.id} />
               <GroupMessageBoard groupId={group.id} currentUserId={user?.id} />
@@ -378,7 +429,7 @@ export default function TourGroupPage() {
                   return (
                     <div
                       key={t.id}
-                      onClick={() => router.push(`/dashboard/touren/${t.id}`)}
+                      onClick={() => router.push(t.userId === user?.id ? `/dashboard/touren/${t.id}` : `/dashboard/freunde/${t.userId}`)}
                       className="flex items-center gap-2.5 cursor-pointer hover:bg-forest-100/30 rounded-xl p-1.5 -mx-1.5 transition-colors"
                     >
                       <div
@@ -423,7 +474,7 @@ export default function TourGroupPage() {
             )}
 
             <p className="text-[11px] text-stone flex items-start gap-1.5 px-1">
-              <Radio className="w-3 h-3 shrink-0 mt-0.5" /> Jede Person hat ihre eigene Rückkehrzeit und eigene Notfallkontakte — unabhängig erkannt.
+              <Radio className="w-3 h-3 shrink-0 mt-0.5" /> Jede Person hat ihre eigene Rückkehrzeit und eigene Notfallkontakte — unabhängig erkannt. Notfallkontakte anderer Teilnehmer sind im Ersthelfer-Portal hinterlegt, nicht hier sichtbar.
             </p>
           </div>
         </div>

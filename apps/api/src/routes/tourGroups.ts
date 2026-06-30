@@ -187,6 +187,7 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
 // starts every joined participant's tour in one action.
 router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
   const groupId = req.params.id as string
+  const { eta } = req.body as { eta?: string }
   const group = await prisma.tourGroup.findUnique({ where: { id: groupId }, include: { tours: true } })
   if (!group) return res.status(404).json({ error: 'Gruppe nicht gefunden' })
 
@@ -205,7 +206,13 @@ router.post('/:id/start', requireAuth, async (req: Request, res: Response) => {
     const myTour = group.tours.find((t) => t.userId === req.userId)
     if (!myTour) return res.status(404).json({ error: 'Du bist dieser Tour noch nicht beigetreten' })
     if (myTour.status !== 'PLANNED') return res.status(400).json({ error: 'Tour bereits gestartet' })
-    const updated = await prisma.tour.update({ where: { id: myTour.id }, data: { status: 'ACTIVE', startedAt: new Date() } })
+    // Allow adjusting the personal ETA right at the moment of starting —
+    // plans shift between "I joined" and "I'm actually at the trailhead",
+    // and this is the natural point to lock in the real return time.
+    const updated = await prisma.tour.update({
+      where: { id: myTour.id },
+      data: { status: 'ACTIVE', startedAt: new Date(), ...(eta && { eta: new Date(eta) }) }
+    })
     res.json({ started: 1, tour: updated })
   }
 })
