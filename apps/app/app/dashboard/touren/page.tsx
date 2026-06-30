@@ -7,7 +7,7 @@ import { apiFetch, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import Sidebar from "@/components/Sidebar";
 import EmptyState from "@/components/EmptyState";
-import { Mountain, Clock, MapPin, TrendingUp, ChevronRight, Plus, Search, Trash2 } from "lucide-react";
+import { Mountain, Clock, MapPin, TrendingUp, ChevronRight, Plus, Search, Trash2, Users } from "lucide-react";
 
 const ACTIVITY_EMOJI: Record<string, string> = {
   WANDERN: "🥾", BERGTOUR: "⛰️", KLETTERN: "🧗", KLETTERSTEIG: "🪢",
@@ -31,6 +31,7 @@ export default function TourenPage() {
   const { user, loading: authLoading, logout } = useAuthGuard();
   const router = useRouter();
   const [tours, setTours] = useState<any[]>([]);
+  const [tourGroups, setTourGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<FilterTab>("alle");
   const [search, setSearch] = useState("");
@@ -44,8 +45,17 @@ export default function TourenPage() {
   async function load() {
     try {
       const token = getToken();
-      const data = await apiFetch("/tours", {}, token ?? undefined);
-      setTours(data);
+      const [toursData, groupsData] = await Promise.all([
+        apiFetch("/tours", {}, token ?? undefined),
+        apiFetch("/tour-groups", {}, token ?? undefined).catch(() => []),
+      ]);
+      setTours(toursData);
+      // Only groups still relevant to surface here: ones I haven't fully
+      // resolved yet (no completed-and-checked-out feeling necessary) —
+      // i.e. anything not 100% finished for every participant isn't filtered
+      // out, since "gemeinsame Touren" is meant to be the one place to find
+      // a shared hike regardless of where each individual tour stands.
+      setTourGroups(groupsData ?? []);
     } catch {
       // empty state
     } finally {
@@ -68,17 +78,22 @@ export default function TourenPage() {
     }
   }
 
+  // Solo tours not tied to any group — the group section above already
+  // covers shared hikes, so the regular list stays focused on solo ones
+  // instead of showing every participant's tour twice.
+  const soloTours = useMemo(() => tours.filter((t) => !t.groupId), [tours]);
+
   const counts = useMemo(() => {
     return {
-      alle: tours.length,
-      aktiv: tours.filter((t) => t.status === "ACTIVE" || t.status === "ALARM").length,
-      entwuerfe: tours.filter((t) => t.status === "PLANNED").length,
-      vergangen: tours.filter((t) => t.status === "COMPLETED").length,
+      alle: soloTours.length,
+      aktiv: soloTours.filter((t) => t.status === "ACTIVE" || t.status === "ALARM").length,
+      entwuerfe: soloTours.filter((t) => t.status === "PLANNED").length,
+      vergangen: soloTours.filter((t) => t.status === "COMPLETED").length,
     };
-  }, [tours]);
+  }, [soloTours]);
 
   const visibleTours = useMemo(() => {
-    let list = tours;
+    let list = soloTours;
     if (tab === "aktiv") list = list.filter((t) => t.status === "ACTIVE" || t.status === "ALARM");
     if (tab === "entwuerfe") list = list.filter((t) => t.status === "PLANNED");
     if (tab === "vergangen") list = list.filter((t) => t.status === "COMPLETED");
@@ -95,7 +110,7 @@ export default function TourenPage() {
     if (sortBy === "aelteste") sorted.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     if (sortBy === "name") sorted.sort((a, b) => (a.routeName || a.activity || "").localeCompare(b.routeName || b.activity || ""));
     return sorted;
-  }, [tours, tab, search, sortBy]);
+  }, [soloTours, tab, search, sortBy]);
 
   if (authLoading) {
     return <div className="min-h-screen bg-snow flex items-center justify-center text-stone text-sm">Lädt…</div>;
@@ -116,17 +131,75 @@ export default function TourenPage() {
         <div className="flex items-start justify-between mb-7">
           <div>
             <p className="text-xs font-semibold text-forest-700 uppercase tracking-wide mb-1.5">
-              {tours.length} {tours.length === 1 ? "Tour" : "Touren"} insgesamt
+              {soloTours.length} {soloTours.length === 1 ? "Tour" : "Touren"}{tourGroups.length > 0 && ` · ${tourGroups.length} gemeinsam`}
             </p>
             <h1 className="font-display text-3xl font-semibold text-forest-950 tracking-tight">Deine Touren</h1>
           </div>
-          <button
-            onClick={() => router.push("/dashboard/touren/neu")}
-            className="flex items-center gap-2 bg-forest-700 text-white rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-forest-600 transition-colors shrink-0"
-          >
-            <Plus className="w-4 h-4" /> Neue Tour
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push("/dashboard/touren/neu-gemeinsam")}
+              className="flex items-center gap-2 rounded-xl border border-forest-950/15 text-forest-950/70 px-4 py-2.5 text-sm font-semibold hover:border-forest-950/30 transition-colors shrink-0"
+            >
+              <Users className="w-4 h-4" /> Mit Freunden
+            </button>
+            <button
+              onClick={() => router.push("/dashboard/touren/neu")}
+              className="flex items-center gap-2 bg-forest-700 text-white rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-forest-600 transition-colors shrink-0"
+            >
+              <Plus className="w-4 h-4" /> Neue Tour
+            </button>
+          </div>
         </div>
+
+        {/* Shared hikes — the one place to always find a group tour again,
+            whether I'm the organizer, already joined, or still only invited. */}
+        {!loading && tourGroups.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-xs font-bold text-stone uppercase tracking-wide mb-3">Gemeinsame Touren</h3>
+            <div className="space-y-2.5">
+              {tourGroups.map((g: any) => {
+                const myTour = g.tours?.find((t: any) => t.userId === user?.id);
+                const isInvited = !myTour && g.invites?.some((i: any) => i.inviteeId === user?.id && i.status === "PENDING");
+                const status = myTour ? statusBadge(myTour.status) : { text: isInvited ? "Einladung" : "Vorbereitung", cls: "bg-amber-50 text-amber-700", dot: "" };
+                return (
+                  <div
+                    key={g.id}
+                    onClick={() => router.push(`/dashboard/gruppen/${g.id}`)}
+                    className="group rounded-2xl bg-white border border-forest-700/15 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 p-5 flex items-center gap-4 cursor-pointer"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-forest-100 flex items-center justify-center text-2xl shrink-0 relative">
+                      {ACTIVITY_EMOJI[g.activity] ?? "🏔️"}
+                      <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-forest-700 text-white flex items-center justify-center">
+                        <Users className="w-2.5 h-2.5" />
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-display font-semibold text-forest-950 truncate">
+                          {g.routeName || "Gemeinsame Tour"}
+                        </h3>
+                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${status.cls}`}>
+                          {status.dot && <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />}
+                          {status.text}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-stone">
+                        <span>{g.organizerId === user?.id ? "Du organisierst" : `Organisiert von ${g.organizer?.name}`}</span>
+                        <span>{g.tours?.length ?? 0} Teilnehmer</span>
+                        {g.distanceKm && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" /> {g.distanceKm} km
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-forest-950/20 group-hover:text-forest-950/45 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Filter tabs */}
         <div className="flex items-center gap-1.5 mb-4">
@@ -174,8 +247,8 @@ export default function TourenPage() {
         ) : visibleTours.length === 0 ? (
           <EmptyState
             icon={Mountain}
-            title={tours.length === 0 ? "Noch keine Touren" : "Nichts gefunden"}
-            body={tours.length === 0 ? "Plane deine erste Tour direkt hier im Browser." : "Versuch einen anderen Filter oder Suchbegriff."}
+            title={soloTours.length === 0 ? "Noch keine Touren" : "Nichts gefunden"}
+            body={soloTours.length === 0 ? "Plane deine erste Tour direkt hier im Browser." : "Versuch einen anderen Filter oder Suchbegriff."}
           />
         ) : (
           <div className="space-y-2.5">

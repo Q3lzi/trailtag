@@ -8,9 +8,14 @@ import { getToken } from "@/lib/auth";
 import { useRealtimeConnection } from "@/lib/realtime";
 import Sidebar from "@/components/Sidebar";
 import RouteMap from "@/components/RouteMap";
+import InteractivePlanningMap from "@/components/InteractivePlanningMap";
 import GroupMap, { GroupParticipant } from "@/components/groups/GroupMap";
 import GroupMessageBoard from "@/components/groups/GroupMessageBoard";
-import { ArrowLeft, Users, Clock, UserPlus, Radio, Play, Loader2, Car } from "lucide-react";
+import GroupChecklist from "@/components/groups/GroupChecklist";
+import WeatherSummaryCard from "@/components/weather/WeatherSummaryCard";
+import {
+  ArrowLeft, Users, Clock, UserPlus, Radio, Play, Loader2, MapPin, TrendingUp, Flag,
+} from "lucide-react";
 
 const ACTIVITY_EMOJI: Record<string, string> = {
   WANDERN: "🥾", BERGTOUR: "⛰️", KLETTERN: "🧗", KLETTERSTEIG: "🪢",
@@ -48,6 +53,7 @@ export default function TourGroupPage() {
   const [joining, setJoining] = useState(false);
   const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [waypointMode, setWaypointMode] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user) load();
@@ -104,9 +110,6 @@ export default function TourGroupPage() {
     } catch {}
   }
 
-  // Joining: creates the participant's own Tour pre-filled from the
-  // group's route — no route re-entry, just the genuinely individual
-  // fields (return time, vehicle).
   async function handleJoin() {
     setJoining(true);
     setActionError("");
@@ -130,9 +133,6 @@ export default function TourGroupPage() {
     }
   }
 
-  // Starting: behaviour depends on the group's startMode — either starts
-  // only my own tour, or (if I'm the organizer with ORGANIZER_STARTS_ALL)
-  // starts everyone's at once.
   async function handleStart() {
     setStarting(true);
     setActionError("");
@@ -145,6 +145,19 @@ export default function TourGroupPage() {
     } finally {
       setStarting(false);
     }
+  }
+
+  async function handleAddWaypoint(lat: number, lng: number) {
+    setWaypointMode(false);
+    try {
+      const token = getToken();
+      const updated = await apiFetch(
+        `/tour-groups/${group.id}/waypoints`,
+        { method: "POST", body: JSON.stringify({ lat, lng }) },
+        token ?? undefined
+      );
+      setGroup((prev: any) => ({ ...prev, waypoints: updated.waypoints }));
+    } catch {}
   }
 
   if (authLoading || loading) {
@@ -179,8 +192,8 @@ export default function TourGroupPage() {
   }));
   const pendingInvites = group.invites?.filter((i: any) => i.status === "PENDING") ?? [];
   const gpxPoints = group.gpxTrack?.points ?? [];
+  const groupWaypoints = Array.isArray(group.waypoints) ? group.waypoints : [];
 
-  // What can I do right now?
   const canStartMine = hasJoined && myTour.status === "PLANNED" &&
     (group.startMode === "EACH_OWN" || (group.startMode === "ORGANIZER_STARTS_ALL" && isOrganizer));
   const startButtonLabel = group.startMode === "ORGANIZER_STARTS_ALL" && isOrganizer ? "Tour für alle starten" : "Tour starten";
@@ -189,17 +202,17 @@ export default function TourGroupPage() {
     <div className="flex min-h-screen bg-snow">
       <Sidebar onLogout={logout} userName={user?.name} />
 
-      <main className="flex-1 px-12 py-11 max-w-4xl">
-        <button onClick={() => router.push("/dashboard/touren")} className="flex items-center gap-1.5 text-sm text-stone hover:text-forest-950 mb-6 transition-colors">
+      <main className="flex-1 px-10 py-9 max-w-[1400px]">
+        <button onClick={() => router.push("/dashboard/touren")} className="flex items-center gap-1.5 text-sm text-stone hover:text-forest-950 mb-5 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Zurück zu Touren
         </button>
 
-        <div className="flex items-start justify-between mb-7">
+        <div className="flex items-start justify-between mb-6">
           <div>
             <p className="text-xs font-semibold text-forest-700 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5" /> Gemeinsame Tour
             </p>
-            <h1 className="font-display text-3xl font-semibold text-forest-950 tracking-tight">
+            <h1 className="font-display text-2xl font-semibold text-forest-950 tracking-tight">
               {ACTIVITY_EMOJI[group.activity] ?? "🏔️"} {group.routeName || "Gemeinsame Tour"}
             </h1>
             <p className="text-stone text-sm mt-1">Organisiert von {group.organizer?.name}</p>
@@ -216,169 +229,204 @@ export default function TourGroupPage() {
           )}
         </div>
 
-        {/* Route map — always from the group itself, shows live positions
-            once anyone has started. */}
-        <div className="rounded-2xl overflow-hidden border border-forest-950/[0.07] shadow-card h-80 mb-6">
-          {anyoneStarted ? (
-            <GroupMap participants={participants} />
-          ) : (
-            <RouteMap
-              locations={[]}
-              startLat={group.startLat}
-              startLng={group.startLng}
-              plannedRoute={gpxPoints}
-              waypoints={group.waypoints}
-              overnightStops={group.overnightStops}
-              parking={{ lat: group.parkingLat, lng: group.parkingLng, name: group.parkingLocation }}
-            />
-          )}
-        </div>
-
-        {group.distanceKm && (
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
-              <p className="text-[11px] text-stone mb-0.5">Distanz</p>
-              <p className="font-display text-base font-semibold text-forest-950">{group.distanceKm} km</p>
-            </div>
-            <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
-              <p className="text-[11px] text-stone mb-0.5">Höhenmeter</p>
-              <p className="font-display text-base font-semibold text-forest-950">{group.elevationUp ?? "—"} hm</p>
-            </div>
-            <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
-              <p className="text-[11px] text-stone mb-0.5">Vorgeschlagene Rückkehr</p>
-              <p className="font-display text-base font-semibold text-forest-950">
-                {group.suggestedEta ? new Date(group.suggestedEta).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }) : "—"}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Join panel — only shown before I've joined. */}
-        {!hasJoined && (
-          <div className="rounded-2xl border border-forest-700/20 bg-forest-100/50 p-6 mb-6">
-            <h3 className="font-display font-semibold text-forest-950 mb-1">Deine Angaben</h3>
-            <p className="text-sm text-stone mb-5">
-              Route und Aktivität sind von {group.organizer?.name} übernommen — nur deine Rückkehrzeit und dein Fahrzeug fehlen noch.
-            </p>
-
-            <div className="grid grid-cols-2 gap-4 mb-5">
-              <div>
-                <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Erwartete Rückkehr</label>
-                <input
-                  type="time"
-                  value={returnTime}
-                  onChange={(e) => setReturnTime(e.target.value)}
-                  className="w-full rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-700/30 focus:border-forest-700"
-                />
+        {/* Two-column layout: left = map + planning tools (wide), right =
+            sticky status/participants/weather (narrow) — uses the full
+            width instead of a single narrow centered column. */}
+        <div className="grid grid-cols-3 gap-5">
+          <div className="col-span-2 flex flex-col gap-5">
+            {/* Route map with participant waypoint proposals */}
+            <div>
+              <div className="flex items-center gap-2 mb-2.5">
+                <button
+                  type="button"
+                  onClick={() => setWaypointMode(!waypointMode)}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-colors ${
+                    waypointMode ? "bg-forest-950 text-white border-forest-950" : "bg-white text-forest-950/70 border-forest-950/15 hover:border-forest-950/30"
+                  }`}
+                >
+                  <Flag className="w-3.5 h-3.5" /> Wegpunkt vorschlagen
+                </button>
+                {waypointMode && <p className="text-xs text-forest-700 font-medium">Klick auf die Karte, um einen Punkt vorzuschlagen.</p>}
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Fahrzeug</label>
-                {vehicles.length === 0 || showAddVehicle ? (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newVehiclePlate}
-                      onChange={(e) => setNewVehiclePlate(e.target.value)}
-                      placeholder="Kennzeichen"
-                      className="flex-1 rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-700/30"
-                    />
-                    <button onClick={handleAddVehicle} className="rounded-xl bg-forest-700 text-white px-3.5 text-sm font-semibold hover:bg-forest-600 transition-colors">
-                      OK
-                    </button>
-                  </div>
+              <div className="rounded-2xl overflow-hidden border border-forest-950/[0.07] shadow-card h-96">
+                {anyoneStarted ? (
+                  <GroupMap participants={participants} />
                 ) : (
-                  <select
-                    value={vehicleId ?? ""}
-                    onChange={(e) => (e.target.value === "_new" ? setShowAddVehicle(true) : setVehicleId(e.target.value))}
-                    className="w-full rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-700/30"
-                  >
-                    {vehicles.map((v) => (
-                      <option key={v.id} value={v.id}>{v.plate}</option>
-                    ))}
-                    <option value="_new">+ Neues Fahrzeug</option>
-                  </select>
+                  <InteractivePlanningMap
+                    routePoints={gpxPoints}
+                    startLat={group.startLat}
+                    startLng={group.startLng}
+                    parking={{ lat: group.parkingLat, lng: group.parkingLng }}
+                    overnightStops={group.overnightStops ?? []}
+                    waypoints={groupWaypoints}
+                    activeMode={waypointMode ? "waypoint" : null}
+                    onSetParking={() => {}}
+                    onAddOvernightAt={() => {}}
+                    onAddWaypointAt={handleAddWaypoint}
+                  />
                 )}
               </div>
             </div>
 
-            {actionError && (
-              <div className="bg-alarm-50 border border-alarm-100 text-alarm text-sm rounded-xl px-4 py-3 mb-4">{actionError}</div>
+            {/* Stats row */}
+            {group.distanceKm && (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
+                  <p className="text-[11px] text-stone mb-0.5 flex items-center justify-center gap-1"><MapPin className="w-3 h-3" /> Distanz</p>
+                  <p className="font-display text-base font-semibold text-forest-950">{group.distanceKm} km</p>
+                </div>
+                <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
+                  <p className="text-[11px] text-stone mb-0.5 flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" /> Höhenmeter</p>
+                  <p className="font-display text-base font-semibold text-forest-950">{group.elevationUp ?? "—"} hm</p>
+                </div>
+                <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
+                  <p className="text-[11px] text-stone mb-0.5 flex items-center justify-center gap-1"><Clock className="w-3 h-3" /> Vorschlag Rückkehr</p>
+                  <p className="font-display text-base font-semibold text-forest-950">
+                    {group.suggestedEta ? new Date(group.suggestedEta).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                  </p>
+                </div>
+              </div>
             )}
 
-            <button
-              onClick={handleJoin}
-              disabled={joining}
-              className="flex items-center gap-2 bg-forest-700 text-white rounded-xl px-6 py-2.5 text-sm font-semibold hover:bg-forest-600 transition-colors disabled:opacity-60"
-            >
-              {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-              {joining ? "Wird beigetreten…" : "Mitmachen"}
-            </button>
-            <p className="text-xs text-stone mt-2.5">
-              {group.startMode === "ORGANIZER_STARTS_ALL"
-                ? `${group.organizer?.name} startet die Tour für alle gemeinsam.`
-                : "Du startest deine eigene Tour selbst, sobald du am Trailhead bist."}
+            {/* Join panel — embedded here, in the main planning column */}
+            {!hasJoined && (
+              <div className="rounded-2xl border border-forest-700/20 bg-forest-100/50 p-6">
+                <h3 className="font-display font-semibold text-forest-950 mb-1">Deine Angaben</h3>
+                <p className="text-sm text-stone mb-5">
+                  Route und Aktivität sind von {group.organizer?.name} übernommen — nur deine Rückkehrzeit und dein Fahrzeug fehlen noch.
+                </p>
+
+                <div className="grid grid-cols-2 gap-4 mb-5">
+                  <div>
+                    <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Erwartete Rückkehr</label>
+                    <input
+                      type="time"
+                      value={returnTime}
+                      onChange={(e) => setReturnTime(e.target.value)}
+                      className="w-full rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-700/30 focus:border-forest-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Fahrzeug</label>
+                    {vehicles.length === 0 || showAddVehicle ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newVehiclePlate}
+                          onChange={(e) => setNewVehiclePlate(e.target.value)}
+                          placeholder="Kennzeichen"
+                          className="flex-1 rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-700/30"
+                        />
+                        <button onClick={handleAddVehicle} className="rounded-xl bg-forest-700 text-white px-3.5 text-sm font-semibold hover:bg-forest-600 transition-colors">
+                          OK
+                        </button>
+                      </div>
+                    ) : (
+                      <select
+                        value={vehicleId ?? ""}
+                        onChange={(e) => (e.target.value === "_new" ? setShowAddVehicle(true) : setVehicleId(e.target.value))}
+                        className="w-full rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-forest-700/30"
+                      >
+                        {vehicles.map((v) => (
+                          <option key={v.id} value={v.id}>{v.plate}</option>
+                        ))}
+                        <option value="_new">+ Neues Fahrzeug</option>
+                      </select>
+                    )}
+                  </div>
+                </div>
+
+                {actionError && (
+                  <div className="bg-alarm-50 border border-alarm-100 text-alarm text-sm rounded-xl px-4 py-3 mb-4">{actionError}</div>
+                )}
+
+                <button
+                  onClick={handleJoin}
+                  disabled={joining}
+                  className="flex items-center gap-2 bg-forest-700 text-white rounded-xl px-6 py-2.5 text-sm font-semibold hover:bg-forest-600 transition-colors disabled:opacity-60"
+                >
+                  {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
+                  {joining ? "Wird beigetreten…" : "Mitmachen"}
+                </button>
+                <p className="text-xs text-stone mt-2.5">
+                  {group.startMode === "ORGANIZER_STARTS_ALL"
+                    ? `${group.organizer?.name} startet die Tour für alle gemeinsam.`
+                    : "Du startest deine eigene Tour selbst, sobald du am Trailhead bist."}
+                </p>
+              </div>
+            )}
+
+            {hasJoined && myTour.status === "PLANNED" && actionError && (
+              <div className="bg-alarm-50 border border-alarm-100 text-alarm text-sm rounded-xl px-4 py-3">{actionError}</div>
+            )}
+
+            {/* Planning tools: checklist + message board side by side */}
+            <div className="grid grid-cols-2 gap-5">
+              <GroupChecklist groupId={group.id} />
+              <GroupMessageBoard groupId={group.id} currentUserId={user?.id} />
+            </div>
+          </div>
+
+          {/* Right column: sticky status overview */}
+          <div className="flex flex-col gap-4">
+            <div className="rounded-2xl bg-white border border-forest-950/[0.06] shadow-card p-5 sticky top-9">
+              <h3 className="font-display font-semibold text-sm text-forest-950 mb-4">Teilnehmer · {group.tours.length}</h3>
+              <div className="space-y-3 mb-4">
+                {group.tours.map((t: any, i: number) => {
+                  const status = statusLabel(t.status);
+                  const color = PARTICIPANT_COLORS[i % PARTICIPANT_COLORS.length];
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => router.push(`/dashboard/touren/${t.id}`)}
+                      className="flex items-center gap-2.5 cursor-pointer hover:bg-forest-100/30 rounded-xl p-1.5 -mx-1.5 transition-colors"
+                    >
+                      <div
+                        className="w-8 h-8 rounded-full text-white flex items-center justify-center font-display font-semibold text-xs shrink-0"
+                        style={{ background: t.status === "ALARM" ? "#ba1a1a" : color }}
+                      >
+                        {(t.user?.name ?? "?")[0]?.toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-forest-950 truncate">
+                          {t.user?.name}{t.userId === user?.id ? " (du)" : ""}
+                        </p>
+                        <p className={`text-[11px] ${status.cls}`}>
+                          {status.text}{t.userId === group.organizerId ? " · Organisator" : ""}
+                        </p>
+                      </div>
+                      {t.eta && (
+                        <span className="text-[11px] text-stone shrink-0">
+                          {new Date(t.eta).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {pendingInvites.length > 0 && (
+                <div className="pt-3 border-t border-forest-950/[0.06] flex items-start gap-2 text-xs text-stone">
+                  <UserPlus className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{pendingInvites.length} Einladung{pendingInvites.length !== 1 ? "en" : ""} ausstehend: {pendingInvites.map((i: any) => i.invitee?.name).join(", ")}</span>
+                </div>
+              )}
+            </div>
+
+            {group.startLat && group.startLng && (
+              <WeatherSummaryCard
+                lat={group.startLat}
+                lng={group.startLng}
+                activity={group.activity}
+                detailHref={`/dashboard/wetter?lat=${group.startLat}&lng=${group.startLng}&activity=${group.activity ?? ""}&label=${encodeURIComponent(group.routeName || "Gemeinsame Tour")}&back=${encodeURIComponent(`/dashboard/gruppen/${group.id}`)}`}
+              />
+            )}
+
+            <p className="text-[11px] text-stone flex items-start gap-1.5 px-1">
+              <Radio className="w-3 h-3 shrink-0 mt-0.5" /> Jede Person hat ihre eigene Rückkehrzeit und eigene Notfallkontakte — unabhängig erkannt.
             </p>
           </div>
-        )}
-
-        {hasJoined && myTour.status === "PLANNED" && actionError && (
-          <div className="bg-alarm-50 border border-alarm-100 text-alarm text-sm rounded-xl px-4 py-3 mb-6">{actionError}</div>
-        )}
-
-        {/* Participants list — each with their own independent status. */}
-        <div className="rounded-2xl bg-white border border-forest-950/[0.06] shadow-card p-6 mb-6">
-          <h3 className="font-display font-semibold text-sm text-forest-950 mb-4">Teilnehmer · {group.tours.length}</h3>
-          <div className="space-y-3">
-            {group.tours.map((t: any, i: number) => {
-              const status = statusLabel(t.status);
-              const color = PARTICIPANT_COLORS[i % PARTICIPANT_COLORS.length];
-              return (
-                <div
-                  key={t.id}
-                  onClick={() => router.push(`/dashboard/touren/${t.id}`)}
-                  className="flex items-center gap-3 cursor-pointer hover:bg-forest-100/30 rounded-xl p-2 -mx-2 transition-colors"
-                >
-                  <div
-                    className="w-9 h-9 rounded-full text-white flex items-center justify-center font-display font-semibold text-sm shrink-0"
-                    style={{ background: t.status === "ALARM" ? "#ba1a1a" : color }}
-                  >
-                    {(t.user?.name ?? "?")[0]?.toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-forest-950 truncate">
-                      {t.user?.name}{t.userId === user?.id ? " (du)" : ""}
-                      {t.userId === group.organizerId && <span className="text-[10px] text-forest-700 font-bold ml-1.5">ORGANISATOR</span>}
-                    </p>
-                    <p className={`text-xs ${status.cls}`}>{status.text}</p>
-                  </div>
-                  {t.eta && (
-                    <span className="text-xs text-stone flex items-center gap-1 shrink-0">
-                      <Clock className="w-3 h-3" />
-                      {new Date(t.eta).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {pendingInvites.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-forest-950/[0.06] flex items-center gap-2 text-xs text-stone">
-              <UserPlus className="w-3.5 h-3.5" />
-              {pendingInvites.length} Einladung{pendingInvites.length !== 1 ? "en" : ""} noch ausstehend
-              {pendingInvites.map((i: any) => ` · ${i.invitee?.name}`).join("")}
-            </div>
-          )}
         </div>
-
-        {/* Prep-phase coordination board */}
-        <div className="mb-6">
-          <GroupMessageBoard groupId={group.id} currentUserId={user?.id} />
-        </div>
-
-        <p className="text-xs text-stone flex items-center gap-1.5">
-          <Radio className="w-3 h-3" /> Jede Person hat ihre eigene Rückkehrzeit und eigene Notfallkontakte — eine Verspätung bei einer Person wird unabhängig von den anderen erkannt.
-        </p>
       </main>
     </div>
   );

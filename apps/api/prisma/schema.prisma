@@ -45,6 +45,7 @@ model User {
   organizedTourGroups TourGroup[]
   tourGroupInvites    TourGroupInvite[]
   tourGroupMessages   TourGroupMessage[]
+  tourGroupChecklistItems TourGroupChecklistItem[]
 }
 
 model EmergencyContact {
@@ -150,6 +151,7 @@ model TourGroup {
   tours         Tour[]
   invites       TourGroupInvite[]
   messages      TourGroupMessage[]
+  checklistItems TourGroupChecklistItem[]
 }
 
 // Lightweight prep-phase board: gear lists, logistics notes, last-minute
@@ -162,6 +164,20 @@ model TourGroupMessage {
   authorId  String
   author    User      @relation(fields: [authorId], references: [id])
   text      String
+  createdAt DateTime  @default(now())
+}
+
+// Simple shared "don't forget this" checklist for the prep phase — not a
+// "who brings what" assignment system, just a memory aid the group fills
+// together (first-aid kit, headlamps, permits, etc.).
+model TourGroupChecklistItem {
+  id        String    @id @default(uuid())
+  groupId   String
+  group     TourGroup @relation(fields: [groupId], references: [id])
+  text      String
+  done      Boolean   @default(false)
+  addedById String
+  addedBy   User      @relation(fields: [addedById], references: [id])
   createdAt DateTime  @default(now())
 }
 

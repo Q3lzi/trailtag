@@ -234,6 +234,73 @@ router.post('/:id/messages', requireAuth, async (req: Request, res: Response) =>
   res.status(201).json(message)
 })
 
+// GET /tour-groups/:id/checklist
+router.get('/:id/checklist', requireAuth, async (req: Request, res: Response) => {
+  const groupId = req.params.id as string
+  const items = await prisma.tourGroupChecklistItem.findMany({
+    where: { groupId },
+    include: { addedBy: { select: { id: true, name: true } } },
+    orderBy: { createdAt: 'asc' }
+  })
+  res.json(items)
+})
+
+// POST /tour-groups/:id/checklist — any participant or invitee can add an
+// item, since "did we remember the first-aid kit" is everyone's concern,
+// not just the organizer's.
+router.post('/:id/checklist', requireAuth, async (req: Request, res: Response) => {
+  const groupId = req.params.id as string
+  const { text } = req.body as { text: string }
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Text darf nicht leer sein' })
+
+  const item = await prisma.tourGroupChecklistItem.create({
+    data: { groupId, addedById: req.userId as string, text: text.trim().slice(0, 200) },
+    include: { addedBy: { select: { id: true, name: true } } }
+  })
+  res.status(201).json(item)
+})
+
+// PUT /tour-groups/:id/checklist/:itemId — toggle done state
+router.put('/:id/checklist/:itemId', requireAuth, async (req: Request, res: Response) => {
+  const { itemId } = req.params
+  const { done } = req.body as { done: boolean }
+  const item = await prisma.tourGroupChecklistItem.update({
+    where: { id: itemId as string },
+    data: { done: !!done },
+    include: { addedBy: { select: { id: true, name: true } } }
+  })
+  res.json(item)
+})
+
+// DELETE /tour-groups/:id/checklist/:itemId
+router.delete('/:id/checklist/:itemId', requireAuth, async (req: Request, res: Response) => {
+  const { itemId } = req.params
+  await prisma.tourGroupChecklistItem.delete({ where: { id: itemId as string } })
+  res.json({ success: true })
+})
+
+// POST /tour-groups/:id/waypoints — any participant can propose a waypoint
+// on the shared route (e.g. "let's meet at this junction", "water source
+// here") — visible to everyone immediately, not just organizer-controlled.
+router.post('/:id/waypoints', requireAuth, async (req: Request, res: Response) => {
+  const groupId = req.params.id as string
+  const { name, lat, lng } = req.body as { name?: string; lat: number; lng: number }
+  if (lat == null || lng == null) return res.status(400).json({ error: 'lat/lng erforderlich' })
+
+  const group = await prisma.tourGroup.findUnique({ where: { id: groupId } })
+  if (!group) return res.status(404).json({ error: 'Gruppe nicht gefunden' })
+
+  const author = await prisma.user.findUnique({ where: { id: req.userId as string }, select: { name: true } })
+  const existing = Array.isArray(group.waypoints) ? group.waypoints as any[] : []
+  const next = [...existing, { name: name || `Vorschlag von ${author?.name ?? 'Teilnehmer'}`, lat, lng, addedBy: req.userId }]
+
+  const updated = await prisma.tourGroup.update({
+    where: { id: groupId },
+    data: { waypoints: next as any }
+  })
+  res.json(updated)
+})
+
 // POST /tour-groups/:id/invites/:inviteId/decline
 router.post('/:id/invites/:inviteId/decline', requireAuth, async (req: Request, res: Response) => {
   const { inviteId } = req.params
