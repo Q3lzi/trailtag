@@ -327,7 +327,7 @@ const WAYPOINT_TYPES = ['meeting', 'water', 'viewpoint', 'hazard', 'rest', 'othe
 
 router.post('/:id/waypoints', requireAuth, async (req: Request, res: Response) => {
   const groupId = req.params.id as string
-  const { name, lat, lng, type, notes } = req.body as { name?: string; lat: number; lng: number; type?: string; notes?: string }
+  const { name, lat, lng, type, notes, day } = req.body as { name?: string; lat: number; lng: number; type?: string; notes?: string; day?: number }
   if (lat == null || lng == null) return res.status(400).json({ error: 'lat/lng erforderlich' })
 
   const group = await prisma.tourGroup.findUnique({ where: { id: groupId } })
@@ -340,6 +340,7 @@ router.post('/:id/waypoints', requireAuth, async (req: Request, res: Response) =
     name: name || `Punkt von ${author?.name ?? 'Teilnehmer'}`,
     type: WAYPOINT_TYPES.includes(type as any) ? type : 'other',
     notes: notes || null,
+    day: day ?? null,
     lat, lng,
     addedBy: req.userId,
     addedByName: author?.name ?? null,

@@ -134,6 +134,9 @@ export default function GroupRoutePoints({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-forest-950 truncate">{wp.name}</p>
+                    {wp.day != null && (
+                      <span className="text-[10px] font-bold text-forest-950 bg-forest-100 px-1.5 py-0.5 rounded-full shrink-0">Tag {wp.day}</span>
+                    )}
                     {km != null && <span className="text-[11px] text-forest-700 font-semibold shrink-0">bei km {km}</span>}
                   </div>
                   <p className="text-xs text-stone">{WAYPOINT_LABELS[wp.type] ?? "Wegpunkt"}{wp.addedByName ? ` · ${wp.addedByName}` : ""}</p>

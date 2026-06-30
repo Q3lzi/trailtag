@@ -11,6 +11,7 @@ import InteractivePlanningMap, { InteractivePlanningMapHandle } from "@/componen
 import GroupMap, { GroupParticipant } from "@/components/groups/GroupMap";
 import GroupMessageBoard from "@/components/groups/GroupMessageBoard";
 import GroupChecklist from "@/components/groups/GroupChecklist";
+import GroupStagesOverview from "@/components/groups/GroupStagesOverview";
 import AddPointModal from "@/components/groups/AddPointModal";
 import GroupRoutePoints from "@/components/groups/GroupRoutePoints";
 import WeatherSummaryCard from "@/components/weather/WeatherSummaryCard";
@@ -181,7 +182,7 @@ export default function TourGroupPage() {
     setPendingPoint({ lat, lng });
   }
 
-  async function handleSavePoint(data: { name: string; type: string; notes: string }) {
+  async function handleSavePoint(data: { name: string; type: string; notes: string; day?: number }) {
     if (!pendingPoint || !placementMode) return;
     const { lat, lng } = pendingPoint;
     setPendingPoint(null);
@@ -191,7 +192,7 @@ export default function TourGroupPage() {
       if (placementMode === "waypoint") {
         const updated = await apiFetch(
           `/tour-groups/${group.id}/waypoints`,
-          { method: "POST", body: JSON.stringify({ lat, lng, name: data.name, type: data.type, notes: data.notes }) },
+          { method: "POST", body: JSON.stringify({ lat, lng, name: data.name, type: data.type, notes: data.notes, day: data.day }) },
           token ?? undefined
         );
         setGroup((prev: any) => ({ ...prev, waypoints: updated.waypoints }));
@@ -340,6 +341,7 @@ export default function TourGroupPage() {
             {pendingPoint && placementMode && (
               <AddPointModal
                 kind={placementMode}
+                totalDays={(group.overnightStops?.length ?? 0) + 1}
                 onSave={handleSavePoint}
                 onCancel={() => { setPendingPoint(null); }}
               />
@@ -383,6 +385,12 @@ export default function TourGroupPage() {
                 <p className="text-sm text-forest-950/75 whitespace-pre-line">{group.notes}</p>
               </div>
             )}
+
+            <GroupStagesOverview
+              startAt={group.suggestedStartAt}
+              overnightStops={Array.isArray(group.overnightStops) ? group.overnightStops : []}
+              activity={group.activity}
+            />
 
             {/* Join panel — vehicle only; return time is shown above as a
                 fixed group preview, set for real at the moment of starting. */}

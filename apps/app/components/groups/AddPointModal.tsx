@@ -21,20 +21,26 @@ const OVERNIGHT_TYPES = [
 /**
  * Captures context for a point placed on the map — a bare pin tells no one
  * anything; "Wasserstelle bei km 8, ergiebig auch im Sommer" does. Shown
- * right after a map click, before the point is actually saved.
+ * right after a map click, before the point is actually saved. For
+ * multi-day tours, waypoints also get a day assignment so a flat list of
+ * points doesn't leave it ambiguous which stage a point belongs to.
  */
 export default function AddPointModal({
   kind,
+  totalDays,
   onSave,
   onCancel,
 }: {
   kind: "waypoint" | "overnight";
-  onSave: (data: { name: string; type: string; notes: string }) => void;
+  /** Number of days the tour spans — if >1, waypoints get a day picker. */
+  totalDays?: number;
+  onSave: (data: { name: string; type: string; notes: string; day?: number }) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
   const [type, setType] = useState(kind === "waypoint" ? "other" : "huette");
   const [notes, setNotes] = useState("");
+  const [day, setDay] = useState(1);
 
   return (
     <div className="fixed inset-0 bg-forest-950/40 backdrop-blur-sm flex items-center justify-center z-50 p-6" onClick={onCancel}>
@@ -100,11 +106,31 @@ export default function AddPointModal({
               className="w-full rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-700/30 resize-none"
             />
           </div>
+
+          {kind === "waypoint" && totalDays && totalDays > 1 && (
+            <div>
+              <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Gehört zu Tag</label>
+              <div className="flex gap-2 flex-wrap">
+                {Array.from({ length: totalDays }, (_, i) => i + 1).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDay(d)}
+                    className={`w-9 h-9 rounded-lg text-sm font-bold border transition-colors ${
+                      day === d ? "border-forest-700 bg-forest-100 text-forest-700" : "border-forest-950/15 text-forest-950/70"
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 mt-5">
           <button
-            onClick={() => onSave({ name, type, notes })}
+            onClick={() => onSave({ name, type, notes, day: totalDays && totalDays > 1 ? day : undefined })}
             className="flex-1 rounded-xl bg-forest-700 text-white py-2.5 text-sm font-semibold hover:bg-forest-600 transition-colors"
           >
             Speichern
