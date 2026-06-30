@@ -10,3 +10,9 @@ CREATE TABLE IF NOT EXISTS "TourGroupChecklistItem" (
     CONSTRAINT "TourGroupChecklistItem_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "TourGroup"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "TourGroupChecklistItem_addedById_fkey" FOREIGN KEY ("addedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
+
+-- Difficulty rating and organizer safety/equipment notes for the shared
+-- hike — was missing entirely, even though the solo wizard always
+-- collects these.
+ALTER TABLE "TourGroup" ADD COLUMN IF NOT EXISTS "difficulty" TEXT;
+ALTER TABLE "TourGroup" ADD COLUMN IF NOT EXISTS "notes" TEXT;

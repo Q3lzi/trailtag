@@ -357,7 +357,7 @@ export default function TourGroupPage() {
             />
 
             {group.distanceKm && (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
                   <p className="text-[11px] text-stone mb-0.5 flex items-center justify-center gap-1"><MapPin className="w-3 h-3" /> Distanz</p>
                   <p className="font-display text-base font-semibold text-forest-950">{group.distanceKm} km</p>
@@ -370,6 +370,17 @@ export default function TourGroupPage() {
                   <p className="text-[11px] text-stone mb-0.5 flex items-center justify-center gap-1"><Car className="w-3 h-3" /> Parkplatz</p>
                   <p className="font-display text-sm font-semibold text-forest-950 truncate">{group.parkingLocation || "—"}</p>
                 </div>
+                <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
+                  <p className="text-[11px] text-stone mb-0.5">Schwierigkeit</p>
+                  <p className="font-display text-sm font-semibold text-forest-950 truncate">{group.difficulty || "—"}</p>
+                </div>
+              </div>
+            )}
+
+            {group.notes && (
+              <div className="rounded-2xl bg-white border border-forest-950/[0.06] shadow-card p-5">
+                <h3 className="font-display font-semibold text-sm text-forest-950 mb-2">Notizen vom Organisator</h3>
+                <p className="text-sm text-forest-950/75 whitespace-pre-line">{group.notes}</p>
               </div>
             )}
 

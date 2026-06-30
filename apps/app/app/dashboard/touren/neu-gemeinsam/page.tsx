@@ -7,7 +7,7 @@ import { apiFetch, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import Sidebar from "@/components/Sidebar";
 import InteractivePlanningMap from "@/components/InteractivePlanningMap";
-import { ACTIVITIES } from "@/components/create-tour/types";
+import { ACTIVITIES, SAC_LEVELS, KLETTERSTEIG_GRADES, MTB_SCALES, AVALANCHE_RISKS } from "@/components/create-tour/types";
 import {
   ArrowLeft, Upload, CheckCircle2, X, Users, MapPin, TrendingUp, TrendingDown,
   Clock, ParkingSquare, Loader2, Play,
@@ -46,6 +46,8 @@ export default function NewGroupTourPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activity, setActivity] = useState("");
+  const [difficulty, setDifficulty] = useState("");
+  const [groupNotes, setGroupNotes] = useState("");
   const [routeName, setRouteName] = useState("");
   const [gpxData, setGpxData] = useState<any | null>(null);
   const [gpxRawContent, setGpxRawContent] = useState<string | null>(null);
@@ -162,6 +164,8 @@ export default function NewGroupTourPage() {
             parkingLat: parking.lat,
             parkingLng: parking.lng,
             waypoints: gpxData?.waypoints ?? null,
+            difficulty: difficulty || null,
+            notes: groupNotes || null,
           }),
         },
         token ?? undefined
@@ -314,6 +318,87 @@ export default function NewGroupTourPage() {
               )}
             </>
           )}
+        </div>
+
+        {/* Activity-specific difficulty — same logic as the solo wizard:
+            only the field that matches the chosen activity is shown. */}
+        {activity === "WANDERN" || activity === "BERGTOUR" || activity === "SKITOUR" ? (
+          <div className="mb-6">
+            <label className="block text-xs font-semibold text-forest-950/70 mb-2">Schwierigkeit (SAC-Skala)</label>
+            <div className="flex gap-2 flex-wrap">
+              {SAC_LEVELS.map((s) => (
+                <button
+                  key={s.key} type="button" onClick={() => setDifficulty(s.key)} title={s.desc}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium border transition-colors ${
+                    difficulty === s.key ? "border-forest-700 bg-forest-100 text-forest-700" : "border-forest-950/15 text-forest-950/70"
+                  }`}
+                >
+                  {s.key}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : activity === "KLETTERSTEIG" ? (
+          <div className="mb-6">
+            <label className="block text-xs font-semibold text-forest-950/70 mb-2">Klettersteig-Schwierigkeit</label>
+            <div className="flex gap-2">
+              {KLETTERSTEIG_GRADES.map((g) => (
+                <button
+                  key={g} type="button" onClick={() => setDifficulty(g)}
+                  className={`w-10 h-10 rounded-lg text-sm font-bold border transition-colors ${
+                    difficulty === g ? "border-forest-700 bg-forest-100 text-forest-700" : "border-forest-950/15 text-forest-950/70"
+                  }`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : activity === "MOUNTAINBIKE" ? (
+          <div className="mb-6">
+            <label className="block text-xs font-semibold text-forest-950/70 mb-2">MTB-Schwierigkeit</label>
+            <div className="flex gap-2">
+              {MTB_SCALES.map((s) => (
+                <button
+                  key={s} type="button" onClick={() => setDifficulty(s)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    difficulty === s ? "border-forest-700 bg-forest-100 text-forest-700" : "border-forest-950/15 text-forest-950/70"
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {activity === "SKITOUR" && (
+          <div className="mb-6">
+            <label className="block text-xs font-semibold text-forest-950/70 mb-2">Lawinengefahr</label>
+            <div className="flex gap-2">
+              {AVALANCHE_RISKS.map((r) => (
+                <button
+                  key={r.key} type="button" onClick={() => setDifficulty(`${difficulty ? difficulty + " · " : ""}Lawine ${r.key}`)} title={r.desc}
+                  className="w-10 h-10 rounded-lg text-sm font-bold border border-forest-950/15 text-forest-950/70 hover:border-forest-700/40"
+                >
+                  {r.key}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Organizer safety/equipment notes — what to bring, known
+            hazards, anything not captured by a waypoint pin. */}
+        <div className="mb-6">
+          <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Notizen für die Gruppe</label>
+          <textarea
+            value={groupNotes}
+            onChange={(e) => setGroupNotes(e.target.value)}
+            rows={3}
+            placeholder="z. B. Ausrüstung, bekannte Gefahrenstellen, besondere Hinweise…"
+            className="w-full rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-700/30 resize-none"
+          />
         </div>
 
         {/* Suggested return time */}

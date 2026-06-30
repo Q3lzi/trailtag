@@ -14,11 +14,13 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     routeName, activity, inviteeIds, startMode, suggestedEta, suggestedStartAt,
     startLat, startLng, gpxTrack, waypoints, overnightStops,
     parkingLocation, parkingLat, parkingLng, distanceKm, elevationUp,
+    difficulty, notes,
   } = req.body as {
     routeName?: string; activity?: string; inviteeIds?: string[];
     startMode?: 'EACH_OWN' | 'ORGANIZER_STARTS_ALL'; suggestedEta?: string; suggestedStartAt?: string;
     startLat?: number; startLng?: number; gpxTrack?: any; waypoints?: any; overnightStops?: any;
     parkingLocation?: string; parkingLat?: number; parkingLng?: number; distanceKm?: number; elevationUp?: number;
+    difficulty?: string; notes?: string;
   }
 
   const group = await prisma.tourGroup.create({
@@ -35,6 +37,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       waypoints: waypoints ?? null,
       overnightStops: overnightStops ?? null,
       parkingLocation: parkingLocation || null,
+      difficulty: difficulty || null,
+      notes: notes || null,
       parkingLat: parkingLat ?? null,
       parkingLng: parkingLng ?? null,
       distanceKm: distanceKm ?? null,
@@ -105,6 +109,33 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   }
 
   res.json(group)
+})
+
+// PUT /tour-groups/:id — organizer-only, lets difficulty/notes (and other
+// route metadata) be added or corrected after creation, since planning a
+// shared hike isn't always finished in one sitting.
+router.put('/:id', requireAuth, async (req: Request, res: Response) => {
+  const id = req.params.id as string
+  const group = await prisma.tourGroup.findFirst({ where: { id, organizerId: req.userId as string } })
+  if (!group) return res.status(404).json({ error: 'Gruppe nicht gefunden oder keine Berechtigung' })
+
+  const { routeName, difficulty, notes, parkingLocation, suggestedEta, suggestedStartAt } = req.body as {
+    routeName?: string; difficulty?: string; notes?: string; parkingLocation?: string;
+    suggestedEta?: string; suggestedStartAt?: string;
+  }
+
+  const updated = await prisma.tourGroup.update({
+    where: { id },
+    data: {
+      ...(routeName !== undefined && { routeName: routeName || null }),
+      ...(difficulty !== undefined && { difficulty: difficulty || null }),
+      ...(notes !== undefined && { notes: notes || null }),
+      ...(parkingLocation !== undefined && { parkingLocation: parkingLocation || null }),
+      ...(suggestedEta !== undefined && { suggestedEta: suggestedEta ? new Date(suggestedEta) : null }),
+      ...(suggestedStartAt !== undefined && { suggestedStartAt: suggestedStartAt ? new Date(suggestedStartAt) : null }),
+    }
+  })
+  res.json(updated)
 })
 
 // GET /tour-groups — groups the user organizes, participates in, or is invited to

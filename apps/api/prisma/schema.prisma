@@ -146,6 +146,14 @@ model TourGroup {
   parkingLng    Float?
   distanceKm    Float?
   elevationUp   Int?
+  // Activity-specific difficulty rating — SAC level for hiking/ski tours,
+  // via gradata for klettersteig, MTB scale, or avalanche risk depending
+  // on activity type. Free text so it covers whichever scale applies
+  // without needing a separate column per activity.
+  difficulty    String?
+  // Organizer's safety/equipment notes for the whole group — what to
+  // bring, known hazards, anything that isn't captured by a waypoint pin.
+  notes         String?
   startedAt     DateTime?
   createdAt     DateTime            @default(now())
   tours         Tour[]
