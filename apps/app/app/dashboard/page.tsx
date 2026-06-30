@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const [vehicle, setVehicle] = useState<any>(null);
   const [emergencyContacts, setEmergencyContacts] = useState<any[]>([]);
   const [friendsOnTour, setFriendsOnTour] = useState<any[]>([]);
+  const [pendingTourGroups, setPendingTourGroups] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [, forceTick] = useState(0); // re-render every minute so countdowns stay live
 
@@ -64,15 +65,19 @@ export default function DashboardPage() {
   async function loadData() {
     try {
       const token = getToken();
-      const [toursData, friendsData, profileData] = await Promise.all([
+      const [toursData, friendsData, profileData, tourGroupsData] = await Promise.all([
         apiFetch("/tours", {}, token ?? undefined),
         apiFetch("/friends", {}, token ?? undefined).catch(() => ({ friends: [] })),
         apiFetch("/profile", {}, token ?? undefined).catch(() => ({})),
+        apiFetch("/tour-groups", {}, token ?? undefined).catch(() => []),
       ]);
       setTours(toursData);
       const active = toursData.find((t: any) => t.status === "ACTIVE" || t.status === "ALARM");
       setEmergencyContacts(profileData.emergencyContacts ?? []);
       setFriendsOnTour((friendsData.friends ?? []).filter((f: any) => f.activeTour));
+      setPendingTourGroups(
+        (tourGroupsData ?? []).filter((g: any) => g.invites?.some((i: any) => i.status === "PENDING" && i.inviteeId === user?.id))
+      );
 
       if (active) {
         // The list endpoint doesn't include the full gpxTrack/waypoints —
@@ -128,6 +133,28 @@ export default function DashboardPage() {
             </button>
           )}
         </div>
+
+        {/* Pending shared-hike invites — surfaced here too, not only under
+            "Freunde", since it's exactly the kind of thing someone should
+            see on first landing rather than having to know to look elsewhere. */}
+        {!dataLoading && pendingTourGroups.length > 0 && (
+          <div className="mb-6 rounded-2xl bg-forest-100/60 border border-forest-700/15 p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Users className="w-4 h-4 text-forest-700 shrink-0" />
+              <p className="text-sm text-forest-950/80">
+                {pendingTourGroups.length === 1
+                  ? `${pendingTourGroups[0].organizer?.name} hat dich zu einer gemeinsamen Tour eingeladen.`
+                  : `${pendingTourGroups.length} Einladungen zu gemeinsamen Touren.`}
+              </p>
+            </div>
+            <button
+              onClick={() => router.push(pendingTourGroups.length === 1 ? `/dashboard/gruppen/${pendingTourGroups[0].id}` : "/dashboard/freunde")}
+              className="text-sm font-semibold text-forest-700 hover:underline shrink-0"
+            >
+              Ansehen
+            </button>
+          </div>
+        )}
 
         {dataLoading ? (
           <div className="text-stone text-sm">Lädt…</div>

@@ -63,7 +63,7 @@ export default function PendingTourGroupInvites({
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => router.push(`/dashboard/touren/neu?joinGroup=${g.id}`)}
+                  onClick={() => router.push(`/dashboard/gruppen/${g.id}`)}
                   className="flex items-center gap-1.5 rounded-lg bg-forest-700 text-white px-3 py-1.5 text-xs font-semibold hover:bg-forest-600 transition-colors"
                 >
                   <Mountain className="w-3 h-3" /> Beitreten

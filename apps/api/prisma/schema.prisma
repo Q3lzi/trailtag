@@ -44,6 +44,7 @@ model User {
   emergencyContacts  EmergencyContact[]
   organizedTourGroups TourGroup[]
   tourGroupInvites    TourGroupInvite[]
+  tourGroupMessages   TourGroupMessage[]
 }
 
 model EmergencyContact {
@@ -120,14 +121,47 @@ enum TourStatus {
 // group members being fine. The group only ties the individual tours
 // together for shared route context and mutual live visibility.
 model TourGroup {
-  id           String              @id @default(uuid())
-  organizerId  String
-  organizer    User                @relation(fields: [organizerId], references: [id])
-  routeName    String?
-  activity     ActivityType?
-  createdAt    DateTime            @default(now())
-  tours        Tour[]
-  invites      TourGroupInvite[]
+  id            String              @id @default(uuid())
+  organizerId   String
+  organizer     User                @relation(fields: [organizerId], references: [id])
+  routeName     String?
+  activity      ActivityType?
+  // ORGANIZER_STARTS_ALL: the organizer starts every participant's tour at
+  // once. EACH_OWN: every participant starts their own tour individually
+  // (e.g. arriving at the trailhead at slightly different times). Decided
+  // once at group creation — changing it mid-prep would be confusing.
+  startMode     String              @default("EACH_OWN")
+  // Organizer's suggested return time — a starting point participants can
+  // accept as-is or adjust to their own pace, not a shared safety timer.
+  suggestedEta  DateTime?
+  startLat      Float?
+  startLng      Float?
+  gpxTrack      Json?
+  waypoints     Json?
+  overnightStops Json?
+  parkingLocation String?
+  parkingLat    Float?
+  parkingLng    Float?
+  distanceKm    Float?
+  elevationUp   Int?
+  startedAt     DateTime?
+  createdAt     DateTime            @default(now())
+  tours         Tour[]
+  invites       TourGroupInvite[]
+  messages      TourGroupMessage[]
+}
+
+// Lightweight prep-phase board: gear lists, logistics notes, last-minute
+// updates from the organizer — exists only to coordinate before the hike
+// starts, not a general chat feature.
+model TourGroupMessage {
+  id        String    @id @default(uuid())
+  groupId   String
+  group     TourGroup @relation(fields: [groupId], references: [id])
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id])
+  text      String
+  createdAt DateTime  @default(now())
 }
 
 // Pending/accepted/declined invitations to join a TourGroup — separate
