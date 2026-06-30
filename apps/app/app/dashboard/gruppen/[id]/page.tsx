@@ -7,7 +7,7 @@ import { apiFetch, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { useRealtimeConnection } from "@/lib/realtime";
 import Sidebar from "@/components/Sidebar";
-import InteractivePlanningMap from "@/components/InteractivePlanningMap";
+import InteractivePlanningMap, { InteractivePlanningMapHandle } from "@/components/InteractivePlanningMap";
 import GroupMap, { GroupParticipant } from "@/components/groups/GroupMap";
 import GroupMessageBoard from "@/components/groups/GroupMessageBoard";
 import GroupChecklist from "@/components/groups/GroupChecklist";
@@ -69,6 +69,7 @@ export default function TourGroupPage() {
   const [startEta, setStartEta] = useState("17:00");
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mapRef = useRef<InteractivePlanningMapHandle>(null);
 
   useEffect(() => {
     if (!authLoading && user) load();
@@ -320,6 +321,7 @@ export default function TourGroupPage() {
                   <GroupMap participants={participants} />
                 ) : (
                   <InteractivePlanningMap
+                    ref={mapRef}
                     routePoints={gpxPoints}
                     startLat={group.startLat}
                     startLng={group.startLng}
@@ -347,9 +349,11 @@ export default function TourGroupPage() {
               groupId={group.id}
               waypoints={groupWaypoints}
               overnightStops={Array.isArray(group.overnightStops) ? group.overnightStops : []}
+              routePoints={gpxPoints}
               currentUserId={user?.id}
               isOrganizer={isOrganizer}
               onChange={(patch) => setGroup((prev: any) => ({ ...prev, ...patch }))}
+              onJumpToMap={(lat, lng) => mapRef.current?.flyTo(lat, lng)}
             />
 
             {group.distanceKm && (
