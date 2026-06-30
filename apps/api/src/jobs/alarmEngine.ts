@@ -61,7 +61,15 @@ export function startAlarmEngine() {
       if (diffMin >= 60) {
         await triggerStage(tour.id, 3, async () => {
           console.log(`🔴 STUFE 3: ${tour.user.name} — SMS wird gesendet!`)
-          const contacts = tour.user.emergencyContacts ?? []
+          const allContacts = tour.user.emergencyContacts ?? []
+          // If this tour has a specific selection (1-3 contacts, ordered),
+          // use exactly those — not every contact on file is relevant to
+          // every hike. Falls back to all contacts for tours created
+          // before this field existed.
+          const selectedIds = Array.isArray((tour as any).emergencyContactIds) ? (tour as any).emergencyContactIds as string[] : null
+          const contacts = selectedIds && selectedIds.length > 0
+            ? selectedIds.map((id) => allContacts.find((c: any) => c.id === id)).filter(Boolean)
+            : allContacts
           if (contacts.length > 0) {
             for (const c of contacts) {
               if (c.phone) await sendSms(c.phone, `🚨 TRAILTAG ALARM: ${tour.user.name} ist seit über 1 Stunde überfällig. Bitte sofort melden oder Rettung kontaktieren!`)

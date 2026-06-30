@@ -26,6 +26,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     startLat,
     startLng,
     vehicleId,
+    emergencyContactIds,
   } = req.body
 
   if (!activity) return res.status(400).json({ error: 'Aktivität fehlt' })
@@ -61,6 +62,7 @@ await prisma.tour.updateMany({
       lastLat: startLat ? Number(startLat) : null,
       lastLng: startLng ? Number(startLng) : null,
       vehicleId: vehicleId || null,
+      emergencyContactIds: Array.isArray(emergencyContactIds) ? emergencyContactIds.slice(0, 3) : null,
       status: 'PLANNED',
     }
   })
@@ -80,7 +82,7 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
   const {
     activity, routeName, difficulty, persons, companions, distanceKm, elevationUp,
     bufferMinutes, parkingLocation, parkingLat, parkingLng, notes, overnightStops,
-    startLat, startLng, vehicleId, waypoints,
+    startLat, startLng, vehicleId, waypoints, emergencyContactIds,
   } = req.body
 
   const updated = await prisma.tour.update({
@@ -103,6 +105,7 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
       ...(startLat !== undefined && { startLat: startLat != null ? Number(startLat) : null, lastLat: startLat != null ? Number(startLat) : null }),
       ...(startLng !== undefined && { startLng: startLng != null ? Number(startLng) : null, lastLng: startLng != null ? Number(startLng) : null }),
       ...(vehicleId !== undefined && { vehicleId: vehicleId || null }),
+      ...(emergencyContactIds !== undefined && { emergencyContactIds: Array.isArray(emergencyContactIds) ? emergencyContactIds.slice(0, 3) : null }),
     }
   })
 

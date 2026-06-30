@@ -46,6 +46,34 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     }
   })
 
+  // The organizer is a participant by definition — creating the group
+  // immediately creates their own Tour too, rather than making them
+  // separately "join" a hike they just planned. They still see the same
+  // "complete your details" prompt for vehicle/emergency contacts on the
+  // group page, since those genuinely need filling in either way.
+  await prisma.tour.create({
+    data: {
+      userId: req.userId as string,
+      groupId: group.id,
+      activity: (activity as any) || 'ANDERE',
+      routeName: routeName || null,
+      distanceKm: distanceKm ?? null,
+      elevationUp: elevationUp ?? null,
+      parkingLocation: parkingLocation || null,
+      parkingLat: parkingLat ?? null,
+      parkingLng: parkingLng ?? null,
+      waypoints: waypoints ?? null,
+      overnightStops: overnightStops ?? null,
+      gpxTrack: gpxTrack ?? null,
+      startLat: startLat ?? null,
+      startLng: startLng ?? null,
+      lastLat: startLat ?? null,
+      lastLng: startLng ?? null,
+      eta: suggestedEta ? new Date(suggestedEta) : null,
+      status: 'PLANNED',
+    }
+  })
+
   if (Array.isArray(inviteeIds) && inviteeIds.length > 0) {
     // Only invite people who are actually friends — prevents inviting
     // arbitrary user ids guessed/scraped from elsewhere.
@@ -170,8 +198,8 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 // on the group.
 router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
   const groupId = req.params.id as string
-  const { eta, vehicleId, startLat, startLng } = req.body as {
-    eta?: string; vehicleId?: string | null; startLat?: number; startLng?: number;
+  const { eta, vehicleId, startLat, startLng, emergencyContactIds } = req.body as {
+    eta?: string; vehicleId?: string | null; startLat?: number; startLng?: number; emergencyContactIds?: string[];
   }
 
   const group = await prisma.tourGroup.findUnique({ where: { id: groupId } })
@@ -199,6 +227,7 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
       lastLat: startLat ?? group.startLat,
       lastLng: startLng ?? group.startLng,
       vehicleId: vehicleId ?? null,
+      emergencyContactIds: Array.isArray(emergencyContactIds) ? emergencyContactIds.slice(0, 3) : null,
       eta: eta ? new Date(eta) : group.suggestedEta,
     }
   })

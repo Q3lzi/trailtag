@@ -89,6 +89,13 @@ model Tour {
   parkingLng      Float?
   waypoints       Json?
   notes           String?
+  // Ordered list of EmergencyContact ids selected for THIS tour (max 3) —
+  // having 10 contacts on file doesn't mean all 10 should be called for
+  // every hike. First entry is contacted first; if they can't be reached,
+  // the alarm engine falls through to the next. Null/empty means "use the
+  // account's default priority order" (backward compatible with existing
+  // tours created before this field existed).
+  emergencyContactIds Json?
   groupId         String?
   group           TourGroup?   @relation(fields: [groupId], references: [id])
   status          TourStatus   @default(PLANNED)
