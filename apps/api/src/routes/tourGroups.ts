@@ -11,12 +11,12 @@ const router = express.Router()
 // suggested return time participants can accept or adjust.
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   const {
-    routeName, activity, inviteeIds, startMode, suggestedEta,
+    routeName, activity, inviteeIds, startMode, suggestedEta, suggestedStartAt,
     startLat, startLng, gpxTrack, waypoints, overnightStops,
     parkingLocation, parkingLat, parkingLng, distanceKm, elevationUp,
   } = req.body as {
     routeName?: string; activity?: string; inviteeIds?: string[];
-    startMode?: 'EACH_OWN' | 'ORGANIZER_STARTS_ALL'; suggestedEta?: string;
+    startMode?: 'EACH_OWN' | 'ORGANIZER_STARTS_ALL'; suggestedEta?: string; suggestedStartAt?: string;
     startLat?: number; startLng?: number; gpxTrack?: any; waypoints?: any; overnightStops?: any;
     parkingLocation?: string; parkingLat?: number; parkingLng?: number; distanceKm?: number; elevationUp?: number;
   }
@@ -28,6 +28,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       activity: (activity as any) || null,
       startMode: startMode === 'ORGANIZER_STARTS_ALL' ? 'ORGANIZER_STARTS_ALL' : 'EACH_OWN',
       suggestedEta: suggestedEta ? new Date(suggestedEta) : null,
+      suggestedStartAt: suggestedStartAt ? new Date(suggestedStartAt) : null,
       startLat: startLat ?? null,
       startLng: startLng ?? null,
       gpxTrack: gpxTrack ?? null,

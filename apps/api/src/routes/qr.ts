@@ -36,9 +36,30 @@ router.get('/:token', async (req: Request, res: Response) => {
   })
 
   if (!tour) return res.send(renderGreen(vehicle))
-  if (tour.status === 'ALARM') return res.send(render(vehicle, tour, 'alarm'))
+
+  // If this tour is part of a shared hike, load the other participants —
+  // a rescuer needs to know there are other real people (with their own
+  // contact details, not just a text note) out there too, since finding
+  // one person might mean others are nearby and reachable, or also overdue.
+  let groupMates: any[] = []
+  if (tour.groupId) {
+    groupMates = await prisma.tour.findMany({
+      where: { groupId: tour.groupId, userId: { not: tour.userId } },
+      include: {
+        user: {
+          select: {
+            name: true, phone: true,
+            privacyShowPhone: true,
+            emergencyContacts: { orderBy: [{ isPrimary: 'desc' as const }, { priority: 'asc' as const }], take: 1 },
+          }
+        }
+      }
+    })
+  }
+
+  if (tour.status === 'ALARM') return res.send(render(vehicle, tour, 'alarm', groupMates))
   const etaMs = tour.eta ? new Date(tour.eta).getTime() : null
-  return (!etaMs || etaMs > Date.now()) ? res.send(render(vehicle, tour, 'active')) : res.send(render(vehicle, tour, 'alarm'))
+  return (!etaMs || etaMs > Date.now()) ? res.send(render(vehicle, tour, 'active', groupMates)) : res.send(render(vehicle, tour, 'alarm', groupMates))
 })
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
@@ -161,6 +182,36 @@ function buildWandererCard(user: any, isAlarm: boolean, priv?: any) {
       </div>
     </div>
   </div>`
+}
+
+// Shows the other real participants of a shared hike — distinct from
+// buildCompanions (a free-text note) because these are actual accounts
+// with their own contact details and live status, directly relevant to a
+// rescuer: other people may be nearby, reachable, or also overdue.
+function buildGroupMatesCard(groupMates: any[], isAlarm: boolean): string {
+  if (!groupMates?.length) return ''
+  const accent = isAlarm ? '#ba1a1a' : '#2c694e'
+  return card(
+    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${accent}" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+     <span style="font-size:11px;font-weight:700;color:#747871;letter-spacing:1px;text-transform:uppercase;">Begleitet von ${groupMates.length} Person${groupMates.length !== 1 ? 'en' : ''}</span>`,
+    groupMates.map((t: any, i: number) => {
+      const statusLabel = t.status === 'ALARM' ? 'Ebenfalls überfällig' : t.status === 'COMPLETED' ? 'Bereits zurück' : 'Unterwegs'
+      const statusColor = t.status === 'ALARM' ? '#ba1a1a' : t.status === 'COMPLETED' ? '#747871' : '#2c694e'
+      const showPhone = t.user?.privacyShowPhone !== false && t.user?.phone
+      const primaryContact = t.user?.emergencyContacts?.[0]
+      return `<div style="padding:10px 16px;${i > 0 ? 'border-top:1px solid #f3f4f5;' : ''}display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div>
+          <p style="font-size:13px;font-weight:700;color:#061907;">${e(t.user?.name || 'Person ' + (i + 1))}</p>
+          <p style="font-size:11px;font-weight:600;color:${statusColor};">${statusLabel}</p>
+          ${primaryContact ? `<p style="font-size:10px;color:#747871;margin-top:2px;">Notfallkontakt: ${e(primaryContact.name)}</p>` : ''}
+        </div>
+        ${showPhone ? `<a href="tel:${e(t.user.phone)}" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#f3f4f5;flex-shrink:0;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#061907" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.86a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        </a>` : ''}
+      </div>`
+    }).join(''),
+    { accent, nopad: true }
+  )
 }
 
 function buildCompanions(companions: any[]): string {
@@ -356,7 +407,7 @@ function buildVehicleCard(vehicle: any, compact: boolean) {
 }
 
 // ── RENDER ─────────────────────────────────────────────────────────────────────
-function render(vehicle: any, tour: any, state: 'active'|'alarm') {
+function render(vehicle: any, tour: any, state: 'active'|'alarm', groupMates: any[] = []) {
   const isAlarm = state === 'alarm'
   const user = tour.user
   const contacts: any[] = user?.emergencyContacts ?? []
@@ -390,7 +441,8 @@ function render(vehicle: any, tour: any, state: 'active'|'alarm') {
   let body = ''
   if (isAlarm) {
     const companionsBlock = (tour.companions?.length > 0) ? buildCompanions(tour.companions) : ''
-    body = overdue + callBtns + buildWandererCard(user, true) + companionsBlock + buildVehicleCard(vehicle, false) + buildGpsCard(locs, lastLoc) + buildTourCard(tour, false, true) + buildMedCard(user) + buildContactsCard(contacts)
+    const groupBlock = buildGroupMatesCard(groupMates, true)
+    body = overdue + callBtns + groupBlock + buildWandererCard(user, true) + companionsBlock + buildVehicleCard(vehicle, false) + buildGpsCard(locs, lastLoc) + buildTourCard(tour, false, true) + buildMedCard(user) + buildContactsCard(contacts)
   } else {
     // Apply user privacy settings for active tour
     const priv = {
@@ -402,6 +454,7 @@ function render(vehicle: any, tour: any, state: 'active'|'alarm') {
       notes:    user?.privacyShowNotes    === true,
     }
     let activeBlocks = buildVehicleCard(vehicle, false) + buildTourCard(tour, false, false, priv)
+    activeBlocks += buildGroupMatesCard(groupMates, false)
     if (priv.name || priv.phone) activeBlocks = buildWandererCard(user, false, priv) + activeBlocks
     if (priv.contacts) activeBlocks += buildContactsCard(contacts)
     if (priv.gps && lastLoc) activeBlocks += buildGpsCard(locs, lastLoc)

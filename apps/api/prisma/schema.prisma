@@ -133,6 +133,7 @@ model TourGroup {
   startMode     String              @default("EACH_OWN")
   // Organizer's suggested return time — a starting point participants can
   // accept as-is or adjust to their own pace, not a shared safety timer.
+  suggestedStartAt DateTime?
   suggestedEta  DateTime?
   startLat      Float?
   startLng      Float?

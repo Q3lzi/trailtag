@@ -16,6 +16,22 @@ import {
 function toTimeInputValue(d: Date) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
+function toDateInputValue(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function mergeDateTime(dateStr: string, timeStr: string, fallback: Date) {
+  const [y, mo, da] = dateStr.split("-").map(Number);
+  const [h, mi] = timeStr.split(":").map(Number);
+  const next = new Date(fallback);
+  if (y && mo && da) next.setFullYear(y, mo - 1, da);
+  if (!isNaN(h) && !isNaN(mi)) next.setHours(h, mi, 0, 0);
+  return next;
+}
+function addDays(d: Date, days: number) {
+  const next = new Date(d);
+  next.setDate(next.getDate() + days);
+  return next;
+}
 
 /**
  * Standalone flow for organizing a shared hike — deliberately separate
@@ -39,14 +55,49 @@ export default function NewGroupTourPage() {
   const [friends, setFriends] = useState<any[]>([]);
   const [inviteeIds, setInviteeIds] = useState<string[]>([]);
   const [startMode, setStartMode] = useState<"EACH_OWN" | "ORGANIZER_STARTS_ALL">("EACH_OWN");
-  const [suggestedReturnTime, setSuggestedReturnTime] = useState(() => {
-    const d = new Date(Date.now() + 6 * 60 * 60 * 1000);
-    return toTimeInputValue(d);
+
+  const [startAt, setStartAt] = useState(() => {
+    const d = new Date();
+    d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
+    return d;
   });
+  const [multiDay, setMultiDay] = useState(false);
+  const [returnDays, setReturnDays] = useState(2);
+  const [suggestedEta, setSuggestedEta] = useState(() => new Date(Date.now() + 6 * 60 * 60 * 1000));
+
   const [dataLoading, setDataLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [gpxError, setGpxError] = useState("");
   const [error, setError] = useState("");
+
+  function handleStartChange(next: Date) {
+    const offsetDays = multiDay ? Math.max(1, returnDays - 1) : 0;
+    const targetDate = addDays(next, offsetDays);
+    const alignedEta = new Date(targetDate);
+    alignedEta.setHours(suggestedEta.getHours(), suggestedEta.getMinutes(), 0, 0);
+    setStartAt(next);
+    setSuggestedEta(alignedEta);
+  }
+
+  function handleMultiDayToggle(checked: boolean) {
+    const days = checked ? Math.max(2, returnDays) : 1;
+    setMultiDay(checked);
+    setReturnDays(days);
+    const offsetDays = checked ? Math.max(1, days - 1) : 0;
+    const targetDate = addDays(startAt, offsetDays);
+    const aligned = new Date(targetDate);
+    aligned.setHours(suggestedEta.getHours(), suggestedEta.getMinutes(), 0, 0);
+    setSuggestedEta(aligned);
+  }
+
+  function handleReturnDaysChange(days: number) {
+    const clamped = Math.max(2, Math.min(14, days || 2));
+    setReturnDays(clamped);
+    const targetDate = addDays(startAt, clamped - 1);
+    const aligned = new Date(targetDate);
+    aligned.setHours(suggestedEta.getHours(), suggestedEta.getMinutes(), 0, 0);
+    setSuggestedEta(aligned);
+  }
 
   useEffect(() => {
     if (!authLoading && user) load();
@@ -91,10 +142,6 @@ export default function NewGroupTourPage() {
     setError("");
     try {
       const token = getToken();
-      const [h, m] = suggestedReturnTime.split(":").map(Number);
-      const suggestedEta = new Date();
-      suggestedEta.setHours(h, m, 0, 0);
-      if (suggestedEta.getTime() < Date.now()) suggestedEta.setDate(suggestedEta.getDate() + 1);
 
       const group = await apiFetch(
         "/tour-groups",
@@ -105,6 +152,7 @@ export default function NewGroupTourPage() {
             activity,
             inviteeIds,
             startMode,
+            suggestedStartAt: startAt.toISOString(),
             suggestedEta: suggestedEta.toISOString(),
             startLat: gpxData?.startLat ?? null,
             startLng: gpxData?.startLng ?? null,
@@ -269,17 +317,68 @@ export default function NewGroupTourPage() {
         </div>
 
         {/* Suggested return time */}
+        <div className="mb-3">
+          <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Geplanter Start</label>
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="date"
+              value={toDateInputValue(startAt)}
+              onChange={(e) => handleStartChange(mergeDateTime(e.target.value, toTimeInputValue(startAt), startAt))}
+              className="rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-700/30"
+            />
+            <input
+              type="time"
+              value={toTimeInputValue(startAt)}
+              onChange={(e) => handleStartChange(mergeDateTime(toDateInputValue(startAt), e.target.value, startAt))}
+              className="rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-700/30"
+            />
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2.5 mb-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={multiDay}
+            onChange={(e) => handleMultiDayToggle(e.target.checked)}
+            className="w-4 h-4 rounded accent-forest-700"
+          />
+          <span className="text-sm text-forest-950/80">Mehrtägige Tour mit Übernachtung</span>
+        </label>
+
+        {multiDay && (
+          <div className="mb-3">
+            <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Anzahl Tage</label>
+            <input
+              type="number"
+              min={2}
+              max={14}
+              value={returnDays}
+              onChange={(e) => handleReturnDaysChange(Number(e.target.value))}
+              className="w-24 rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-700/30"
+            />
+          </div>
+        )}
+
         <div className="mb-6">
           <label className="block text-xs font-semibold text-forest-950/70 mb-1.5 flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5" /> Vorgeschlagene Rückkehr
           </label>
-          <input
-            type="time"
-            value={suggestedReturnTime}
-            onChange={(e) => setSuggestedReturnTime(e.target.value)}
-            className="rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-700/30"
-          />
-          <p className="text-xs text-stone mt-1.5">Jeder Teilnehmer kann diese Zeit beim Beitreten für sich übernehmen oder anpassen.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="date"
+              value={toDateInputValue(suggestedEta)}
+              onChange={(e) => setSuggestedEta(mergeDateTime(e.target.value, toTimeInputValue(suggestedEta), suggestedEta))}
+              disabled={multiDay}
+              className="rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-700/30 disabled:bg-forest-950/[0.03] disabled:text-forest-950/40"
+            />
+            <input
+              type="time"
+              value={toTimeInputValue(suggestedEta)}
+              onChange={(e) => setSuggestedEta(mergeDateTime(toDateInputValue(suggestedEta), e.target.value, suggestedEta))}
+              className="rounded-xl border border-forest-950/15 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-700/30"
+            />
+          </div>
+          <p className="text-xs text-stone mt-1.5">Jeder Teilnehmer kann diesen Vorschlag beim Beitreten übernehmen oder für sich anpassen.</p>
         </div>
 
         {/* Start mode */}

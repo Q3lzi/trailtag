@@ -26,3 +26,8 @@ CREATE TABLE "TourGroupMessage" (
     CONSTRAINT "TourGroupMessage_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "TourGroup"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "TourGroupMessage_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
+
+-- Planned start date/time for the shared hike, separate from the suggested
+-- return time, so a multi-day or future-dated group tour can be planned
+-- properly instead of only carrying a return-time-of-day.
+ALTER TABLE "TourGroup" ADD COLUMN IF NOT EXISTS "suggestedStartAt" TIMESTAMP(3);
