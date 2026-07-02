@@ -1,8 +1,8 @@
 "use client";
 
 import { TourFormState, Companion } from "./types";
-import { Phone, AlertCircle, Plus, Trash2, Users } from "lucide-react";
-import Link from "next/link";
+import { Users } from "lucide-react";
+import TourEmergencyContactPicker from "@/components/TourEmergencyContactPicker";
 
 export default function Step3Emergency({
   form,
@@ -34,42 +34,16 @@ export default function Step3Emergency({
     <div>
       <h2 className="font-display text-2xl font-semibold text-forest-950 mb-1.5">Wer wird informiert?</h2>
       <p className="text-stone text-sm mb-7">
-        Im Notfall werden alle deine Notfallkontakte benachrichtigt — das gilt für jede Tour automatisch.
+        Wähle, welche Notfallkontakte für diese Tour gelten sollen — falls dein Standardkontakt gerade keine Zeit hat, wählst du hier einfach jemand anderen.
       </p>
 
-      {/* Emergency contacts overview (informational — applies account-wide) */}
       <div className="mb-8">
-        <label className="block text-xs font-semibold text-forest-950/70 mb-2">Deine Notfallkontakte</label>
-        {emergencyContacts.length === 0 ? (
-          <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5">
-            <AlertCircle className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
-            <p className="text-sm text-amber-800">
-              Du hast noch keine Notfallkontakte hinterlegt.{" "}
-              <Link href="/dashboard/profil" className="font-medium underline">
-                Jetzt im Profil hinzufügen
-              </Link>
-              .
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {emergencyContacts.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 rounded-xl border border-forest-950/[0.08] bg-white p-3">
-                <div className="w-8 h-8 rounded-full bg-forest-100 text-forest-700 flex items-center justify-center text-xs font-bold shrink-0">
-                  {c.name[0]?.toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-forest-950">{c.name}</p>
-                  {c.relation && <p className="text-xs text-stone">{c.relation}</p>}
-                </div>
-                {c.isPrimary && (
-                  <span className="text-[10px] font-bold text-forest-700 bg-forest-100 px-2 py-0.5 rounded-full">Primär</span>
-                )}
-                <Phone className="w-3.5 h-3.5 text-forest-950/30 shrink-0" />
-              </div>
-            ))}
-          </div>
-        )}
+        <label className="block text-xs font-semibold text-forest-950/70 mb-2">Notfallkontakte für diese Tour</label>
+        <TourEmergencyContactPicker
+          allContacts={emergencyContacts}
+          selectedIds={form.selectedContactIds}
+          onChange={(ids) => update({ selectedContactIds: ids })}
+        />
       </div>
 
       {/* Companions */}

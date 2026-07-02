@@ -51,20 +51,17 @@ export default function NewTourPage() {
     if (!authLoading && user) loadData();
   }, [authLoading, user, editTourId, joinGroupId]);
 
-async function loadData() {
+  async function loadData() {
     try {
       const token = getToken();
-      console.log("loadData called, token:", token ? "present" : "MISSING");
       const [vehiclesData, profileData, friendsData] = await Promise.all([
         apiFetch("/vehicles", {}, token ?? undefined).catch(() => []),
         apiFetch("/profile", {}, token ?? undefined).catch(() => ({})),
-        apiFetch("/friends", {}, token ?? undefined).catch((e) => { console.log("friends fetch failed:", e); return { friends: [] }; }),
+        apiFetch("/friends", {}, token ?? undefined).catch(() => ({ friends: [] })),
       ]);
-      console.log("friendsData received:", friendsData);
       setVehicles(vehiclesData);
       setEmergencyContacts(profileData.emergencyContacts ?? []);
       setFriends(friendsData.friends ?? []);
-      console.log("setFriends called with:", friendsData.friends ?? []);
 
       if (editTourId) {
         const existing = await apiFetch(`/tours/${editTourId}`, {}, token ?? undefined);
@@ -139,6 +136,7 @@ async function loadData() {
       startLat: form.startLat ? parseFloat(form.startLat) : (form.gpxData?.startLat ?? null),
       startLng: form.startLng ? parseFloat(form.startLng) : (form.gpxData?.startLng ?? null),
       vehicleId: form.vehicleId ?? null,
+      emergencyContactIds: form.selectedContactIds.length > 0 ? form.selectedContactIds : null,
     };
   }
 
