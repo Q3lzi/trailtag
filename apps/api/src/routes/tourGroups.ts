@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
+import { Prisma } from '@prisma/client'
 import { requireAuth } from '../middleware/auth'
 import { broadcastToFriends } from '../lib/realtime'
 
@@ -227,7 +228,7 @@ router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
       lastLat: startLat ?? group.startLat,
       lastLng: startLng ?? group.startLng,
       vehicleId: vehicleId ?? null,
-      emergencyContactIds: Array.isArray(emergencyContactIds) ? emergencyContactIds.slice(0, 3) : null,
+      emergencyContactIds: Array.isArray(emergencyContactIds) && emergencyContactIds.length > 0 ? emergencyContactIds.slice(0, 3) : Prisma.JsonNull,
       eta: eta ? new Date(eta) : group.suggestedEta,
     }
   })

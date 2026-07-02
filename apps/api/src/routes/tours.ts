@@ -2,6 +2,7 @@ import { sendExpoPush, sendPushToFriends } from '../lib/push'
 import { broadcastToFriends, broadcastToTourGroup } from '../lib/realtime'
 import express, { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
+import { Prisma } from '@prisma/client'
 import { requireAuth } from '../middleware/auth'
 
 const router = express.Router()
@@ -62,7 +63,7 @@ await prisma.tour.updateMany({
       lastLat: startLat ? Number(startLat) : null,
       lastLng: startLng ? Number(startLng) : null,
       vehicleId: vehicleId || null,
-      emergencyContactIds: Array.isArray(emergencyContactIds) ? emergencyContactIds.slice(0, 3) : null,
+      emergencyContactIds: Array.isArray(emergencyContactIds) && emergencyContactIds.length > 0 ? emergencyContactIds.slice(0, 3) : Prisma.JsonNull,
       status: 'PLANNED',
     }
   })
@@ -105,7 +106,7 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
       ...(startLat !== undefined && { startLat: startLat != null ? Number(startLat) : null, lastLat: startLat != null ? Number(startLat) : null }),
       ...(startLng !== undefined && { startLng: startLng != null ? Number(startLng) : null, lastLng: startLng != null ? Number(startLng) : null }),
       ...(vehicleId !== undefined && { vehicleId: vehicleId || null }),
-      ...(emergencyContactIds !== undefined && { emergencyContactIds: Array.isArray(emergencyContactIds) ? emergencyContactIds.slice(0, 3) : null }),
+      ...(emergencyContactIds !== undefined && { emergencyContactIds: Array.isArray(emergencyContactIds) && emergencyContactIds.length > 0 ? emergencyContactIds.slice(0, 3) : Prisma.JsonNull }),
     }
   })
 

@@ -68,7 +68,9 @@ export function startAlarmEngine() {
           // before this field existed.
           const selectedIds = Array.isArray((tour as any).emergencyContactIds) ? (tour as any).emergencyContactIds as string[] : null
           const contacts = selectedIds && selectedIds.length > 0
-            ? selectedIds.map((id) => allContacts.find((c: any) => c.id === id)).filter(Boolean)
+            ? selectedIds
+                .map((id) => allContacts.find((c: any) => c.id === id))
+                .filter((c): c is NonNullable<typeof c> => c != null)
             : allContacts
           if (contacts.length > 0) {
             for (const c of contacts) {
