@@ -367,8 +367,8 @@ export default function TourGroupPage() {
             </div>
           </div>
 
-          {/* Participant strip — the roster as a living row of people, not
-              a settings-style list. */}
+          {/* Participant roster — Find My-style rows with real status text
+              and inline actions, not a row of plain colour circles. */}
           <div className="mb-7">
             <GroupParticipantStrip
               tours={group.tours}

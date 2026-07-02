@@ -1,18 +1,31 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import LicensePlate from "@/components/LicensePlate";
-import { Navigation, UserCircle } from "lucide-react";
+import { Navigation, ChevronRight, UserPlus } from "lucide-react";
+
+const AVATAR_GRADIENTS = [
+  "linear-gradient(135deg, #2c694e, #1d4536)",
+  "linear-gradient(135deg, #3b6fd4, #1d3f8f)",
+  "linear-gradient(135deg, #d4573b, #8f2a1d)",
+  "linear-gradient(135deg, #c98a2e, #8a5a12)",
+  "linear-gradient(135deg, #7c4fd4, #4a2a8f)",
+  "linear-gradient(135deg, #2e9bc9, #12678a)",
+];
+
+function statusInfo(status: string) {
+  if (status === "ALARM") return { text: "Überfällig", dot: "bg-alarm", dotAnim: "animate-pulse" };
+  if (status === "ACTIVE") return { text: "Unterwegs", dot: "bg-forest-500", dotAnim: "" };
+  if (status === "COMPLETED") return { text: "Zurück", dot: "bg-forest-950/25", dotAnim: "" };
+  return { text: "Bereit zum Start", dot: "bg-amber-500", dotAnim: "" };
+}
 
 /**
- * Horizontal row of participant avatars with a status ring — makes "who's
- * in, who's still pending, is anyone overdue" readable in one glance.
- * Tapping opens a small action menu (navigate to their live position,
- * view profile) instead of jumping straight to one destination — someone
- * mid-tour is more likely to want walking directions to a teammate than a
- * profile page, and that choice should be explicit, including for your
- * own avatar (which has no "walk to yourself" option, just your profile).
+ * Participant roster styled after Apple's Find My — full-width rows with a
+ * large avatar, a real status line (not just a colour), and the actions
+ * that matter (navigate to them, view profile) inline, rather than a row
+ * of small plain-coloured circles that reads more like initials in a
+ * settings list than "people I'm out here with".
  */
 export default function GroupParticipantStrip({
   tours,
@@ -26,82 +39,84 @@ export default function GroupParticipantStrip({
   currentUserId?: string;
 }) {
   const router = useRouter();
-  const [openId, setOpenId] = useState<string | null>(null);
-
-  function ringClass(status: string) {
-    if (status === "ALARM") return "ring-2 ring-alarm animate-pulse";
-    if (status === "ACTIVE") return "ring-2 ring-forest-500";
-    if (status === "COMPLETED") return "ring-2 ring-forest-950/15";
-    return "ring-2 ring-forest-700/40"; // PLANNED / ready-to-start
-  }
 
   return (
-    <div className="flex items-start gap-4 flex-wrap py-1">
-      {tours.map((t) => {
+    <div className="grid grid-cols-2 gap-2.5">
+      {tours.map((t, i) => {
         const isMe = t.userId === currentUserId;
         const hasPosition = t.lastLat != null && t.lastLng != null;
+        const status = statusInfo(t.status);
+        const isAlarm = t.status === "ALARM";
         return (
-          <div key={t.id} className="relative shrink-0">
-            <button
-              onClick={() => setOpenId(openId === t.id ? null : t.id)}
-              className="flex flex-col items-center gap-1.5 group"
+          <div
+            key={t.id}
+            className={`flex items-center gap-3.5 rounded-2xl px-4 py-3 transition-colors ${
+              isAlarm ? "bg-alarm-50" : "bg-white border border-forest-950/[0.06] shadow-card"
+            }`}
+          >
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center font-display font-semibold text-white text-base shrink-0 shadow-sm"
+              style={{ background: isAlarm ? "#ba1a1a" : AVATAR_GRADIENTS[i % AVATAR_GRADIENTS.length] }}
             >
-              <div className={`w-12 h-12 rounded-full ring-offset-2 ring-offset-snow flex items-center justify-center font-display font-semibold text-white text-sm transition-transform group-hover:scale-105 ${ringClass(t.status)}`}
-                style={{ background: t.status === "ALARM" ? "#ba1a1a" : "#2c694e" }}
-              >
-                {(t.user?.name ?? "?")[0]?.toUpperCase()}
-              </div>
-              <span className="text-[11px] font-medium text-forest-950/70 max-w-[64px] truncate">
-                {isMe ? "Du" : t.user?.name?.split(" ")[0]}
-              </span>
-              {t.userId === organizerId && (
-                <span className="text-[9px] font-bold text-forest-700 -mt-1">ORGANISATOR</span>
-              )}
-              {t.vehicle?.plate && (
-                <div className="scale-[0.55] origin-top -mt-1">
-                  <LicensePlate text={t.vehicle.plate} size="sm" />
-                </div>
-              )}
-            </button>
+              {(t.user?.name ?? "?")[0]?.toUpperCase()}
+            </div>
 
-            {openId === t.id && (
-              <div className="absolute z-20 top-full mt-1 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-lg border border-forest-950/[0.08] py-1.5 min-w-[180px]">
-                {!isMe && hasPosition && (
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${t.lastLat},${t.lastLng}&travelmode=walking`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-3.5 py-2 text-sm text-forest-950/80 hover:bg-forest-100/50 transition-colors"
-                  >
-                    <Navigation className="w-3.5 h-3.5 text-forest-700" /> Zu {t.user?.name?.split(" ")[0]} laufen
-                  </a>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-semibold text-forest-950 truncate">
+                  {isMe ? "Du" : t.user?.name}
+                </p>
+                {t.userId === organizerId && (
+                  <span className="text-[9px] font-bold text-forest-700 bg-forest-100 px-1.5 py-0.5 rounded-full shrink-0">ORGANISATOR</span>
                 )}
-                <button
-                  onClick={() => router.push(isMe ? "/dashboard/profil" : `/dashboard/freunde/${t.userId}`)}
-                  className="w-full flex items-center gap-2 px-3.5 py-2 text-sm text-forest-950/80 hover:bg-forest-100/50 transition-colors"
-                >
-                  <UserCircle className="w-3.5 h-3.5 text-forest-700" /> {isMe ? "Mein Profil" : "Profil ansehen"}
-                </button>
-                <button
-                  onClick={() => router.push(`/dashboard/touren/${t.id}`)}
-                  className="w-full flex items-center gap-2 px-3.5 py-2 text-sm text-forest-950/80 hover:bg-forest-100/50 transition-colors"
-                >
-                  Tour-Details
-                </button>
+              </div>
+              <p className="flex items-center gap-1.5 text-xs text-stone mt-0.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${status.dot} ${status.dotAnim}`} />
+                {status.text}
+                {t.eta && ` · Rückkehr ${new Date(t.eta).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}`}
+              </p>
+            </div>
+
+            {t.vehicle?.plate && (
+              <div className="scale-75 origin-right shrink-0 hidden sm:block">
+                <LicensePlate text={t.vehicle.plate} size="sm" />
               </div>
             )}
+
+            <div className="flex items-center gap-1 shrink-0">
+              {!isMe && hasPosition && (
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${t.lastLat},${t.lastLng}&travelmode=walking`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center w-9 h-9 rounded-full bg-forest-100 text-forest-700 hover:bg-forest-100/70 transition-colors"
+                  title={`Zu ${t.user?.name?.split(" ")[0]} laufen`}
+                >
+                  <Navigation className="w-4 h-4" />
+                </a>
+              )}
+              <button
+                onClick={() => router.push(isMe ? "/dashboard/profil" : `/dashboard/freunde/${t.userId}`)}
+                className="flex items-center justify-center w-9 h-9 rounded-full text-forest-950/30 hover:text-forest-950/60 hover:bg-forest-100/50 transition-colors"
+                title="Profil ansehen"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         );
       })}
 
       {pendingInvites.map((invite: any) => (
-        <div key={invite.id} className="flex flex-col items-center gap-1.5 shrink-0 opacity-50">
-          <div className="w-12 h-12 rounded-full border-2 border-dashed border-forest-950/25 flex items-center justify-center font-display font-semibold text-forest-950/40 text-sm">
+        <div key={invite.id} className="flex items-center gap-3.5 rounded-2xl px-4 py-3 bg-forest-950/[0.02] border border-dashed border-forest-950/15">
+          <div className="w-12 h-12 rounded-full border-2 border-dashed border-forest-950/20 flex items-center justify-center font-display font-semibold text-forest-950/35 text-base shrink-0">
             {(invite.invitee?.name ?? "?")[0]?.toUpperCase()}
           </div>
-          <span className="text-[11px] font-medium text-forest-950/50 max-w-[64px] truncate">
-            {invite.invitee?.name?.split(" ")[0]}
-          </span>
-          <span className="text-[9px] font-medium text-forest-950/40 -mt-1">Eingeladen</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-forest-950/60 truncate">{invite.invitee?.name}</p>
+            <p className="flex items-center gap-1.5 text-xs text-stone mt-0.5">
+              <UserPlus className="w-3 h-3" /> Einladung ausstehend
+            </p>
+          </div>
         </div>
       ))}
     </div>
