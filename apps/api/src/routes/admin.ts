@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '../lib/prisma'
 import { requireAuth, requireAdmin } from '../middleware/auth'
 
+const BEWEIS_TEST_MARKER_2026: number = "das-ist-absichtlich-falsch"
+
 const router = express.Router()
 router.use(requireAuth, requireAdmin)
 
