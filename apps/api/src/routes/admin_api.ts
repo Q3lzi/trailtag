@@ -21,7 +21,7 @@ router.get('/stats', async (req: Request, res: Response) => {
 
 // GET /admin/users — paginated list for support/moderation.
 router.get('/users', async (req: Request, res: Response) => {
-  const search = ((req.query.search as unknown as string) || '')
+  const search = typeof req.query.search === 'string' ? req.query.search : ''
   const users = await (prisma.user as any).findMany({
     where: search ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] } : undefined,
     select: {
@@ -66,7 +66,7 @@ router.delete('/users/:id', async (req: Request, res: Response) => {
 
 // GET /admin/tours — all tours across all users, for support lookups.
 router.get('/tours', async (req: Request, res: Response) => {
-  const status = req.query.status as unknown as string | undefined
+  const status = typeof req.query.status === 'string' ? req.query.status : undefined
   const tours = await prisma.tour.findMany({
     where: status ? { status: status as any } : undefined,
     include: { user: { select: { id: true, name: true, email: true } } },
