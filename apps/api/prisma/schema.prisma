@@ -46,6 +46,7 @@ model User {
   tourGroupInvites    TourGroupInvite[]
   tourGroupMessages   TourGroupMessage[]
   tourGroupChecklistItems TourGroupChecklistItem[]
+  tourGroupChecklistChecks TourGroupChecklistCheck[]
 }
 
 model EmergencyContact {
@@ -191,9 +192,27 @@ model TourGroupChecklistItem {
   group     TourGroup @relation(fields: [groupId], references: [id])
   text      String
   done      Boolean   @default(false)
+  // SHARED: one confirmation covers the whole group (e.g. first-aid kit —
+  // only needs to exist once). INDIVIDUAL: each participant needs their
+  // own copy (e.g. headlamp, tent) — one person checking it off does NOT
+  // mean everyone else has theirs, tracked per-user via checks below.
+  itemType  String    @default("SHARED")
   addedById String
   addedBy   User      @relation(fields: [addedById], references: [id])
+  checks    TourGroupChecklistCheck[]
   createdAt DateTime  @default(now())
+}
+
+// Per-participant confirmation for an INDIVIDUAL checklist item — "I have
+// my own headlamp" is a claim about one person's gear, not the group's.
+model TourGroupChecklistCheck {
+  id       String                  @id @default(uuid())
+  itemId   String
+  item     TourGroupChecklistItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User                    @relation(fields: [userId], references: [id])
+
+  @@unique([itemId, userId])
 }
 
 // Pending/accepted/declined invitations to join a TourGroup — separate

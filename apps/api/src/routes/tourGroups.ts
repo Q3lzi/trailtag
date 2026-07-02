@@ -119,7 +119,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     include: {
       organizer: { select: { id: true, name: true } },
       tours: {
-        include: { user: { select: { id: true, name: true } } }
+        include: { user: { select: { id: true, name: true } }, vehicle: { select: { id: true, plate: true } } }
       },
       invites: {
         include: { invitee: { select: { id: true, name: true } } }
@@ -307,35 +307,70 @@ router.get('/:id/checklist', requireAuth, async (req: Request, res: Response) =>
   const groupId = req.params.id as string
   const items = await prisma.tourGroupChecklistItem.findMany({
     where: { groupId },
-    include: { addedBy: { select: { id: true, name: true } } },
+    include: {
+      addedBy: { select: { id: true, name: true } },
+      checks: { select: { userId: true } },
+    },
     orderBy: { createdAt: 'asc' }
   })
   res.json(items)
 })
 
+const CHECKLIST_ITEM_LIMIT = 40
+
 // POST /tour-groups/:id/checklist — any participant or invitee can add an
 // item, since "did we remember the first-aid kit" is everyone's concern,
-// not just the organizer's.
+// not just the organizer's. Capped so the list can't grow unbounded.
 router.post('/:id/checklist', requireAuth, async (req: Request, res: Response) => {
   const groupId = req.params.id as string
-  const { text } = req.body as { text: string }
+  const { text, itemType } = req.body as { text: string; itemType?: 'SHARED' | 'INDIVIDUAL' }
   if (!text || !text.trim()) return res.status(400).json({ error: 'Text darf nicht leer sein' })
 
+  const count = await prisma.tourGroupChecklistItem.count({ where: { groupId } })
+  if (count >= CHECKLIST_ITEM_LIMIT) {
+    return res.status(400).json({ error: `Maximal ${CHECKLIST_ITEM_LIMIT} Punkte pro Checkliste` })
+  }
+
   const item = await prisma.tourGroupChecklistItem.create({
-    data: { groupId, addedById: req.userId as string, text: text.trim().slice(0, 200) },
-    include: { addedBy: { select: { id: true, name: true } } }
+    data: {
+      groupId,
+      addedById: req.userId as string,
+      text: text.trim().slice(0, 200),
+      itemType: itemType === 'INDIVIDUAL' ? 'INDIVIDUAL' : 'SHARED',
+    },
+    include: { addedBy: { select: { id: true, name: true } }, checks: { select: { userId: true } } }
   })
   res.status(201).json(item)
 })
 
-// PUT /tour-groups/:id/checklist/:itemId — toggle done state
+// PUT /tour-groups/:id/checklist/:itemId — toggle done state. For SHARED
+// items this is the item's single done flag. For INDIVIDUAL items this
+// toggles only the CALLER's own confirmation — one person checking their
+// box never marks it done for anyone else.
 router.put('/:id/checklist/:itemId', requireAuth, async (req: Request, res: Response) => {
   const { itemId } = req.params
   const { done } = req.body as { done: boolean }
-  const item = await prisma.tourGroupChecklistItem.update({
+
+  const existing = await prisma.tourGroupChecklistItem.findUnique({ where: { id: itemId as string } })
+  if (!existing) return res.status(404).json({ error: 'Punkt nicht gefunden' })
+
+  if (existing.itemType === 'INDIVIDUAL') {
+    if (done) {
+      await prisma.tourGroupChecklistCheck.upsert({
+        where: { itemId_userId: { itemId: itemId as string, userId: req.userId as string } },
+        create: { itemId: itemId as string, userId: req.userId as string },
+        update: {},
+      })
+    } else {
+      await prisma.tourGroupChecklistCheck.deleteMany({ where: { itemId: itemId as string, userId: req.userId as string } })
+    }
+  } else {
+    await prisma.tourGroupChecklistItem.update({ where: { id: itemId as string }, data: { done: !!done } })
+  }
+
+  const item = await prisma.tourGroupChecklistItem.findUnique({
     where: { id: itemId as string },
-    data: { done: !!done },
-    include: { addedBy: { select: { id: true, name: true } } }
+    include: { addedBy: { select: { id: true, name: true } }, checks: { select: { userId: true } } }
   })
   res.json(item)
 })

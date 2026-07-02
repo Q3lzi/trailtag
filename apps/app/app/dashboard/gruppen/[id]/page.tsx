@@ -11,12 +11,14 @@ import InteractivePlanningMap, { InteractivePlanningMapHandle } from "@/componen
 import GroupMap, { GroupParticipant } from "@/components/groups/GroupMap";
 import GroupParticipantStrip from "@/components/groups/GroupParticipantStrip";
 import RouteTimeline from "@/components/groups/RouteTimeline";
+import ElevationChart from "@/components/ElevationChart";
+import EditGroupModal from "@/components/groups/EditGroupModal";
 import GroupPrepPanel from "@/components/groups/GroupPrepPanel";
 import AddPointModal from "@/components/groups/AddPointModal";
 import WeatherSummaryCard from "@/components/weather/WeatherSummaryCard";
 import TourEmergencyContactPicker from "@/components/TourEmergencyContactPicker";
 import {
-  ArrowLeft, Users, Clock, Play, Loader2, MapPin, TrendingUp, Flag, Moon, Car,
+  ArrowLeft, Users, Clock, Play, Loader2, MapPin, TrendingUp, Flag, Moon, Car, Pencil,
 } from "lucide-react";
 
 const ACTIVITY_EMOJI: Record<string, string> = {
@@ -51,6 +53,7 @@ export default function TourGroupPage() {
   const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState("");
   const [placementMode, setPlacementMode] = useState<"waypoint" | "overnight" | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [startEta, setStartEta] = useState("17:00");
 
@@ -237,7 +240,13 @@ export default function TourGroupPage() {
             equally-weighted boxes. */}
         <div className="mx-10 rounded-3xl overflow-hidden relative shadow-card" style={{ height: "440px" }}>
           {anyoneStarted ? (
-            <GroupMap participants={participants} />
+            <GroupMap
+              participants={participants}
+              routePoints={gpxPoints}
+              waypoints={groupWaypoints}
+              overnightStops={groupOvernights}
+              parking={{ lat: group.parkingLat, lng: group.parkingLng, name: group.parkingLocation }}
+            />
           ) : (
             <InteractivePlanningMap
               ref={mapRef}
@@ -311,9 +320,19 @@ export default function TourGroupPage() {
               <p className="text-[11px] font-bold text-white/70 uppercase tracking-wide mb-1 flex items-center gap-1.5">
                 <Users className="w-3 h-3" /> Gemeinsame Tour
               </p>
-              <h1 className="font-display text-3xl font-semibold text-white tracking-tight drop-shadow-sm">
-                {ACTIVITY_EMOJI[group.activity] ?? "🏔️"} {group.routeName || "Gemeinsame Tour"}
-              </h1>
+              <div className="flex items-center gap-2.5">
+                <h1 className="font-display text-3xl font-semibold text-white tracking-tight drop-shadow-sm">
+                  {ACTIVITY_EMOJI[group.activity] ?? "🏔️"} {group.routeName || "Gemeinsame Tour"}
+                </h1>
+                {isOrganizer && !anyoneStarted && (
+                  <button
+                    onClick={() => setShowEditModal(true)}
+                    className="flex items-center gap-1 rounded-full bg-white/15 hover:bg-white/25 text-white text-xs font-semibold px-3 py-1.5 transition-colors shrink-0"
+                  >
+                    <Pencil className="w-3 h-3" /> Bearbeiten
+                  </button>
+                )}
+              </div>
               <p className="text-white/70 text-sm mt-1">Organisiert von {group.organizer?.name}</p>
             </div>
             {canStartMine && (
@@ -361,10 +380,49 @@ export default function TourGroupPage() {
 
           <div className="grid grid-cols-3 gap-5">
             <div className="col-span-2 flex flex-col gap-5">
+              {(group.parkingLocation || group.parkingLat) && (
+                <div className="rounded-2xl bg-white border border-forest-950/[0.06] shadow-card p-5 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-forest-100 text-forest-700 flex items-center justify-center shrink-0">
+                    <Car className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-bold text-stone uppercase tracking-wide">Parkplatz / Trailhead</p>
+                    <p className="text-sm font-semibold text-forest-950 truncate">{group.parkingLocation || "Position auf der Karte gesetzt"}</p>
+                    {group.parkingLat && group.parkingLng && (
+                      <p className="text-xs text-stone">{Number(group.parkingLat).toFixed(5)}, {Number(group.parkingLng).toFixed(5)}</p>
+                    )}
+                  </div>
+                  {group.parkingLat && group.parkingLng && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => mapRef.current?.flyTo(group.parkingLat, group.parkingLng, 16)}
+                        className="text-xs font-semibold text-forest-700 hover:underline"
+                      >
+                        Auf Karte zeigen
+                      </button>
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${group.parkingLat},${group.parkingLng}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 rounded-lg bg-forest-100 text-forest-700 px-2.5 py-1.5 text-xs font-semibold hover:bg-forest-100/70 transition-colors"
+                      >
+                        In Karten-App öffnen
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {group.notes && (
                 <div className="rounded-2xl bg-white border border-forest-950/[0.06] shadow-card p-5">
                   <h3 className="font-display font-semibold text-sm text-forest-950 mb-2">Notizen vom Organisator</h3>
                   <p className="text-sm text-forest-950/75 whitespace-pre-line">{group.notes}</p>
+                </div>
+              )}
+
+              {gpxPoints.length > 1 && (
+                <div className="rounded-2xl bg-white border border-forest-950/[0.06] shadow-card p-5">
+                  <h3 className="font-display font-semibold text-sm text-forest-950 mb-3">Höhenprofil</h3>
+                  <ElevationChart points={gpxPoints} />
                 </div>
               )}
 
@@ -492,6 +550,14 @@ export default function TourGroupPage() {
           </div>
         </div>
       </main>
+
+      {showEditModal && (
+        <EditGroupModal
+          group={group}
+          onSave={(updated) => { setGroup((prev: any) => ({ ...prev, ...updated })); setShowEditModal(false); }}
+          onCancel={() => setShowEditModal(false)}
+        />
+      )}
     </div>
   );
 }

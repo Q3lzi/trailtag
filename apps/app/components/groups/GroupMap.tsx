@@ -13,16 +13,30 @@ export type GroupParticipant = {
 };
 
 /**
- * Live map showing every participant of a shared hike at once — the actual
- * point of a TourGroup: seeing where everyone in your group currently is,
- * not just your own position. Each participant gets a distinct colour and
- * a name label, so it reads as "the group" rather than overlapping dots.
+ * Live map showing every participant of a shared hike at once — plus the
+ * planned route, waypoints, overnight stops, and parking, so switching to
+ * this view once the tour starts doesn't make all the planning context
+ * (the route line, where the water source is) disappear. Only participant
+ * markers update live; the route context is static once drawn.
  */
-export default function GroupMap({ participants }: { participants: GroupParticipant[] }) {
+export default function GroupMap({
+  participants,
+  routePoints = [],
+  waypoints = [],
+  overnightStops = [],
+  parking = null,
+}: {
+  participants: GroupParticipant[];
+  routePoints?: { lat: number; lng: number }[];
+  waypoints?: { name?: string; lat?: string | number | null; lng?: string | number | null }[];
+  overnightStops?: { night?: number; name?: string; lat?: string | number | null; lng?: string | number | null }[];
+  parking?: { lat: number | null; lng: number | null; name?: string | null } | null;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const leafletRef = useRef<any>(null);
   const markersRef = useRef<Map<string, any>>(new Map());
+  const routeLayerRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
 
   const located = participants.filter((p) => p.lat != null && p.lng != null);
@@ -51,12 +65,17 @@ export default function GroupMap({ participants }: { participants: GroupParticip
       if (cancelled || !containerRef.current) return;
       leafletRef.current = L.default;
 
-      const center = located[0] ? [located[0].lat, located[0].lng] as [number, number] : [46.8182, 8.2275];
+      const center = located[0]
+        ? [located[0].lat, located[0].lng] as [number, number]
+        : routePoints[0]
+        ? [routePoints[0].lat, routePoints[0].lng] as [number, number]
+        : [46.8182, 8.2275];
+
       const map = L.default.map(containerRef.current, {
         zoomControl: true,
         attributionControl: false,
         center,
-        zoom: located.length > 0 ? 13 : 7,
+        zoom: located.length > 0 || routePoints.length > 0 ? 13 : 7,
       });
       mapRef.current = map;
 
@@ -64,8 +83,14 @@ export default function GroupMap({ participants }: { participants: GroupParticip
         .tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", { maxZoom: 18, subdomains: "abc" })
         .addTo(map);
 
-      if (located.length > 1) {
-        map.fitBounds(L.default.latLngBounds(located.map((p) => [p.lat, p.lng] as [number, number])), { padding: [50, 50] });
+      routeLayerRef.current = L.default.layerGroup().addTo(map);
+
+      const boundsPoints: [number, number][] = [
+        ...located.map((p) => [p.lat, p.lng] as [number, number]),
+        ...routePoints.map((p) => [p.lat, p.lng] as [number, number]),
+      ];
+      if (boundsPoints.length > 1) {
+        map.fitBounds(L.default.latLngBounds(boundsPoints), { padding: [50, 50] });
       }
 
       map.invalidateSize();
@@ -85,9 +110,53 @@ export default function GroupMap({ participants }: { participants: GroupParticip
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Redraw/update participant markers whenever positions or the participant
-  // list itself changes — moves existing markers smoothly, adds new ones,
-  // removes ones for participants no longer reporting a position.
+  // Static route/waypoint/parking context — drawn once and left in place,
+  // separate from the live-updating participant markers below.
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    const group = routeLayerRef.current;
+    if (!L || !map || !group || !ready) return;
+    group.clearLayers();
+
+    if (routePoints.length > 1) {
+      L.polyline(routePoints.map((p) => [p.lat, p.lng]), { color: "#357a5c", weight: 3, opacity: 0.55, dashArray: "6 6" }).addTo(group);
+    }
+
+    if (parking?.lat && parking?.lng) {
+      L.circleMarker([parking.lat, parking.lng], { radius: 7, fillColor: "#0d2410", color: "#fff", weight: 2, fillOpacity: 1 })
+        .bindPopup(parking.name || "Parkplatz")
+        .addTo(group);
+    }
+
+    overnightStops.forEach((s, i) => {
+      const lat = s.lat ? Number(s.lat) : null;
+      const lng = s.lng ? Number(s.lng) : null;
+      if (!lat || !lng) return;
+      const icon = L.divIcon({
+        html: `<div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="font-size:15px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4))">🌙</div>
+          <div style="background:#0d2410;color:#fff;font-size:8px;font-weight:700;padding:1px 3px;border-radius:5px;margin-top:1px;">N${s.night ?? i + 1}</div>
+        </div>`,
+        iconSize: [36, 28], className: "",
+      });
+      L.marker([lat, lng], { icon }).bindPopup(s.name || `Nacht ${s.night}`).addTo(group);
+    });
+
+    waypoints.forEach((w, i) => {
+      const lat = w.lat ? Number(w.lat) : null;
+      const lng = w.lng ? Number(w.lng) : null;
+      if (!lat || !lng) return;
+      const icon = L.divIcon({
+        html: `<div style="display:flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#f59e0b;border:1.5px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,.3);color:#fff;font-size:8px;font-weight:800;">${i + 1}</div>`,
+        iconSize: [16, 16], className: "",
+      });
+      L.marker([lat, lng], { icon }).bindPopup(w.name || "Wegpunkt").addTo(group);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, JSON.stringify(routePoints), JSON.stringify(waypoints), JSON.stringify(overnightStops), JSON.stringify(parking)]);
+
+  // Live participant markers — the part that actually updates in real time.
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapRef.current;
