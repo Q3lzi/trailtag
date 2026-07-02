@@ -36,7 +36,7 @@ export default function GroupParticipantStrip({
   }
 
   return (
-    <div className="flex items-start gap-4 overflow-x-auto pb-1">
+    <div className="flex items-start gap-4 flex-wrap py-1">
       {tours.map((t) => {
         const isMe = t.userId === currentUserId;
         const hasPosition = t.lastLat != null && t.lastLng != null;
