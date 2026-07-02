@@ -6,7 +6,7 @@ import { requireAuth, requireAdmin } from '../middleware/auth'
 const router = express.Router()
 router.use(requireAuth, requireAdmin)
 
-// GET /admin/stats — headline numbers for the overview tab.
+// GET /admin/stats
 router.get('/stats', async (req: Request, res: Response) => {
   const [totalUsers, activeTours, totalTours, totalGroups, alarmsLast30d, lockedUsers] = await Promise.all([
     prisma.user.count(),
@@ -19,7 +19,7 @@ router.get('/stats', async (req: Request, res: Response) => {
   res.json({ totalUsers, activeTours, totalTours, totalGroups, alarmsLast30d, lockedUsers })
 })
 
-// GET /admin/users — paginated list for support/moderation.
+// GET /admin/users
 router.get('/users', async (req: Request, res: Response) => {
   const search = typeof req.query.search === 'string' ? req.query.search : ''
   const users = await (prisma.user as any).findMany({
@@ -34,17 +34,12 @@ router.get('/users', async (req: Request, res: Response) => {
   res.json(users)
 })
 
-// PUT /admin/users/:id — toggle lock/admin status. Never lets an admin
-// remove their own admin flag by accident (would strand the account with
-// no way back into /admin).
 router.put('/users/:id', async (req: Request, res: Response) => {
   const { id } = req.params
   const { isLocked, isAdmin } = req.body as { isLocked?: boolean; isAdmin?: boolean }
-
   if (id === req.userId && isAdmin === false) {
     return res.status(400).json({ error: 'Du kannst dir nicht selbst die Admin-Rechte entziehen' })
   }
-
   const updated = await (prisma.user as any).update({
     where: { id },
     data: {
@@ -56,7 +51,6 @@ router.put('/users/:id', async (req: Request, res: Response) => {
   res.json(updated)
 })
 
-// DELETE /admin/users/:id
 router.delete('/users/:id', async (req: Request, res: Response) => {
   const { id } = req.params
   if (id === req.userId) return res.status(400).json({ error: 'Du kannst dein eigenes Konto hier nicht löschen' })
@@ -64,7 +58,6 @@ router.delete('/users/:id', async (req: Request, res: Response) => {
   res.json({ success: true })
 })
 
-// GET /admin/tours — all tours across all users, for support lookups.
 router.get('/tours', async (req: Request, res: Response) => {
   const status = typeof req.query.status === 'string' ? req.query.status : undefined
   const tours = await prisma.tour.findMany({
@@ -76,7 +69,6 @@ router.get('/tours', async (req: Request, res: Response) => {
   res.json(tours)
 })
 
-// GET /admin/groups
 router.get('/groups', async (req: Request, res: Response) => {
   const groups = await prisma.tourGroup.findMany({
     include: {
@@ -89,7 +81,6 @@ router.get('/groups', async (req: Request, res: Response) => {
   res.json(groups)
 })
 
-// GET /admin/alarms — recent alarm history across all tours.
 router.get('/alarms', async (req: Request, res: Response) => {
   const events = await prisma.alarmEvent.findMany({
     include: { tour: { include: { user: { select: { id: true, name: true, email: true } } } } },
