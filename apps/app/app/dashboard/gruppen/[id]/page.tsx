@@ -12,6 +12,7 @@ import GroupMap, { GroupParticipant } from "@/components/groups/GroupMap";
 import GroupMessageBoard from "@/components/groups/GroupMessageBoard";
 import GroupChecklist from "@/components/groups/GroupChecklist";
 import GroupStagesOverview from "@/components/groups/GroupStagesOverview";
+import TourEmergencyContactPicker from "@/components/TourEmergencyContactPicker";
 import AddPointModal from "@/components/groups/AddPointModal";
 import GroupRoutePoints from "@/components/groups/GroupRoutePoints";
 import WeatherSummaryCard from "@/components/weather/WeatherSummaryCard";
@@ -54,6 +55,7 @@ export default function TourGroupPage() {
   const [error, setError] = useState("");
 
   const [vehicleId, setVehicleId] = useState<string | null>(null);
+  const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [newVehiclePlate, setNewVehiclePlate] = useState("");
   const [joining, setJoining] = useState(false);
@@ -147,7 +149,7 @@ export default function TourGroupPage() {
       const token = getToken();
       await apiFetch(
         `/tour-groups/${group.id}/join`,
-        { method: "POST", body: JSON.stringify({ eta: group.suggestedEta, vehicleId }) },
+        { method: "POST", body: JSON.stringify({ eta: group.suggestedEta, vehicleId, emergencyContactIds: selectedContactIds }) },
         token ?? undefined
       );
       await load();
@@ -368,10 +370,15 @@ export default function TourGroupPage() {
                   <p className="text-[11px] text-stone mb-0.5 flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" /> Höhenmeter</p>
                   <p className="font-display text-base font-semibold text-forest-950">{group.elevationUp ?? "—"} hm</p>
                 </div>
-                <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
+                <button
+                  type="button"
+                  onClick={() => group.parkingLat && group.parkingLng && mapRef.current?.flyTo(group.parkingLat, group.parkingLng, 16)}
+                  disabled={!group.parkingLat}
+                  className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center enabled:hover:border-forest-700/30 enabled:cursor-pointer transition-colors disabled:cursor-default"
+                >
                   <p className="text-[11px] text-stone mb-0.5 flex items-center justify-center gap-1"><Car className="w-3 h-3" /> Parkplatz</p>
                   <p className="font-display text-sm font-semibold text-forest-950 truncate">{group.parkingLocation || "—"}</p>
-                </div>
+                </button>
                 <div className="rounded-xl bg-white border border-forest-950/[0.06] shadow-card p-3.5 text-center">
                   <p className="text-[11px] text-stone mb-0.5">Schwierigkeit</p>
                   <p className="font-display text-sm font-semibold text-forest-950 truncate">{group.difficulty || "—"}</p>
@@ -430,14 +437,17 @@ export default function TourGroupPage() {
                   )}
                 </div>
 
-                {/* Emergency contact confirmation — never shows anyone
-                    else's contacts (that's what the rescue portal is for),
-                    just confirms my own are on file. */}
-                <div className={`flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 mb-5 text-sm ${hasEmergencyContacts ? "bg-forest-100/70 text-forest-700" : "bg-amber-50 text-amber-800"}`}>
-                  {hasEmergencyContacts ? <ShieldCheck className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
-                  {hasEmergencyContacts
-                    ? "Deine Notfallkontakte sind hinterlegt."
-                    : <>Noch keine Notfallkontakte hinterlegt — <a href="/dashboard/profil" className="underline font-medium">jetzt im Profil ergänzen</a>.</>}
+                {/* Real selection for THIS tour, not just a confirmation
+                    that contacts exist somewhere on the account — the
+                    default primary contact might not have time for this
+                    specific hike. */}
+                <div className="mb-5">
+                  <label className="block text-xs font-semibold text-forest-950/70 mb-1.5">Notfallkontakte für diese Tour</label>
+                  <TourEmergencyContactPicker
+                    allContacts={profile?.emergencyContacts ?? []}
+                    selectedIds={selectedContactIds}
+                    onChange={setSelectedContactIds}
+                  />
                 </div>
 
                 {actionError && (
