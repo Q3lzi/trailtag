@@ -19,6 +19,12 @@ model User {
   verifyCode    String?
   verifyCodeExpiresAt DateTime?
   resetCode     String?
+  // Admin access is a separate flag rather than inferred from anything
+  // else — grants access to the /admin area (user management, support
+  // views, stats, alarm history). isLocked independently suspends login
+  // without deleting the account, for support/moderation cases.
+  isAdmin       Boolean   @default(false)
+  isLocked      Boolean   @default(false)
   resetCodeExpiresAt DateTime?
   createdAt     DateTime  @default(now())
   bloodType     String?

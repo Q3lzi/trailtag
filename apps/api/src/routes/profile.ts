@@ -14,6 +14,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       privacyShowName: true, privacyShowPhone: true, privacyShowMedical: true,
       privacyShowContacts: true, privacyShowGps: true, privacyShowNotes: true,
       pushNotifyFriendsStart: true, pushNotifyFriendsEnd: true, pushNotifyFriendsAlarm: true,
+      isAdmin: true,
       emergencyContacts: { orderBy: [{ isPrimary: 'desc' }, { priority: 'asc' }] }
     }
   })

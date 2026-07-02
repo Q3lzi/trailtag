@@ -59,11 +59,15 @@ router.post('/login', async (req: Request, res: Response) => {
   const valid = await bcrypt.compare(password, user.passwordHash)
   if (!valid) return res.status(401).json({ error: 'Ungültige Zugangsdaten' })
 
+  if ((user as any).isLocked) {
+    return res.status(403).json({ error: 'Dieses Konto wurde gesperrt. Bitte kontaktiere den Support.' })
+  }
+
   const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '30d' })
 
   res.json({
     token,
-    user: { id: user.id, name: user.name, email: user.email, emailVerified: (user as any).emailVerified },
+    user: { id: user.id, name: user.name, email: user.email, emailVerified: (user as any).emailVerified, isAdmin: (user as any).isAdmin },
   })
 })
 

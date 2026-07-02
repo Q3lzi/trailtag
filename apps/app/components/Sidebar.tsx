@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, MapPinned, Car, Users, UserCircle, LogOut, Mountain } from "lucide-react";
+import { LayoutDashboard, MapPinned, Car, Users, UserCircle, LogOut, Mountain, ShieldCheck } from "lucide-react";
 const NAV = [
   { href: "/dashboard", label: "Übersicht", icon: LayoutDashboard },
   { href: "/dashboard/touren", label: "Touren", icon: MapPinned },
@@ -9,8 +9,9 @@ const NAV = [
   { href: "/dashboard/freunde", label: "Freunde", icon: Users },
   { href: "/dashboard/profil", label: "Profil", icon: UserCircle },
 ];
-export default function Sidebar({ onLogout, userName }: { onLogout: () => void; userName?: string }) {
+export default function Sidebar({ onLogout, userName, isAdmin }: { onLogout: () => void; userName?: string; isAdmin?: boolean }) {
   const pathname = usePathname();
+  const navItems = isAdmin ? [...NAV, { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck }] : NAV;
   return (
     <aside className="w-64 bg-forest-950 text-forest-100 flex flex-col shrink-0 min-h-screen relative overflow-hidden">
       <div className="absolute inset-0 contour-texture pointer-events-none" />
@@ -24,7 +25,7 @@ export default function Sidebar({ onLogout, userName }: { onLogout: () => void; 
         <span className="font-display text-xl font-semibold text-white tracking-tight">Trailtag</span>
       </div>
       <nav className="relative flex-1 px-4 space-y-0.5 mt-3">
-        {NAV.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
             <Link

@@ -78,7 +78,7 @@ export default function GroupParticipantStrip({
             </div>
 
             {t.vehicle?.plate && (
-              <div className="scale-75 origin-right shrink-0 hidden sm:block">
+              <div className="shrink-0 hidden sm:block">
                 <LicensePlate text={t.vehicle.plate} size="sm" />
               </div>
             )}
