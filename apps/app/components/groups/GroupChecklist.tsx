@@ -10,7 +10,7 @@ import { CheckSquare, Plus, X } from "lucide-react";
  * to fill together (first-aid kit, headlamps, permits), not an assignment
  * system tracking who brings what.
  */
-export default function GroupChecklist({ groupId }: { groupId: string }) {
+export default function GroupChecklist({ groupId, bare = false }: { groupId: string; bare?: boolean }) {
   const [items, setItems] = useState<any[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -58,12 +58,16 @@ export default function GroupChecklist({ groupId }: { groupId: string }) {
 
   const doneCount = items.filter((i) => i.done).length;
 
+  const wrapperClass = bare ? "" : "rounded-2xl bg-white border border-forest-950/[0.06] shadow-card p-6";
+
   return (
-    <div className="rounded-2xl bg-white border border-forest-950/[0.06] shadow-card p-6">
-      <h3 className="font-display font-semibold text-sm text-forest-950 mb-4 flex items-center gap-2">
-        <CheckSquare className="w-4 h-4 text-forest-700" /> Checkliste
-        {items.length > 0 && <span className="text-xs text-stone font-normal">{doneCount}/{items.length}</span>}
-      </h3>
+    <div className={wrapperClass}>
+      {!bare && (
+        <h3 className="font-display font-semibold text-sm text-forest-950 mb-4 flex items-center gap-2">
+          <CheckSquare className="w-4 h-4 text-forest-700" /> Checkliste
+          {items.length > 0 && <span className="text-xs text-stone font-normal">{doneCount}/{items.length}</span>}
+        </h3>
+      )}
 
       {loading ? (
         <p className="text-sm text-stone">Lädt…</p>

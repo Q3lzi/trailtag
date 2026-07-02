@@ -11,7 +11,7 @@ import { Send, MessageSquare } from "lucide-react";
  * starts. Intentionally minimal (no threads, reactions, editing) since
  * this exists to coordinate a single hike, not as a general chat feature.
  */
-export default function GroupMessageBoard({ groupId, currentUserId }: { groupId: string; currentUserId?: string }) {
+export default function GroupMessageBoard({ groupId, currentUserId, bare = false }: { groupId: string; currentUserId?: string; bare?: boolean }) {
   const [messages, setMessages] = useState<any[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -56,10 +56,12 @@ export default function GroupMessageBoard({ groupId, currentUserId }: { groupId:
   }
 
   return (
-    <div className="rounded-2xl bg-white border border-forest-950/[0.06] shadow-card p-6">
-      <h3 className="font-display font-semibold text-sm text-forest-950 mb-4 flex items-center gap-2">
-        <MessageSquare className="w-4 h-4 text-forest-700" /> Pinnwand
-      </h3>
+    <div className={bare ? "" : "rounded-2xl bg-white border border-forest-950/[0.06] shadow-card p-6"}>
+      {!bare && (
+        <h3 className="font-display font-semibold text-sm text-forest-950 mb-4 flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-forest-700" /> Pinnwand
+        </h3>
+      )}
 
       <div className="max-h-60 overflow-y-auto mb-4 space-y-3 pr-1">
         {loading ? (
