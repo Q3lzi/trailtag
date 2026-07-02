@@ -1,6 +1,9 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { apiFetch } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 import { LayoutDashboard, MapPinned, Car, Users, UserCircle, LogOut, Mountain, ShieldCheck } from "lucide-react";
 const NAV = [
   { href: "/dashboard", label: "Übersicht", icon: LayoutDashboard },
@@ -11,7 +14,28 @@ const NAV = [
 ];
 export default function Sidebar({ onLogout, userName, isAdmin }: { onLogout: () => void; userName?: string; isAdmin?: boolean }) {
   const pathname = usePathname();
-  const navItems = isAdmin ? [...NAV, { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck }] : NAV;
+  // The admin link's visibility shouldn't depend on every single page that
+  // renders the sidebar remembering to pass isAdmin down — that's 13+ call
+  // sites to keep in sync. The sidebar checks for itself instead; the
+  // isAdmin prop remains a valid override so the admin page itself (which
+  // already knows the answer) doesn't fire a redundant request.
+  const [selfCheckedAdmin, setSelfCheckedAdmin] = useState(false);
+  useEffect(() => {
+    if (isAdmin) return; // already known, no need to check
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = getToken();
+        if (!token) return;
+        const profile = await apiFetch("/profile", {}, token);
+        if (!cancelled && profile?.isAdmin) setSelfCheckedAdmin(true);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [isAdmin]);
+
+  const showAdmin = isAdmin || selfCheckedAdmin;
+  const navItems = showAdmin ? [...NAV, { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck }] : NAV;
   return (
     <aside className="w-64 bg-forest-950 text-forest-100 flex flex-col shrink-0 min-h-screen relative overflow-hidden">
       <div className="absolute inset-0 contour-texture pointer-events-none" />
